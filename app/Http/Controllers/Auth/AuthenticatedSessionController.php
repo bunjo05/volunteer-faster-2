@@ -75,8 +75,18 @@ class AuthenticatedSessionController extends Controller
             }
 
 
+                 // Redirect based on role (case-insensitive match)
+                switch ($user->role) {
+                    case 'Volunteer':
+                        return redirect()->route('volunteer.dashboard')->with('success', 'Device verified!');
+                    case 'Organization':
+                        return redirect()->route('organization.dashboard')->with('success', 'Device verified!');
+                    default:
+                        Auth::logout(); // optional security fallback
+                        return redirect('/')->withErrors(['role' => 'Unknown user role. Access denied.']);
+    }
 
-        return redirect()->intended('dashboard');
+        // return redirect()->intended('dashboard');
     }
 
 

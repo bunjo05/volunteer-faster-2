@@ -6,8 +6,12 @@ use Illuminate\Foundation\Application;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SocialAuthController;
 
+use App\Http\Controllers\Admin\Auth\LoginController;
+use App\Http\Controllers\AdminsController;
 use App\Http\Controllers\Auth\OtpVerificationController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\OrganizationController;
+use App\Http\Controllers\VolunteerController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -36,5 +40,28 @@ Route::post('/verify-otp', [OtpVerificationController::class, 'store'])->name('o
 
 Route::post('/otp/resend', [AuthenticatedSessionController::class, 'resend'])->name('otp.resend');
 
+// Admin Routes
+Route::prefix('admin')->name('admin.')->group(function () {
+    Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [LoginController::class, 'login'])->name('admin.login');
+    Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
+    // Admin Dashboard Routes
+    Route::middleware('auth:admin')->group(function () {
+        Route::get('/dashboard', [AdminsController::class , 'index'])->name('admin.dashboard');
+    });
+});
+
+
+Route::middleware('check.role:Volunteer')->group(function(){
+   Route::get('/volunteer/dashboard', [VolunteerController::class, 'index'])->name('volunteer.dashboard');
+});
+
+Route::prefix('organization')->middleware('check.role:Organization')->group(function(){
+    Route::get('/dashboard', [OrganizationController::class, 'index'])->name('organization.dashboard');
+    Route::get('/profile', [OrganizationController::class, 'profile'])->name('organization.profile');
+    Route::post('/profile', [OrganizationController::class, 'updateProfile'])->name('organization.profile.update');
+    Route::get('/messages', [OrganizationController::class, 'messages'])->name('organization.messages');
+    Route::get('/projects', [OrganizationController::class, 'projects'])->name('organization.projects');
+});
 require __DIR__.'/auth.php';

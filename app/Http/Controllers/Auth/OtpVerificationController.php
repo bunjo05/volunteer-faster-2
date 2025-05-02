@@ -35,15 +35,6 @@ class OtpVerificationController extends Controller
             return back()->withErrors(['otp' => 'Invalid or expired OTP.']);
         }
 
-        // $user = User::where('email', $request->email)->first();
-
-        // if (
-        //     !$user ||
-        //     !hash_equals((string) $user->otp, (string) $request->otp) ||
-        //     now()->gt($user->otp_expires_at)
-        // ) {
-        //     return back()->withErrors(['otp' => 'Invalid or expired OTP.']);
-        // }
 
 
         // Mark device as trusted
@@ -60,7 +51,17 @@ class OtpVerificationController extends Controller
 
         Auth::login($user);
 
-        return redirect()->route('dashboard')->with('success', 'Device verified!');
+            // Redirect based on role
+            if (strtolower($user->role) === 'Volunteer') {
+                return redirect()->route('volunteer.dashboard')->with('success', 'Device verified!');
+            } elseif (strtolower($user->role) === 'Organization') {
+                return redirect()->route('organization.dashboard')->with('success', 'Device verified!');
+            }
+
+            // Default fallback
+            return redirect('/')->with('success', 'Device verified!');
+
+        // return redirect()->route('dashboard')->with('success', 'Device verified!');
     }
 
 }

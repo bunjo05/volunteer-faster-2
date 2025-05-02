@@ -103,18 +103,18 @@ export default function OtpVerify({ email, message }) {
                     </button>
                 </form>
 
-                {/* {expired && ( */}
-                <p className="text-center text-sm text-gray-500 mt-6">
-                    Didn't receive the code? Check your spam folder or{" "}
-                    <span
-                        className="text-blue-600 hover:underline cursor-pointer font-medium"
-                        onClick={resendOtp}
-                    >
-                        resend it
-                    </span>
-                    .
-                </p>
-                {/* )} */}
+                {expired && (
+                    <p className="text-center text-sm text-gray-500 mt-6">
+                        Didn't receive the code? Check your spam folder or{" "}
+                        <span
+                            className="text-blue-600 hover:underline cursor-pointer font-medium"
+                            onClick={resendOtp}
+                        >
+                            resend it
+                        </span>
+                        .
+                    </p>
+                )}
             </div>
         </div>
     );
