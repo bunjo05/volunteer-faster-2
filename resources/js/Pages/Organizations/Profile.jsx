@@ -1,48 +1,71 @@
 import OrganizationLayout from "@/Layouts/OrganizationLayout";
-import { Link } from "@inertiajs/react";
 import { useState } from "react";
+import { usePage, useForm, Head } from "@inertiajs/react";
 
-export default function Profile() {
-    // Hardcoded dummy data
-    const orgData = {
-        name: "Your Organization Name",
-        slug: "your-organization-slug",
-        city: "City not provided",
-        country: "Country not provided",
-        foundedYear: "Year not provided",
-        phone: "Phone number not provided",
-        email: "email@example.com",
-        website: "https://your-organization-website.com",
-        description: "Description not provided.",
-        image: "https://via.placeholder.com/150", // Placeholder image
-    };
+export default function Profile({ organization, auth }) {
+    const [org, setOrg] = useState(organization ?? {});
+    const [isEditing, setIsEditing] = useState(false);
+    const [image, setImage] = useState(null);
 
-    const [org, setOrg] = useState(orgData); // state to hold the organization data
-    const [isEditing, setIsEditing] = useState(false); // state to toggle between view and edit modes
-    const [image, setImage] = useState(null); // state to hold the new image
-
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setOrg((prevOrg) => ({
-            ...prevOrg,
-            [name]: value,
-        }));
-    };
-
-    const handleImageChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setImage(URL.createObjectURL(file)); // Show the selected image in edit mode
-        }
-    };
+    const { data, setData, post, processing, errors } = useForm({
+        name: org.name,
+        slug: org.slug,
+        city: org.city,
+        country: org.country,
+        foundedYear: org.foundedYear,
+        phone: org.phone,
+        email: auth.user.email,
+        website: org.website,
+        description: org.description,
+        logo: org.logo,
+    });
+    // const { data, setData, post } = useForm({
+    //     name: org.name,
+    //     slug: org.slug,
+    //     city: org.city,
+    //     country: org.country,
+    //     foundedYear: org.foundedYear,
+    //     phone: org.phone,
+    //     email: auth.user.email,
+    //     website: org.website,
+    //     description: org.description,
+    //     logo: org.logo,
+    // });
 
     const handleEditClick = () => {
         setIsEditing(true);
     };
 
-    const handleSaveClick = () => {
-        setIsEditing(false);
-        // Here you could send the updated data (including image) to the server
+    const handleSaveSubmit = async () => {
+        const formData = new FormData(); // <-- Make sure this line exists
+
+        formData.append("name", name);
+        formData.append("slug", slug);
+        formData.append("city", city);
+        formData.append("country", country);
+        formData.append("foundedYear", foundedYear);
+        formData.append("phone", phone);
+        formData.append("email", email);
+        formData.append("website", website);
+        formData.append("description", description);
+        if (logo) {
+            formData.append("logo", logo);
+        }
+
+        try {
+            const response = await axios.post(
+                "/organization/profile/update",
+                formData,
+                {
+                    headers: {
+                        "Content-Type": "multipart/form-data",
+                    },
+                }
+            );
+            console.log(response.data.message);
+        } catch (error) {
+            console.error(error.response.data);
+        }
     };
 
     return (
@@ -60,173 +83,240 @@ export default function Profile() {
                             Edit Profile
                         </button>
                     )}
-                    {isEditing && (
-                        <button
-                            onClick={handleSaveClick}
-                            className="inline-block bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
-                        >
-                            Save Profile
-                        </button>
-                    )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-gray-700">
-                    <div>
-                        <span className="font-semibold">Name:</span>
-                        {isEditing ? (
-                            <input
-                                type="text"
-                                name="name"
-                                value={org.name}
-                                onChange={handleInputChange}
-                                className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
-                            />
-                        ) : (
-                            <p>{org.name}</p>
-                        )}
-                    </div>
-                    <div>
-                        <span className="font-semibold">Slug:</span>
-                        {isEditing ? (
-                            <input
-                                type="text"
-                                name="slug"
-                                value={org.slug}
-                                onChange={handleInputChange}
-                                className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
-                            />
-                        ) : (
-                            <p>{org.slug}</p>
-                        )}
-                    </div>
-                    <div>
-                        <span className="font-semibold">City:</span>
-                        {isEditing ? (
-                            <input
-                                type="text"
-                                name="city"
-                                value={org.city}
-                                onChange={handleInputChange}
-                                className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
-                            />
-                        ) : (
-                            <p>{org.city}</p>
-                        )}
-                    </div>
-                    <div>
-                        <span className="font-semibold">Country:</span>
-                        {isEditing ? (
-                            <input
-                                type="text"
-                                name="country"
-                                value={org.country}
-                                onChange={handleInputChange}
-                                className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
-                            />
-                        ) : (
-                            <p>{org.country}</p>
-                        )}
-                    </div>
-                    <div>
-                        <span className="font-semibold">Founded Year:</span>
-                        {isEditing ? (
-                            <input
-                                type="text"
-                                name="foundedYear"
-                                value={org.foundedYear}
-                                onChange={handleInputChange}
-                                className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
-                            />
-                        ) : (
-                            <p>{org.foundedYear}</p>
-                        )}
-                    </div>
-                    <div>
-                        <span className="font-semibold">Phone:</span>
-                        {isEditing ? (
-                            <input
-                                type="text"
-                                name="phone"
-                                value={org.phone}
-                                onChange={handleInputChange}
-                                className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
-                            />
-                        ) : (
-                            <p>{org.phone}</p>
-                        )}
-                    </div>
-                    <div>
-                        <span className="font-semibold">Email:</span>
-                        {isEditing ? (
-                            <input
-                                type="email"
-                                name="email"
-                                value={org.email}
-                                onChange={handleInputChange}
-                                className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
-                            />
-                        ) : (
-                            <p>{org.email}</p>
-                        )}
-                    </div>
-                    <div>
-                        <span className="font-semibold">Website:</span>
-                        {isEditing ? (
-                            <input
-                                type="url"
-                                name="website"
-                                value={org.website}
-                                onChange={handleInputChange}
-                                className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
-                            />
-                        ) : (
-                            <p>
-                                <a
-                                    href={org.website}
-                                    target="_blank"
-                                    className="text-indigo-600 hover:underline"
-                                >
-                                    {org.website}
-                                </a>
-                            </p>
-                        )}
-                    </div>
-                    <div className="col-span-1 md:col-span-2">
-                        <span className="font-semibold">Description:</span>
-                        {isEditing ? (
-                            <textarea
-                                name="description"
-                                value={org.description}
-                                onChange={handleInputChange}
-                                className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
-                            />
-                        ) : (
-                            <p>{org.description}</p>
-                        )}
-                    </div>
-
-                    {/* Image Upload Section */}
-                    <div className="col-span-1 md:col-span-2">
-                        <span className="font-semibold">Logo:</span>
-                        {isEditing ? (
-                            <div className="mt-2">
+                <form onSubmit={handleSaveSubmit} encType="multipart/form-data">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-gray-700">
+                        {/* Fields (use same inputs you had) */}
+                        <div>
+                            <span className="font-semibold">Name:</span>
+                            {isEditing ? (
                                 <input
-                                    type="file"
-                                    onChange={handleImageChange}
+                                    type="text"
+                                    name="name"
+                                    value={data.name}
+                                    onChange={(e) =>
+                                        setData("name", e.target.value)
+                                    }
                                     className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
                                 />
-                            </div>
-                        ) : (
-                            <div className="mt-2">
-                                <img
-                                    src={image || org.image}
-                                    alt="Organization Logo"
-                                    className="w-32 h-32 object-cover rounded"
+                            ) : (
+                                <p>{org.name}</p>
+                            )}
+                        </div>
+
+                        <div>
+                            <span className="font-semibold">Slug:</span>
+                            {isEditing ? (
+                                <input
+                                    type="text"
+                                    name="slug"
+                                    value={data.slug}
+                                    onChange={(e) =>
+                                        setData("slug", e.target.value)
+                                    }
+                                    className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
                                 />
+                            ) : (
+                                <p>{org.slug}</p>
+                            )}
+                        </div>
+
+                        <div>
+                            <span className="font-semibold">City:</span>
+                            {isEditing ? (
+                                <input
+                                    type="text"
+                                    name="city"
+                                    value={data.city}
+                                    onChange={(e) =>
+                                        setData("city", e.target.value)
+                                    }
+                                    className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
+                                />
+                            ) : (
+                                <p>{org.city}</p>
+                            )}
+                        </div>
+
+                        <div>
+                            <span className="font-semibold">Country:</span>
+                            {isEditing ? (
+                                <input
+                                    type="text"
+                                    name="country"
+                                    value={data.country}
+                                    onChange={(e) =>
+                                        setData("country", e.target.value)
+                                    }
+                                    className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
+                                />
+                            ) : (
+                                <p>{org.country}</p>
+                            )}
+                        </div>
+
+                        <div>
+                            <span className="font-semibold">Founded Year:</span>
+                            {isEditing ? (
+                                <input
+                                    type="text"
+                                    name="foundedYear"
+                                    value={data.foundedYear}
+                                    onChange={(e) =>
+                                        setData("foundedYear", e.target.value)
+                                    }
+                                    className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
+                                />
+                            ) : (
+                                <p>{org.foundedYear}</p>
+                            )}
+                        </div>
+
+                        <div>
+                            <span className="font-semibold">Phone:</span>
+                            {isEditing ? (
+                                <input
+                                    type="text"
+                                    name="phone"
+                                    value={data.phone}
+                                    onChange={(e) =>
+                                        setData("phone", e.target.value)
+                                    }
+                                    className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
+                                />
+                            ) : (
+                                <p>{org.phone}</p>
+                            )}
+                        </div>
+
+                        <div>
+                            <span className="font-semibold">Email:</span>
+                            {isEditing ? (
+                                <input
+                                    type="email"
+                                    name="email"
+                                    value={auth.user.email}
+                                    disabled
+                                    onChange={(e) =>
+                                        setData("email", e.target.value)
+                                    }
+                                    className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
+                                />
+                            ) : (
+                                <p>{auth.user.email}</p>
+                            )}
+                        </div>
+
+                        <div>
+                            <span className="font-semibold">Website:</span>
+                            {isEditing ? (
+                                <input
+                                    type="url"
+                                    name="website"
+                                    value={data.website}
+                                    onChange={(e) =>
+                                        setData("website", e.target.value)
+                                    }
+                                    className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
+                                />
+                            ) : (
+                                <p>
+                                    <a
+                                        href={org.website}
+                                        target="_blank"
+                                        className="text-indigo-600 hover:underline"
+                                    >
+                                        {org.website}
+                                    </a>
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="col-span-1 md:col-span-2">
+                            <span className="font-semibold">Description:</span>
+                            {isEditing ? (
+                                <textarea
+                                    name="description"
+                                    value={data.description}
+                                    onChange={(e) =>
+                                        setData("description", e.target.value)
+                                    }
+                                    className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
+                                />
+                            ) : (
+                                <p>{org.description}</p>
+                            )}
+                        </div>
+
+                        <div className="col-span-1 md:col-span-2">
+                            <span className="font-semibold">Logo:</span>
+                            {isEditing ? (
+                                <>
+                                    <input
+                                        type="file"
+                                        accept="image/jpeg,image/jpg,image/png"
+                                        onChange={(e) => {
+                                            const file = e.target.files[0];
+                                            if (!file) return;
+
+                                            const validTypes = [
+                                                "image/jpeg",
+                                                "image/jpg",
+                                                "image/png",
+                                            ];
+                                            if (
+                                                !validTypes.includes(file.type)
+                                            ) {
+                                                alert(
+                                                    "Only JPG, JPEG, and PNG files are allowed."
+                                                );
+                                                return;
+                                            }
+
+                                            const maxSize = 2 * 1024 * 1024; // 2MB
+                                            if (file.size > maxSize) {
+                                                alert(
+                                                    "File size should be less than 2MB."
+                                                );
+                                                return;
+                                            }
+
+                                            setData("logo", file);
+                                            setImage(URL.createObjectURL(file));
+                                        }}
+                                        className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
+                                    />
+
+                                    {image && (
+                                        <img
+                                            src={image}
+                                            alt="Logo Preview"
+                                            className="w-32 h-32 object-cover rounded mt-4"
+                                        />
+                                    )}
+                                </>
+                            ) : (
+                                <img
+                                    src={`/storage/${org.logo}`}
+                                    alt="Organization Logo"
+                                    className="w-32 h-32 object-cover rounded mt-2"
+                                />
+                            )}
+                        </div>
+
+                        {isEditing && (
+                            <div className="col-span-2 text-right">
+                                <button
+                                    type="submit"
+                                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+                                >
+                                    Save Profile
+                                </button>
                             </div>
                         )}
                     </div>
-                </div>
+                </form>
             </section>
         </OrganizationLayout>
     );

@@ -53,4 +53,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(UserDevice::class);
     }
+
+    public function organization()
+{
+    return $this->hasOne(OrganizationProfile::class);
+}
 }

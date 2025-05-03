@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Inertia\Inertia;
 use Illuminate\Http\Request;
+use App\Models\OrganizationProfile;
+use Illuminate\Support\Facades\Auth;
 
 class OrganizationController extends Controller
 {
@@ -16,29 +18,55 @@ class OrganizationController extends Controller
         $organization = auth()->user()->organization; // Retrieve organization related to the logged-in user
         return Inertia::render('Organizations/Profile', [
             'organization' => $organization,
+            'auth' => [
+            'user' => Auth::user(),
+    ],
         ]);
     }
     public function updateProfile(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
-            'slug' => 'required|string|max:255', // Add validation for other fields as necessary
-            'city' => 'nullable|string|max:255',
-            'country' => 'nullable|string|max:255',
-            'foundedYear' => 'nullable|integer',
-            'phone' => 'nullable|string|max:255',
+        $data = $request->validate([
+            'name' => 'required|string',
+            'slug' => 'required|string',
+            'city' => 'required|string',
+            'country' => 'required|string',
+            'foundedYear' => 'required|integer',
+            'phone' => 'required|string',
+            'email' => 'required|email',
             'website' => 'nullable|url',
             'description' => 'nullable|string',
+            'logo' => 'nullable|image|max:2048', // Validate image
         ]);
 
-        $organization = auth()->user()->organization; // Get the organization associated with the logged-in user
-        $organization->update($request->only([
-            'name', 'slug', 'city', 'country', 'foundedYear', 'phone', 'email', 'website', 'description'
-        ]));
+        // Handle logo upload if it exists
+        if ($request->hasFile('logo')) {
+            $data['logo'] = $request->file('logo')->store('logos', 'public');
+        }
 
-        return redirect()->back()->with('success', 'Profile updated successfully.');
+        // $profile = OrganizationProfile::firstOrNew(['user_id' => auth()->id()]);
+        // $profile->fill($request->except('logo'));
+
+         // Update the organization record
+    $organization = OrganizationProfile::find(auth()->user()->organization_profile_id);
+    $organization->update($data);
+
+    return response()->json(['message' => 'Profile updated successfully']);
+
+        // // 🚨 Set user_id if it's a new profile
+        // if (!$profile->exists) {
+        //     $profile->user_id = auth()->id();
+        // }
+
+        // if ($request->hasFile('logo')) {
+        //     $path = $request->file('logo')->store('logos', 'public');
+        //     $profile->logo = $path;
+        // }
+
+        // $profile->save();
+
+        // return redirect()->back()->with('success', 'Profile updated successfully.');
     }
+
 
 
     public function messages()
