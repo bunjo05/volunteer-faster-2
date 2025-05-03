@@ -1,71 +1,58 @@
 import OrganizationLayout from "@/Layouts/OrganizationLayout";
 import { useState } from "react";
-import { usePage, useForm, Head } from "@inertiajs/react";
+import { usePage, useForm, Head, router } from "@inertiajs/react";
 
 export default function Profile({ organization, auth }) {
     const [org, setOrg] = useState(organization ?? {});
     const [isEditing, setIsEditing] = useState(false);
     const [image, setImage] = useState(null);
 
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, post } = useForm({
         name: org.name,
         slug: org.slug,
         city: org.city,
         country: org.country,
         foundedYear: org.foundedYear,
         phone: org.phone,
-        email: auth.user.email,
+        email: auth.user.email, // <-- Set email from authenticated user
         website: org.website,
         description: org.description,
         logo: org.logo,
     });
-    // const { data, setData, post } = useForm({
-    //     name: org.name,
-    //     slug: org.slug,
-    //     city: org.city,
-    //     country: org.country,
-    //     foundedYear: org.foundedYear,
-    //     phone: org.phone,
-    //     email: auth.user.email,
-    //     website: org.website,
-    //     description: org.description,
-    //     logo: org.logo,
-    // });
+
+    // const handleInputChange = (e) => {
+    //     const { name, value } = e.target;
+    //     setOrg((prevOrg) => ({
+    //         ...prevOrg,
+    //         [name]: value,
+    //     }));
+    // };
+
+    // const handleImageChange = (e) => {
+    //     const file = e.target.files[0];
+    //     if (file) {
+    //         setImage(file);
+    //         setOrg((prev) => ({
+    //             ...prev,
+    //             image: URL.createObjectURL(file),
+    //         }));
+    //     }
+    // };
 
     const handleEditClick = () => {
         setIsEditing(true);
     };
 
-    const handleSaveSubmit = async () => {
-        const formData = new FormData(); // <-- Make sure this line exists
+    const handleSaveSubmit = async (e) => {
+        e.preventDefault();
+        setIsEditing(false);
 
-        formData.append("name", name);
-        formData.append("slug", slug);
-        formData.append("city", city);
-        formData.append("country", country);
-        formData.append("foundedYear", foundedYear);
-        formData.append("phone", phone);
-        formData.append("email", email);
-        formData.append("website", website);
-        formData.append("description", description);
-        if (logo) {
-            formData.append("logo", logo);
-        }
-
-        try {
-            const response = await axios.post(
-                "/organization/profile/update",
-                formData,
-                {
-                    headers: {
-                        "Content-Type": "multipart/form-data",
-                    },
-                }
-            );
-            console.log(response.data.message);
-        } catch (error) {
-            console.error(error.response.data);
-        }
+        post(route("organization.profile.update"), {
+            onSuccess: () => {
+                console.log("Profile updated successfully");
+                location.reload(); // 🔄 Refresh the page
+            },
+        });
     };
 
     return (
@@ -85,7 +72,7 @@ export default function Profile({ organization, auth }) {
                     )}
                 </div>
 
-                <form onSubmit={handleSaveSubmit} encType="multipart/form-data">
+                <form onSubmit={handleSaveSubmit}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-gray-700">
                         {/* Fields (use same inputs you had) */}
                         <div>
@@ -95,9 +82,19 @@ export default function Profile({ organization, auth }) {
                                     type="text"
                                     name="name"
                                     value={data.name}
-                                    onChange={(e) =>
-                                        setData("name", e.target.value)
-                                    }
+                                    onChange={(e) => {
+                                        const nameValue = e.target.value;
+                                        setData("name", nameValue);
+                                        setData(
+                                            "slug",
+                                            nameValue
+                                                .toLowerCase()
+                                                .trim()
+                                                .replace(/[^a-z0-9 -]/g, "") // remove invalid chars
+                                                .replace(/\s+/g, "-") // collapse whitespace and replace by -
+                                                .replace(/-+/g, "-")
+                                        ); // collapse dashes
+                                    }}
                                     className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
                                 />
                             ) : (
@@ -112,9 +109,7 @@ export default function Profile({ organization, auth }) {
                                     type="text"
                                     name="slug"
                                     value={data.slug}
-                                    onChange={(e) =>
-                                        setData("slug", e.target.value)
-                                    }
+                                    readOnly
                                     className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
                                 />
                             ) : (
@@ -288,20 +283,30 @@ export default function Profile({ organization, auth }) {
                                         className="w-full p-2 mt-1 bg-gray-100 border border-gray-300 rounded"
                                     />
 
-                                    {image && (
+                                    {image ? (
                                         <img
                                             src={image}
-                                            alt="Logo Preview"
+                                            alt="Selected Logo Preview"
                                             className="w-32 h-32 object-cover rounded mt-4"
                                         />
+                                    ) : (
+                                        org.logo && (
+                                            <img
+                                                src={`/storage/${org.logo}`}
+                                                alt="Current Logo"
+                                                className="w-32 h-32 object-cover rounded mt-4"
+                                            />
+                                        )
                                     )}
                                 </>
                             ) : (
-                                <img
-                                    src={`/storage/${org.logo}`}
-                                    alt="Organization Logo"
-                                    className="w-32 h-32 object-cover rounded mt-2"
-                                />
+                                org.logo && (
+                                    <img
+                                        src={`/storage/${org.logo}`}
+                                        alt="Organization Logo"
+                                        className="w-32 h-32 object-cover rounded mt-2"
+                                    />
+                                )
                             )}
                         </div>
 

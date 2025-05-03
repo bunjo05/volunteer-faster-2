@@ -25,46 +25,40 @@ class OrganizationController extends Controller
     }
     public function updateProfile(Request $request)
     {
-        $data = $request->validate([
-            'name' => 'required|string',
-            'slug' => 'required|string',
-            'city' => 'required|string',
-            'country' => 'required|string',
-            'foundedYear' => 'required|integer',
-            'phone' => 'required|string',
-            'email' => 'required|email',
-            'website' => 'nullable|url',
-            'description' => 'nullable|string',
-            'logo' => 'nullable|image|max:2048', // Validate image
-        ]);
+       $data = $request->validate([
+        'name' => 'required|string',
+        'slug' => 'required|string',
+        'city' => 'required|string',
+        'country' => 'required|string',
+        'foundedYear' => 'required|integer',
+        'phone' => 'required|string',
+        'email' => 'required|email',
+        'website' => 'nullable|url',
+        'description' => 'nullable|string',
+        'logo' => 'nullable|image|max:2048', // Validate image
+    ]);
 
-        // Handle logo upload if it exists
-        if ($request->hasFile('logo')) {
-            $data['logo'] = $request->file('logo')->store('logos', 'public');
+    // Handle logo upload if it exists
+    if ($request->hasFile('logo')) {
+        $data['logo'] = $request->file('logo')->store('logos', 'public');
+    }
+
+        $profile = OrganizationProfile::firstOrNew(['user_id' => auth()->id()]);
+        $profile->fill($request->except('logo'));
+
+        // 🚨 Set user_id if it's a new profile
+        if (!$profile->exists) {
+            $profile->user_id = auth()->id();
         }
 
-        // $profile = OrganizationProfile::firstOrNew(['user_id' => auth()->id()]);
-        // $profile->fill($request->except('logo'));
+        if ($request->hasFile('logo')) {
+            $path = $request->file('logo')->store('logos', 'public');
+            $profile->logo = $path;
+        }
 
-         // Update the organization record
-    $organization = OrganizationProfile::find(auth()->user()->organization_profile_id);
-    $organization->update($data);
+        $profile->save();
 
-    return response()->json(['message' => 'Profile updated successfully']);
-
-        // // 🚨 Set user_id if it's a new profile
-        // if (!$profile->exists) {
-        //     $profile->user_id = auth()->id();
-        // }
-
-        // if ($request->hasFile('logo')) {
-        //     $path = $request->file('logo')->store('logos', 'public');
-        //     $profile->logo = $path;
-        // }
-
-        // $profile->save();
-
-        // return redirect()->back()->with('success', 'Profile updated successfully.');
+        return redirect()->back()->with('success', 'Profile updated successfully.');
     }
 
 
