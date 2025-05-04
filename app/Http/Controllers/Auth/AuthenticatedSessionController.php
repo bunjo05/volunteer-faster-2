@@ -55,39 +55,37 @@ class AuthenticatedSessionController extends Controller
             ->where('ip_address', $ip)
             ->exists();
 
-            if (!$deviceKnown) {
-                // Generate OTP with leading zeros
-                $user->otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-                $user->otp_expires_at = now()->addMinutes(10);
-                $user->save();
+        if (!$deviceKnown) {
+            // Generate OTP with leading zeros
+            $user->otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $user->otp_expires_at = now()->addMinutes(10);
+            $user->save();
 
-                // Send OTP
-                Mail::to($user->email)->send(new SendOtp($user->otp));
+            // Send OTP
+            Mail::to($user->email)->send(new SendOtp($user->otp));
 
-                // Logout user temporarily
-                Auth::logout();
+            // Logout user temporarily
+            Auth::logout();
 
-                // Redirect to OTP verification page
-                return redirect()->route('otp.verify')->with([
-                    'email' => $user->email,
-                    'message' => 'A new device was detected. Please enter the OTP sent to your email.'
-                ]);
-            }
+            // Redirect to OTP verification page
+            return redirect()->route('otp.verify')->with([
+                'email' => $user->email,
+                'message' => 'A new device was detected. Please enter the OTP sent to your email.'
+            ]);
+        }
 
-
-                 // Redirect based on role (case-insensitive match)
-                switch ($user->role) {
-                    case 'Volunteer':
-                        return redirect()->route('volunteer.dashboard')->with('success', 'Device verified!');
-                    case 'Organization':
-                        return redirect()->route('organization.dashboard')->with('success', 'Device verified!');
-                    default:
-                        Auth::logout(); // optional security fallback
-                        return redirect('/')->withErrors(['role' => 'Unknown user role. Access denied.']);
+        // Device is known, redirect based on role
+        switch (strtolower($user->role)) {
+            case 'volunteer':
+                return redirect()->route('volunteer.dashboard')->with('success', 'Welcome back!');
+            case 'organization':
+                return redirect()->route('organization.dashboard')->with('success', 'Welcome back!');
+            default:
+                Auth::logout(); // fallback for unknown roles
+                return redirect()->route('error.unauthorized')->withErrors(['role' => 'Unknown user role. Access denied.']);
+        }
     }
 
-        // return redirect()->intended('dashboard');
-    }
 
 
     /**

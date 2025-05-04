@@ -8,6 +8,8 @@ import {
     LogOut,
     Menu,
     X,
+    Home, // ✅ Add this
+    FolderKanban, // ✅ Also needed for "My Projects"
 } from "lucide-react";
 import SidebarLink from "@/Components/SidebarLink";
 
@@ -38,20 +40,20 @@ export default function OrganizationLayout({ children }) {
                 </div>
                 <nav className="flex-1 px-4 py-6 space-y-2">
                     <SidebarLink
-                    // href={route("volunteer.dashboard")}
-                    // icon={Home}
+                        href={route("organization.dashboard")}
+                        icon={Home}
                     >
                         Dashboard
                     </SidebarLink>
                     <SidebarLink
-                    // href={route("volunteer.projects")}
-                    // icon={FolderKanban}
+                        href={route("organization.projects")}
+                        icon={FolderKanban}
                     >
                         My Projects
                     </SidebarLink>
                     <SidebarLink
-                    // href={route("volunteer.messages")}
-                    // icon={MessageSquare}
+                        href={route("organization.messages")}
+                        icon={MessageSquare}
                     >
                         Messages
                     </SidebarLink>

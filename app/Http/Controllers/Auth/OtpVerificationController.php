@@ -35,8 +35,6 @@ class OtpVerificationController extends Controller
             return back()->withErrors(['otp' => 'Invalid or expired OTP.']);
         }
 
-
-
         // Mark device as trusted
         $user->devices()->create([
             'user_agent' => $request->userAgent(),
@@ -52,16 +50,16 @@ class OtpVerificationController extends Controller
         Auth::login($user);
 
             // Redirect based on role
-            if (strtolower($user->role) === 'Volunteer') {
-                return redirect()->route('volunteer.dashboard')->with('success', 'Device verified!');
-            } elseif (strtolower($user->role) === 'Organization') {
-                return redirect()->route('organization.dashboard')->with('success', 'Device verified!');
+
+            switch (strtolower($user->role)) {
+                case 'volunteer':
+                    return redirect()->route('volunteer.dashboard')->with('success', 'Welcome back!');
+                case 'organization':
+                    return redirect()->route('organization.dashboard')->with('success', 'Welcome back!');
+                default:
+                    Auth::logout(); // fallback for unknown roles
+                    return redirect()->route('error.unauthorized')->withErrors(['role' => 'Unknown user role. Access denied.']);
             }
-
-            // Default fallback
-            return redirect('/')->with('success', 'Device verified!');
-
-        // return redirect()->route('dashboard')->with('success', 'Device verified!');
     }
 
 }
