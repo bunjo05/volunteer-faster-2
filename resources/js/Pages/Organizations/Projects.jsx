@@ -86,7 +86,7 @@ export default function Projects({ userStatus, projects }) {
                                                     : "/images/placeholder.jpg"
                                             }
                                             alt={project.title}
-                                            className="object-cover"
+                                            className="object-cover w-[200px] h-full rounded-lg"
                                         />
                                     </div>
                                     <div className="w-full p-2 flex flex-col justify-between">

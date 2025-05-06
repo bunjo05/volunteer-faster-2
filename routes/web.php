@@ -10,21 +10,31 @@ use App\Http\Controllers\Admin\Auth\LoginController;
 use App\Http\Controllers\AdminsController;
 use App\Http\Controllers\Auth\OtpVerificationController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\VolunteerController;
 
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
-});
+// Route::get('/', function () {
+//     return Inertia::render('Welcome', [
+//         'canLogin' => Route::has('login'),
+//         'canRegister' => Route::has('register'),
+//         'laravelVersion' => Application::VERSION,
+//         'phpVersion' => PHP_VERSION,
+//     ]);
+// });
+Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/about', [HomeController::class, 'about'])->name('about');
+Route::get('/contact', [HomeController::class, 'contact'])->name('contact');
+Route::get('/privacy-policy', [HomeController::class, 'privacyPolicy'])->name('privacy.policy');
+Route::get('/terms-and-conditions', [HomeController::class, 'termsAndConditions'])->name('terms.conditions');
+Route::get('/faq', [HomeController::class, 'faq'])->name('faq');
+Route::get('/volunteer', [HomeController::class, 'volunteer'])->name('volunteer');
+Route::get('/organization', [HomeController::class, 'organization'])->name('organization');
+Route::get('/volunteer-programs', [HomeController::class, 'projects'])->name('projects');
 
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+// Route::get('/dashboard', function () {
+//     return Inertia::render('Dashboard');
+// })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -64,8 +74,9 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
 });
 
 
-Route::middleware('check.role:Volunteer')->group(function(){
-   Route::get('/volunteer/dashboard', [VolunteerController::class, 'index'])->name('volunteer.dashboard');
+Route::prefix('volunteer')->middleware('check.role:Volunteer')->group(function(){
+   Route::get('/dashboard', [VolunteerController::class, 'index'])->name('volunteer.dashboard');
+   Route::get('/messages', [VolunteerController::class, 'messages'])->name('volunteer.messages');
 });
 
 Route::prefix('organization')->middleware('check.role:Organization')->group(function(){
@@ -81,8 +92,6 @@ Route::prefix('organization')->middleware('check.role:Organization')->group(func
     Route::post('/projects/{project}/request-review', [OrganizationController::class, 'requestReview'])->name('projects.requestReview');
 
     Route::get('/projects/{slug}/edit', [OrganizationController::class, 'editProject'])->name('organization.projects.edit');
-    Route::put('/projects/{slug}', [OrganizationController::class, 'updateProject'])->name('organization.projects.update');
-
-
+    Route::post('/projects/{slug}', [OrganizationController::class, 'updateProject'])->name('organization.projects.update');
 });
 require __DIR__.'/auth.php';

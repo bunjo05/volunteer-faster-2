@@ -52,7 +52,7 @@ export default function VolunteerLayout({ children }) {
                         My Projects
                     </SidebarLink>
                     <SidebarLink
-                        // href={route("volunteer.messages")}
+                        href={route("volunteer.messages")}
                         icon={MessageSquare}
                     >
                         Messages

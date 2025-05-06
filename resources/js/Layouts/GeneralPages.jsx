@@ -2,7 +2,7 @@ import ApplicationLogo from "@/Components/ApplicationLogo";
 import { Link } from "@inertiajs/react";
 import { useState } from "react";
 
-export default function GuestLayout({ children }) {
+export default function GeneralPages({ children }) {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     return (
@@ -27,7 +27,7 @@ export default function GuestLayout({ children }) {
                             Home
                         </Link>
                         <Link
-                            href="/programs"
+                            href="/volunteer-programs"
                             className="text-gray-600 hover:text-blue-600 font-medium"
                         >
                             Volunteer Programs
@@ -130,10 +130,10 @@ export default function GuestLayout({ children }) {
             </header>
 
             {/* Page Content */}
-            <main className="flex flex-1 items-center justify-center px-4">
-                <div className="mt-6 w-full max-w-md bg-white px-6 py-8 shadow-lg rounded-lg">
-                    {children}
-                </div>
+            <main className="">
+                {/* <div className="mt-6 w-full max-w-md bg-white px-6 py-8 shadow-lg rounded-lg"> */}
+                {children}
+                {/* </div> */}
             </main>
             {/* Footer */}
             <footer className="bg-white shadow mt-6">

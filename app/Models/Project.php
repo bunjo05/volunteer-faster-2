@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\GalleryImage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
@@ -25,7 +26,7 @@ class Project extends Model
         'activities',
         'suitable',
         'availability_months',
-        'gallery_images',
+        // 'gallery_images',
         'start_date',
         'end_date',
         'status',
@@ -36,7 +37,7 @@ class Project extends Model
     protected $casts = [
         'suitable' => 'array',
         'availability_months' => 'array',
-        'gallery_images' => 'array',
+        // 'gallery_images' => 'array',
     ];
 
     public function category()
@@ -51,4 +52,22 @@ class Project extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function organizationProfile()
+    {
+        return $this->hasOneThrough(
+            \App\Models\OrganizationProfile::class,
+            \App\Models\User::class,
+            'id',               // Foreign key on User table
+            'user_id',          // Foreign key on OrganizationProfile table
+            'user_id',          // Local key on Project table
+            'id'                // Local key on User table
+        );
+    }
+
+    public function galleryImages()
+    {
+        return $this->hasMany(GalleryImage::class);
+    }
+
 }

@@ -1,11 +1,11 @@
-import OrganizationLayout from "@/Layouts/OrganizationLayout";
+import VolunteerLayout from "@/Layouts/VolunteerLayout";
 import { usePage, Link } from "@inertiajs/react";
 
 export default function Messages() {
     const { messages = [] } = usePage().props;
 
     return (
-        <OrganizationLayout>
+        <VolunteerLayout>
             <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
                 <h1 className="text-3xl font-bold text-gray-800 mb-6">Inbox</h1>
 
@@ -59,6 +59,6 @@ export default function Messages() {
                     </div>
                 </div>
             </div>
-        </OrganizationLayout>
+        </VolunteerLayout>
     );
 }

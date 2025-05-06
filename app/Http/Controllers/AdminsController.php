@@ -4,10 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Inertia\Inertia;
+use App\Models\Project;
 use App\Models\Category;
 use App\Models\Subcategory;
-use Illuminate\Http\Request;
 
+use Illuminate\Http\Request;
 use App\Mail\UserStatusChanged;
 use App\Models\OrganizationProfile;
 use Illuminate\Support\Facades\Mail;
@@ -102,8 +103,15 @@ class AdminsController extends Controller
     }
     public function projects()
     {
-        return inertia('Admins/Projects');
+        $projects = Project::with([ 'user', 'organizationProfile']) // eager load user relationship too
+            ->latest()
+            ->get();
+
+        return inertia('Admins/Projects', [
+            'projects' => $projects,
+        ]);
     }
+
     public function messages()
     {
         return inertia('Admins/Messages');

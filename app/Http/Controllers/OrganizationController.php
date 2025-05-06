@@ -7,6 +7,7 @@ use App\Models\Admin;
 use App\Models\Project;
 use App\Models\Category;
 use Illuminate\Support\Str;
+use App\Models\GalleryImage;
 use Illuminate\Http\Request;
 use App\Models\OrganizationProfile;
 use App\Mail\ProjectReviewRequested;
@@ -18,7 +19,31 @@ class OrganizationController extends Controller
 {
     public function index()
     {
-        return inertia('Organizations/Dashboard');
+        $user = Auth::user();
+
+        $projects = Project::where('user_id', $user->id)
+            ->with('category', 'subcategory')
+            ->latest()
+            ->get();
+        // $messages = Message::where('receiver_id', $user->id)->latest()->take(3)->get();
+
+        return inertia('Organizations/Dashboard', [
+            'projectsCount' => $projects->count(),
+            'projectStatusCount' => [
+                'approved' => $projects->where('status', 'Approved')->count(),
+                'pending' => $projects->where('status', 'Pending')->count(),
+                'rejected' => $projects->where('status', 'Rejected')->count(),
+            ],
+            // 'messagesCount' => Message::where('receiver_id', $user->id)->count(),
+            // 'recentMessages' => $messages->map(function ($msg) {
+            //     return [
+            //         'id' => $msg->id,
+            //         'subject' => $msg->subject,
+            //         'body' => $msg->body,
+            //         'status' => $msg->status,
+            //     ];
+            // }),
+        ]);
     }
 
     public function profile()
@@ -97,10 +122,7 @@ class OrganizationController extends Controller
 
         $project->update(['request_for_approval' => true]);
 
-        // Notify all admins
-        // $adminEmails = Admin::pluck('email')->toArray(); // Adjust model if needed
         $adminEmails = Admin::pluck('email')->toArray();
-
 
         foreach ($adminEmails as $email) {
             Mail::to($email)->send(new ProjectReviewRequested($project));
@@ -124,7 +146,96 @@ class OrganizationController extends Controller
         $data = $request->validate([
             'title' => 'required|string|max:255',
             'slug' => 'required|string|max:255|unique:projects,slug',
-            'featured_image' => 'nullable|image|max:2048',
+            'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048', // Adjust file size limit as needed
+            'category_id' => 'required|exists:categories,id',
+            'subcategory_id' => 'required|exists:subcategories,id',
+            'address' => 'required|string',
+            'short_description' => 'required|string|max:500',
+            'detailed_description' => 'required|string',
+            'duration' => 'required|string',
+            'duration_type' => 'required|in:Days,Weeks,Months,Years',
+            'daily_routine' => 'required|string',
+            'fees' => 'nullable|numeric',
+            'currency' => 'nullable|string',
+            'activities' => 'required|string',
+            'suitable' => 'nullable|array',
+            'suitable.*' => 'string',
+            'availability_months' => 'required|array',
+            'availability_months.*' => 'string|in:January,February,March,April,May,June,July,August,September,October,November,December',
+            'start_date' => 'required|date',
+            'status' => 'required|in:Active,Pending,Suspended',
+        ]);
+
+        $data['user_id'] = Auth::id();
+
+        // Handle featured image
+        if ($request->hasFile('featured_image')) {
+            $data['featured_image'] = $request->file('featured_image')->store('projects/featured', 'public');
+        }
+
+        // Handle multi-select fields (ensure arrays are stored as JSON if needed)
+        $data['suitable'] = $request->input('suitable', []);
+        $data['availability_months'] = $request->input('availability_months', []);
+
+        // Create the project
+        $project = Project::create($data);
+
+        // Save gallery images (if any)
+        if ($request->hasFile('gallery_images')) {
+            foreach ($request->file('gallery_images') as $image) {
+                $filename = uniqid() . '_' . Str::random(10) . '.' . $image->getClientOriginalExtension();
+                $path = $image->storeAs('projects/gallery', $filename, 'public');
+
+                GalleryImage::create([
+                    'project_id' => $project->id,
+                    'image_path' => $path,
+                ]);
+            }
+        }
+
+        return redirect()->route('organization.projects')->with('success', 'Project created successfully.');
+    }
+
+    public function editProject($slug)
+    {
+        $project = Project::with(['category', 'subcategory', 'galleryImages'])
+            ->where('slug', $slug)
+            ->where('user_id', auth()->id())
+            ->firstOrFail();
+
+        $categories = Category::with('subcategories')->get();
+
+        // Featured image URL
+            // $project->featured_image_url = $project->featured_image
+            // ? asset('storage/' . $project->featured_image)
+            // : null;
+
+
+        return Inertia::render('Organizations/Projects/Edit', [
+            'project' => $project,
+            'categories' => $categories,
+            'subcategories' => $project->category->subcategories,
+            'selectedSubcategory' => $project->subcategory_id,
+            'selectedCategory' => $project->category_id,
+            'galleryImages' => $project->galleryImages->map(function ($image) {
+                return [
+                    'id' => $image->id,
+                    'url' => asset('storage/' . $image->image_path),
+                ];
+            }),
+        ]);
+    }
+
+
+    public function updateProject(Request $request, $slug)
+    {
+        $project = Project::where('slug', $slug)->where('user_id', auth()->id())->firstOrFail();
+
+        $data = $request->validate([
+            'title' => 'required|string|max:255',
+            'slug' => 'required|string|max:255|unique:projects,slug,' . $project->id,
+            'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048', // Adjust file size limit as needed
+            'featured_image_existing' => 'nullable|string',
             'category_id' => 'required|exists:categories,id',
             'subcategory_id' => 'required|exists:subcategories,id',
             'address' => 'required|string',
@@ -140,20 +251,23 @@ class OrganizationController extends Controller
             'suitable.*' => 'string',
             'availability_months' => 'array',
             'availability_months.*' => 'string|in:January,February,March,April,May,June,July,August,September,October,November,December',
-            'gallery_images' => 'nullable|array',
-            'gallery_images.*' => 'image|max:2048',
             'start_date' => 'required|date',
             'status' => 'required|in:Active,Pending,Suspended',
         ]);
 
-        $data['user_id'] = Auth::id();
-
-        // Handle featured image
-        if ($request->hasFile('featured_image')) {
-            $data['featured_image'] = $request->file('featured_image')->store('projects/featured', 'public');
+       // Handle the featured image upload
+    if ($request->hasFile('featured_image')) {
+        if ($project->featured_image) {
+            Storage::disk('public')->delete($project->featured_image);
         }
+        // Store the new image and get the file path
+        $data['featured_image'] = $request->file('featured_image')->store('projects/featured', 'public');
+    } elseif ($request->has('featured_image_existing')) {
+        // If no new image, use the existing one
+        $data['featured_image'] = $request->input('featured_image_existing');
+    }
 
-        // Handle multi-select fields
+
         $data['suitable'] = $request->input('suitable', []);
         $data['availability_months'] = $request->input('availability_months', []);
 
@@ -166,79 +280,51 @@ class OrganizationController extends Controller
             $galleryPaths[] = str_replace('public/', 'storage/', $path);
         }
 
-        $data['gallery_images'] = $galleryPaths;
+        if (!empty($galleryPaths)) {
+            $data['gallery_images'] = $galleryPaths;
+        }
 
-        Project::create($data);
+        $project->update($data);
 
-        return redirect()->route('organization.projects')->with('success', 'Project created successfully.');
+        return redirect()->route('organization.projects')->with('success', 'Project updated successfully.');
     }
 
-    public function editProject($slug)
-{
-    $project = Project::with('category', 'subcategory')->where('slug', $slug)->where('user_id', auth()->id())->firstOrFail();
-    $categories = Category::with('subcategories')->get();
 
-    return Inertia::render('Organizations/Projects/Edit', [
-        'project' => $project,
-        'categories' => $categories,
-    ]);
-}
+    public function deleteProject($slug)
+    {
+        $project = Project::where('slug', $slug)->where('user_id', auth()->id())->firstOrFail();
 
-public function updateProject(Request $request, $slug)
-{
-    $project = Project::where('slug', $slug)->where('user_id', auth()->id())->firstOrFail();
+        // Delete gallery images
+        foreach ($project->galleryImages as $image) {
+            Storage::disk('public')->delete($image->image_path);
+            $image->delete();
+        }
 
-    $data = $request->validate([
-        'title' => 'required|string|max:255',
-        'slug' => 'required|string|max:255|unique:projects,slug,' . $project->id,
-        'featured_image' => 'nullable|image|max:2048',
-        'category_id' => 'required|exists:categories,id',
-        'subcategory_id' => 'required|exists:subcategories,id',
-        'address' => 'required|string',
-        'short_description' => 'required|string|max:500',
-        'detailed_description' => 'required|string',
-        'duration' => 'required|string',
-        'duration_type' => 'required|in:Days,Weeks,Months,Years',
-        'daily_routine' => 'required|string',
-        'fees' => 'nullable|numeric',
-        'currency' => 'nullable|string',
-        'activities' => 'required|string',
-        'suitable' => 'nullable|array',
-        'suitable.*' => 'string',
-        'availability_months' => 'array',
-        'availability_months.*' => 'string|in:January,February,March,April,May,June,July,August,September,October,November,December',
-        'gallery_images' => 'nullable|array',
-        'gallery_images.*' => 'image|max:2048',
-        'start_date' => 'required|date',
-        'status' => 'required|in:Active,Pending,Suspended',
-    ]);
-
-    // Handle featured image update
-    if ($request->hasFile('featured_image')) {
+        // Delete featured image
         if ($project->featured_image) {
             Storage::disk('public')->delete($project->featured_image);
         }
-        $data['featured_image'] = $request->file('featured_image')->store('projects/featured', 'public');
+
+        $project->delete();
+
+        return redirect()->route('organization.projects')->with('success', 'Project deleted successfully.');
     }
 
-    $data['suitable'] = $request->input('suitable', []);
-    $data['availability_months'] = $request->input('availability_months', []);
+    public function deleteGalleryImage(Request $request)
+    {
+        $request->validate([
+            'image_id' => 'required|exists:gallery_images,id',
+        ]);
 
-    // Handle gallery images
-    $gallery = $request->file('gallery_images', []);
-    $galleryPaths = [];
-    foreach ($gallery as $image) {
-        $filename = time() . '_' . Str::random(10) . '.' . $image->getClientOriginalExtension();
-        $path = $image->storeAs('public/gallery', $filename);
-        $galleryPaths[] = str_replace('public/', 'storage/', $path);
+        $galleryImage = GalleryImage::findOrFail($request->image_id);
+
+        // Delete the image from storage
+        Storage::disk('public')->delete($galleryImage->image_path);
+
+        // Delete the record from the database
+        $galleryImage->delete();
+
+        return response()->json(['message' => 'Gallery image deleted successfully.']);
     }
 
-    if (!empty($galleryPaths)) {
-        $data['gallery_images'] = $galleryPaths;
-    }
-
-    $project->update($data);
-
-    return redirect()->route('organization.projects')->with('success', 'Project updated successfully.');
-}
 }

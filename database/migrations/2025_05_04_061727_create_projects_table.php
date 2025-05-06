@@ -29,7 +29,7 @@ return new class extends Migration
             $table->text('activities')->nullable();
             $table->text('suitable')->nullable();
             $table->text('availability_months')->nullable();
-            $table->text('gallery_images')->nullable();
+            // $table->text('gallery_images')->nullable();
             $table->date('start_date')->nullable();
             $table->enum('status', ['Active', 'Pending', 'Suspended'])->default('Pending');
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
