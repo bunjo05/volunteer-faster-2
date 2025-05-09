@@ -2,9 +2,10 @@
 
 namespace App\Models;
 
-use App\Models\GalleryImage;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class Project extends Model
 {
@@ -37,7 +38,7 @@ class Project extends Model
     protected $casts = [
         'suitable' => 'array',
         'availability_months' => 'array',
-        // 'gallery_images' => 'array',
+        'gallery_images' => 'array',
     ];
 
     public function category()
@@ -52,12 +53,11 @@ class Project extends Model
     {
         return $this->belongsTo(User::class);
     }
-
     public function organizationProfile()
     {
         return $this->hasOneThrough(
-            \App\Models\OrganizationProfile::class,
-            \App\Models\User::class,
+            OrganizationProfile::class,
+            User::class,
             'id',               // Foreign key on User table
             'user_id',          // Foreign key on OrganizationProfile table
             'user_id',          // Local key on Project table

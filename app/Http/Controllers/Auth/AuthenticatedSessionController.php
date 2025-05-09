@@ -75,10 +75,10 @@ class AuthenticatedSessionController extends Controller
         }
 
         // Device is known, redirect based on role
-        switch (strtolower($user->role)) {
-            case 'volunteer':
+        switch ($user->role) {
+            case 'Volunteer':
                 return redirect()->route('volunteer.dashboard')->with('success', 'Welcome back!');
-            case 'organization':
+            case 'Organization':
                 return redirect()->route('organization.dashboard')->with('success', 'Welcome back!');
             default:
                 Auth::logout(); // fallback for unknown roles
@@ -122,7 +122,6 @@ class AuthenticatedSessionController extends Controller
 
             Mail::to($user->email)->send(new SendOtp($otp));
         }
-
 
         return back()->with('message', 'A new OTP has been sent to your email.');
     }

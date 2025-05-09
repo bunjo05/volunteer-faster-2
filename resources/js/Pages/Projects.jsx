@@ -55,10 +55,19 @@ export default function Projects({ projects }) {
                             className="bg-white rounded-lg shadow hover:shadow-lg transition"
                         >
                             <img
+                                src={
+                                    project.featured_image
+                                        ? `/storage/${project.featured_image}`
+                                        : "/images/placeholder.jpg"
+                                }
+                                alt={project.title}
+                                className="object-cover w-[200px] h-full rounded-lg"
+                            />
+                            {/* <img
                                 src={project.image}
                                 alt={project.title}
                                 className="w-full h-48 object-cover rounded-t-lg"
-                            />
+                            /> */}
                             <div className="p-6">
                                 <h3 className="text-xl font-semibold text-blue-600 mb-1">
                                     {project.title}

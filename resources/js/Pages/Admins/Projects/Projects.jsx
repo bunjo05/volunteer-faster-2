@@ -1,5 +1,6 @@
 import AdminLayout from "@/Layouts/AdminLayout";
 import { usePage } from "@inertiajs/react";
+import { Link } from "@inertiajs/react";
 import { CalendarDays, Clock, DollarSign, Globe, Users } from "lucide-react";
 
 export default function Projects() {
@@ -30,24 +31,37 @@ export default function Projects() {
                                 className="bg-white rounded-xl shadow hover:shadow-lg transition overflow-hidden flex flex-col"
                             >
                                 {/* Image */}
-                                {/* <div className="h-48"> */}
-                                <img
-                                    src={
-                                        project.featured_image
-                                            ? `/storage/${project.featured_image}`
-                                            : "/images/placeholder.jpg"
-                                    }
-                                    alt={project.title}
-                                    className="object-cover h-48 w-full"
-                                />
-                                {/* </div> */}
+
+                                <div className="relative">
+                                    {project.request_for_approval === 1 &&
+                                        project.status === "Pending" && (
+                                            <span className="absolute top-2 left-2 bg-yellow-400 text-white px-2 py-1 text-xs font-semibold rounded-md shadow">
+                                                Submitted for Review
+                                            </span>
+                                        )}
+                                    <img
+                                        src={
+                                            project.featured_image
+                                                ? `/storage/${project.featured_image}`
+                                                : "/images/placeholder.jpg"
+                                        }
+                                        alt={project.title}
+                                        className="object-cover h-48 w-full"
+                                    />
+                                </div>
 
                                 <div className="p-5 flex-1 flex flex-col justify-between">
                                     {/* Title and Organization */}
                                     <div className="mb-2">
-                                        <h2 className="text-lg font-bold text-gray-900">
+                                        <Link
+                                            className="text-lg font-bold text-gray-900"
+                                            href={route(
+                                                "admin.projects.view",
+                                                project.slug
+                                            )}
+                                        >
                                             {project.title}
-                                        </h2>
+                                        </Link>
                                         <p className="text-sm text-gray-500">
                                             Organization:{" "}
                                             <span className="bg-gray-200 text-gray-800 px-2 py-0.5 rounded-full text-xs">
@@ -61,7 +75,6 @@ export default function Projects() {
                                     <p className="text-sm text-gray-600 line-clamp-3 mb-3">
                                         {project.short_description}
                                     </p>
-
                                     {/* Quick Info Badges */}
                                     <div className="flex flex-wrap gap-2 text-xs mb-3">
                                         {project.duration && (
@@ -92,7 +105,6 @@ export default function Projects() {
                                             </span>
                                         )}
                                     </div>
-
                                     {/* Suitable Tags */}
                                     {Array.isArray(project.suitable) &&
                                         project.suitable.length > 0 && (
@@ -114,15 +126,14 @@ export default function Projects() {
                                                 </div>
                                             </div>
                                         )}
-
                                     {/* Status */}
                                     <div className="mt-auto flex justify-between items-center">
                                         <span
                                             className={`px-2 py-1 rounded-full text-xs font-semibold text-white ${
-                                                project.status === "active"
+                                                project.status === "Active"
                                                     ? "bg-green-500"
                                                     : project.status ===
-                                                      "pending"
+                                                      "Pending"
                                                     ? "bg-yellow-500"
                                                     : "bg-red-500"
                                             }`}
@@ -130,12 +141,15 @@ export default function Projects() {
                                             {project.status}
                                         </span>
 
-                                        <a
-                                            href={`/projects/${project.slug}`}
+                                        <Link
                                             className="text-sm text-blue-600 hover:underline font-medium"
+                                            href={route(
+                                                "admin.projects.view",
+                                                project.slug
+                                            )}
                                         >
                                             View Details
-                                        </a>
+                                        </Link>
                                     </div>
                                 </div>
                             </div>

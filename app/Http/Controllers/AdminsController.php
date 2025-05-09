@@ -49,7 +49,7 @@ class AdminsController extends Controller
         // Send email to the user
         Mail::to($user->email)->send(new UserStatusChanged($user, $validated['status']));
 
-        return redirect()->back()->with('Status updated and email sent successfully.');
+        return redirect()->route('admin.dashboard')->with('Status updated and email sent successfully.');
     }
 
     public function categories()
@@ -107,10 +107,20 @@ class AdminsController extends Controller
             ->latest()
             ->get();
 
-        return inertia('Admins/Projects', [
+        return inertia('Admins/Projects/Projects', [
             'projects' => $projects,
         ]);
     }
+
+    public function viewProject($slug)
+    {
+        $project = Project::with([ 'user', 'organizationProfile', 'category', 'subcategory', 'galleryImages'])
+        ->where('slug', $slug)->firstOrFail();
+        return inertia('Admins/Projects/ViewProject', [
+            'project' => $project
+        ]);
+    }
+
 
     public function messages()
     {

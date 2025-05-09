@@ -35,12 +35,10 @@ export default function Users({ users = [] }) {
                         <table className="min-w-full bg-white rounded-lg shadow-sm">
                             <thead className="bg-gray-100 text-gray-700 text-sm uppercase text-left">
                                 <tr>
-                                    {/* <th className="px-6 py-4">Photo</th> */}
                                     <th className="px-6 py-4">Name</th>
                                     <th className="px-6 py-4">Email</th>
                                     <th className="px-6 py-4">Role</th>
                                     <th className="px-6 py-4">Status</th>
-                                    {/* <th className="px-6 py-4">Actions</th> */}
                                 </tr>
                             </thead>
                             <tbody className="text-sm text-gray-700">
@@ -88,11 +86,6 @@ export default function Users({ users = [] }) {
                                                 </option>
                                             </select>
                                         </td>
-                                        {/* <td className="px-6 py-4">
-                                            <button className="text-blue-600 hover:underline text-sm">
-                                                View
-                                            </button>
-                                        </td> */}
                                     </tr>
                                 ))}
                             </tbody>

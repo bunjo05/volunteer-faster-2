@@ -31,7 +31,7 @@ return new class extends Migration
             $table->text('availability_months')->nullable();
             // $table->text('gallery_images')->nullable();
             $table->date('start_date')->nullable();
-            $table->enum('status', ['Active', 'Pending', 'Suspended'])->default('Pending');
+            $table->enum('status', ['Active', 'Pending', 'Suspended', 'Rejected'])->default('Pending');
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->boolean('request_for_approval')->default(false);
             $table->timestamps();

@@ -89,7 +89,7 @@ export default function Projects({ userStatus, projects }) {
                                             className="object-cover w-[200px] h-full rounded-lg"
                                         />
                                     </div>
-                                    <div className="w-full p-2 flex flex-col justify-between">
+                                    <div className="w-full p-4 flex flex-col justify-between">
                                         <div>
                                             <h2 className="text-xl font-bold text-gray-900 mb-2">
                                                 {project.title}

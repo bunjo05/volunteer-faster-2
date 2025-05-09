@@ -86,7 +86,9 @@ export default function AdminLayout({ children }) {
                         Subcategories
                     </Link>
                     <Link
-                        href="/logout"
+                        href={route("logout")}
+                        method="post"
+                        as="button"
                         className="flex items-center gap-3 text-red-600 hover:bg-red-100 px-3 py-2 rounded-lg mt-auto"
                     >
                         <LogOut size={18} />

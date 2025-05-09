@@ -33,6 +33,9 @@ export default function Create({ categories }) {
         e.preventDefault();
         const formData = new FormData();
 
+        // console.log(errors);
+        alert(errors);
+
         Object.keys(data).forEach((key) => {
             if (
                 key === "gallery_images" &&
@@ -104,14 +107,26 @@ export default function Create({ categories }) {
                         <>
                             <div>
                                 <label className={labelClass}>Title</label>
+                                {/* {isEditing ? ( */}
                                 <input
                                     type="text"
                                     value={data.title}
-                                    onChange={(e) =>
-                                        setData("title", e.target.value)
-                                    }
+                                    onChange={(e) => {
+                                        const titleValue = e.target.value;
+                                        setData("title", titleValue);
+                                        setData(
+                                            "slug",
+                                            titleValue
+                                                .toLowerCase()
+                                                .trim()
+                                                .replace(/[^a-z0-9 -]/g, "") // remove invalid chars
+                                                .replace(/\s+/g, "-") // collapse whitespace and replace by -
+                                                .replace(/-+/g, "-")
+                                        );
+                                    }}
                                     className={inputClass}
                                 />
+
                                 {errors.title && (
                                     <div className="text-red-500">
                                         {errors.title}
@@ -123,6 +138,8 @@ export default function Create({ categories }) {
                                 <label className={labelClass}>Slug</label>
                                 <input
                                     type="text"
+                                    name="slug"
+                                    readOnly
                                     value={data.slug}
                                     onChange={(e) =>
                                         setData("slug", e.target.value)
