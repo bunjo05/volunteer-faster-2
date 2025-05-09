@@ -9,6 +9,7 @@ use App\Models\Category;
 use App\Models\Subcategory;
 
 use Illuminate\Http\Request;
+use App\Models\ProjectRemark;
 use App\Mail\UserStatusChanged;
 use App\Models\OrganizationProfile;
 use Illuminate\Support\Facades\Mail;
@@ -119,6 +120,28 @@ class AdminsController extends Controller
         return inertia('Admins/Projects/ViewProject', [
             'project' => $project
         ]);
+    }
+
+    public function storeRemark(Request $request)
+    {
+        $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'remark' => 'required|string|max:1000',
+        ]);
+
+        ProjectRemark::create([
+            'project_id' => $request->project_id,
+            'admin_id' => auth('admin')->id(),
+            'remark' => $request->remark,
+            'status' => null,
+        ]);
+
+        // Optionally update the project status
+        $project = Project::find($request->project_id);
+        $project->status = 'Rejected';
+        $project->save();
+
+        return redirect()->back()->with('success', 'Project rejected with remark.');
     }
 
 

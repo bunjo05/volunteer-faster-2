@@ -1,7 +1,31 @@
 import AdminLayout from "@/Layouts/AdminLayout";
 
+import { useState } from "react";
+import { router, useForm } from "@inertiajs/react";
+
 export default function ViewProject({ project }) {
-    console.log(project.gallery_images);
+    const [showRejectModal, setShowRejectModal] = useState(false);
+
+    const { data, setData, post, processing, reset, errors, flash, success } =
+        useForm({
+            remark: "",
+            project_id: project.id,
+        });
+
+    const submitRemark = (e) => {
+        e.preventDefault();
+        const formData = new FormData();
+
+        console.log(errors);
+
+        post(route("admin.project.remark.store"), {
+            data: formData,
+            onSuccess: () => {
+                setShowRejectModal(false);
+                reset();
+            },
+        });
+    };
     return (
         <AdminLayout>
             <div className="">
@@ -212,14 +236,69 @@ export default function ViewProject({ project }) {
                                 <button className="bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700 transition">
                                     Approve Project
                                 </button>
-                                <button className="bg-red-600 text-white px-5 py-2 rounded hover:bg-red-700 transition">
+
+                                <button
+                                    onClick={() => setShowRejectModal(true)}
+                                    className="bg-red-600 text-white px-5 py-2 rounded hover:bg-red-700 transition"
+                                >
                                     Reject Project
                                 </button>
+
+                                {/* <button className="bg-red-600 text-white px-5 py-2 rounded hover:bg-red-700 transition">
+                                    Reject Project
+                                </button> */}
                             </div>
                         )}
                     </div>
                 </div>
             </div>
+
+            {showRejectModal && (
+                <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-lg">
+                        <h2 className="text-xl font-semibold mb-4 text-red-600">
+                            Reject Project
+                        </h2>
+                        <form onSubmit={submitRemark}>
+                            <textarea
+                                className="w-full border border-gray-300 rounded p-2 mb-3"
+                                rows="4"
+                                placeholder="Enter your rejection reason..."
+                                value={data.remark}
+                                onChange={(e) =>
+                                    setData("remark", e.target.value)
+                                }
+                            ></textarea>
+                            {errors.remark && (
+                                <p className="text-sm text-red-500 mb-2">
+                                    {errors.remark}
+                                </p>
+                            )}
+                            <div className="flex justify-end gap-4">
+                                <button
+                                    type="button"
+                                    className="text-gray-600 hover:text-gray-800"
+                                    onClick={() => setShowRejectModal(false)}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={processing}
+                                    className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+                                >
+                                    Submit Remark
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+            {/* {flash.success && (
+                <div className="mb-4 bg-green-100 text-green-700 p-3 rounded">
+                    {flash.success}
+                </div>
+            )} */}
         </AdminLayout>
     );
 }

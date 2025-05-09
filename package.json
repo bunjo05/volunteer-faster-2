@@ -25,7 +25,6 @@
         "@heroicons/react": "^2.2.0",
         "clsx": "^2.1.1",
         "laravel-echo": "^2.1.0",
-        "lucide-react": "^0.506.0",
-        "pusher-js": "^8.4.0"
+        "lucide-react": "^0.506.0"
     }
 }

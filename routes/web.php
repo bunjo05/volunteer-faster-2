@@ -63,6 +63,8 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     Route::get('/users', [AdminsController::class , 'users'])->name('admin.users');
     Route::put('/users/{user}/status', [AdminsController::class, 'updateStatus']);
 
+    Route::post('/project/remark', [AdminsController::class, 'storeRemark'])->name('admin.project.remark.store');
+
     Route::get('/organizations', [AdminsController::class , 'organizations'])->name('admin.organizations');
     Route::get('/volunteers', [AdminsController::class , 'volunteers'])->name('admin.volunteers');
     Route::get('/projects', [AdminsController::class , 'projects'])->name('admin.projects');
