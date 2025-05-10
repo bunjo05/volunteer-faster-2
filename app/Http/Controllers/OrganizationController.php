@@ -198,18 +198,12 @@ class OrganizationController extends Controller
 
     public function editProject($slug)
     {
-        $project = Project::with(['category', 'subcategory', 'galleryImages'])
+        $project = Project::with(['category', 'subcategory', 'galleryImages', 'projectRemarks'])
             ->where('slug', $slug)
             ->where('user_id', auth()->id())
             ->firstOrFail();
 
         $categories = Category::with('subcategories')->get();
-
-        // Featured image URL
-            // $project->featured_image_url = $project->featured_image
-            // ? asset('storage/' . $project->featured_image)
-            // : null;
-
 
         return Inertia::render('Organizations/Projects/Edit', [
             'project' => $project,
@@ -217,6 +211,13 @@ class OrganizationController extends Controller
             'subcategories' => $project->category->subcategories,
             'selectedSubcategory' => $project->subcategory_id,
             'selectedCategory' => $project->category_id,
+            'projectRemarks' => $project->projectRemarks->map(function ($remark) {
+                return [
+                    'id' => $remark->id,
+                    'remark' => $remark->remark,
+                    'created_at' => $remark->created_at->format('Y-m-d H:i:s'),
+                ];
+            }),
             'galleryImages' => $project->galleryImages->map(function ($image) {
                 return [
                     'id' => $image->id,
@@ -253,6 +254,7 @@ class OrganizationController extends Controller
             'availability_months.*' => 'string|in:January,February,March,April,May,June,July,August,September,October,November,December',
             'start_date' => 'required|date',
             'status' => 'required|in:Active,Pending,Suspended',
+            'request_for_approval' => 'nullable|boolean',
         ]);
 
        // Handle the featured image upload

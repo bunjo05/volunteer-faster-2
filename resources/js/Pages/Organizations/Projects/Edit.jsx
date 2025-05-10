@@ -7,6 +7,7 @@ export default function Edit({
     categories,
     subcategories,
     gallery_images,
+    projectRemarks,
 }) {
     const months = [
         "January",
@@ -40,16 +41,13 @@ export default function Edit({
         fees: project.fees || "",
         currency: project.currency || "",
         activities: project.activities || "",
-        // suitable: project.suitable || [],
         suitable: project.suitable || [], // make sure this defaults to an array
         availability_months: project.availability_months || [],
-        // gallery_images: [], // Empty unless new images are added
         gallery_images: project.gallery_images || [],
         start_date: project.start_date || "",
         status: "Pending", // Always reset to Pending on update
+        request_for_approval: false,
     });
-    // console.log(project.gallery_images);
-    // console.log(project.featured_image);
 
     console.log(errors);
 
@@ -119,7 +117,22 @@ export default function Edit({
 
     return (
         <OrganizationLayout>
-            <div className="max-w-4xl mx-auto px-4 py-10">
+            <div className="mx-auto px-10 py-10 bg-[#fff] rounded-lg">
+                {project.status === "Rejected" && projectRemarks.length > 0 && (
+                    <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                        <p className="font-semibold mb-2">
+                            Remarks from Admin:
+                        </p>
+                        <ul className="list-disc list-inside space-y-1">
+                            {projectRemarks.map((remark) => (
+                                <li className="text-sm" key={remark.id}>
+                                    {remark.remark}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
                 <h1 className="text-3xl font-bold mb-6 text-gray-800">
                     Edit Project
                 </h1>

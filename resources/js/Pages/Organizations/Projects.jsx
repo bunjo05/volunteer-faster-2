@@ -78,7 +78,28 @@ export default function Projects({ userStatus, projects }) {
                                     key={project.id}
                                     className="bg-white rounded-lg px-[10px] shadow hover:shadow-md flex items-center transition duration-300 overflow-hidden"
                                 >
-                                    <div className="flex items-center w-[200px] h-[200px]">
+                                    <div className="relative w-[200px] h-[200px] rounded-xl overflow-hidden shadow-lg border border-gray-200">
+                                        {/* Rejected Badge */}
+                                        {project.status === "Rejected" && (
+                                            <span className="absolute top-2 left-2 flex items-center gap-1 bg-red-500/90 text-white text-[11px] font-semibold px-3 py-1 rounded-full shadow-md backdrop-blur-sm">
+                                                <svg
+                                                    className="w-3.5 h-3.5"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="2"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        d="M6 18L18 6M6 6l12 12"
+                                                    />
+                                                </svg>
+                                                Rejected
+                                            </span>
+                                        )}
+
+                                        {/* Image */}
                                         <img
                                             src={
                                                 project.featured_image
@@ -86,9 +107,14 @@ export default function Projects({ userStatus, projects }) {
                                                     : "/images/placeholder.jpg"
                                             }
                                             alt={project.title}
-                                            className="object-cover w-[200px] h-full rounded-lg"
+                                            className={`object-cover w-full h-full transition-transform duration-300 ease-in-out ${
+                                                project.status === "Rejected"
+                                                    ? "brightness-75 grayscale"
+                                                    : ""
+                                            }`}
                                         />
                                     </div>
+
                                     <div className="w-full p-4 flex flex-col justify-between">
                                         <div>
                                             <h2 className="text-xl font-bold text-gray-900 mb-2">
@@ -155,15 +181,6 @@ export default function Projects({ userStatus, projects }) {
                                             </div>
                                         </div>
 
-                                        {/* <button
-                                            onClick={() =>
-                                                handleRequestReview(project.id)
-                                            }
-                                            className="mt-4 self-start px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition duration-200"
-                                        >
-                                            Request for Review
-                                        </button> */}
-
                                         <div className="flex gap-2 mt-4">
                                             {/* Request for Review Button */}
                                             <button
@@ -198,25 +215,19 @@ export default function Projects({ userStatus, projects }) {
                                                     Edit
                                                 </Link>
                                             )}
-                                        </div>
 
-                                        {/* <button
-                                            onClick={() =>
-                                                handleRequestReview(project.id)
-                                            }
-                                            disabled={
-                                                project.request_for_approval
-                                            }
-                                            className={`mt-4 self-start px-4 py-2 text-sm font-medium rounded-md transition duration-200 ${
-                                                project.request_for_approval
-                                                    ? "bg-gray-400 text-white cursor-not-allowed"
-                                                    : "bg-green-600 hover:bg-green-700 text-white"
-                                            }`}
-                                        >
-                                            {project.request_for_approval
-                                                ? "Review Requested"
-                                                : "Request for Review"}
-                                        </button> */}
+                                            {project.status === "Rejected" && (
+                                                <Link
+                                                    href={route(
+                                                        "organization.projects.edit",
+                                                        project.slug
+                                                    )}
+                                                    className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium rounded-md transition duration-200"
+                                                >
+                                                    Edit
+                                                </Link>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             ))

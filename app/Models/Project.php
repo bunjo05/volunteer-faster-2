@@ -70,4 +70,9 @@ class Project extends Model
         return $this->hasMany(GalleryImage::class);
     }
 
+    public function projectRemarks()
+    {
+        return $this->hasMany(ProjectRemark::class);
+    }
+
 }
