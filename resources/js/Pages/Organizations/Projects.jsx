@@ -33,6 +33,21 @@ export default function Projects({ userStatus, projects }) {
         });
     };
 
+    const getStatusBadgeClass = (status) => {
+        switch (status) {
+            case "Active":
+                return "bg-green-100 text-green-800";
+            case "Pending":
+                return "bg-yellow-100 text-yellow-800";
+            case "Rejected":
+                return "bg-red-100 text-red-800";
+            case "Approved":
+                return "bg-blue-100 text-blue-800";
+            default:
+                return "bg-gray-200 text-gray-700";
+        }
+    };
+
     return (
         <OrganizationLayout>
             <div className="min-h-screen py-10 px-4 sm:px-8 bg-gray-100">
@@ -117,9 +132,19 @@ export default function Projects({ userStatus, projects }) {
 
                                     <div className="w-full p-4 flex flex-col justify-between">
                                         <div>
-                                            <h2 className="text-xl font-bold text-gray-900 mb-2">
-                                                {project.title}
-                                            </h2>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <h2 className="text-xl font-bold text-gray-900">
+                                                    {project.title}
+                                                </h2>
+                                                <span
+                                                    className={`text-xs font-semibold px-3 py-1 rounded-full ${getStatusBadgeClass(
+                                                        project.status
+                                                    )}`}
+                                                >
+                                                    {project.status}
+                                                </span>
+                                            </div>
+
                                             <p className="text-sm text-gray-500 mb-1">
                                                 <span className="font-medium">
                                                     Category:
@@ -183,38 +208,44 @@ export default function Projects({ userStatus, projects }) {
 
                                         <div className="flex gap-2 mt-4">
                                             {/* Request for Review Button */}
-                                            <button
-                                                onClick={() =>
-                                                    handleRequestReview(
-                                                        project.id
-                                                    )
-                                                }
-                                                disabled={
-                                                    project.request_for_approval
-                                                }
-                                                className={`px-4 py-2 text-sm font-medium rounded-md transition duration-200 ${
-                                                    project.request_for_approval
-                                                        ? "bg-gray-400 text-white cursor-not-allowed"
-                                                        : "bg-green-600 hover:bg-green-700 text-white"
-                                                }`}
-                                            >
-                                                {project.request_for_approval
-                                                    ? "Review Requested"
-                                                    : "Request for Review"}
-                                            </button>
+                                            {project.status === "Pending" &&
+                                                project.request_for_approval ===
+                                                    1 && (
+                                                    <button
+                                                        onClick={() =>
+                                                            handleRequestReview(
+                                                                project.id
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            project.request_for_approval
+                                                        }
+                                                        className={`px-4 py-2 text-sm font-medium rounded-md transition duration-200 ${
+                                                            project.request_for_approval
+                                                                ? "bg-gray-400 text-white cursor-not-allowed"
+                                                                : "bg-green-600 hover:bg-green-700 text-white"
+                                                        }`}
+                                                    >
+                                                        {project.request_for_approval
+                                                            ? "Review Requested"
+                                                            : "Request for Review"}
+                                                    </button>
+                                                )}
 
                                             {/* Edit Button - Hidden if review is requested */}
-                                            {!project.request_for_approval && (
-                                                <Link
-                                                    href={route(
-                                                        "organization.projects.edit",
-                                                        project.slug
-                                                    )}
-                                                    className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium rounded-md transition duration-200"
-                                                >
-                                                    Edit
-                                                </Link>
-                                            )}
+                                            {!project.request_for_approval ||
+                                                (project.status ===
+                                                    "Active" && (
+                                                    <Link
+                                                        href={route(
+                                                            "organization.projects.edit",
+                                                            project.slug
+                                                        )}
+                                                        className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium rounded-md transition duration-200"
+                                                    >
+                                                        Edit
+                                                    </Link>
+                                                ))}
 
                                             {project.status === "Rejected" && (
                                                 <Link

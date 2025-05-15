@@ -27,7 +27,6 @@ class Project extends Model
         'activities',
         'suitable',
         'availability_months',
-        // 'gallery_images',
         'start_date',
         'end_date',
         'status',

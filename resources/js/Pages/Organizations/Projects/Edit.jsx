@@ -118,20 +118,32 @@ export default function Edit({
     return (
         <OrganizationLayout>
             <div className="mx-auto px-10 py-10 bg-[#fff] rounded-lg">
-                {project.status === "Rejected" && projectRemarks.length > 0 && (
-                    <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-                        <p className="font-semibold mb-2">
-                            Remarks from Admin:
-                        </p>
-                        <ul className="list-disc list-inside space-y-1">
-                            {projectRemarks.map((remark) => (
-                                <li className="text-sm" key={remark.id}>
-                                    {remark.remark}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
+                {project.status === "Rejected" &&
+                    projectRemarks.length > 0 &&
+                    projectRemarks.some(
+                        (remark) =>
+                            remark.status === null ||
+                            remark.status === "Rejected"
+                    ) && (
+                        <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                            <p className="font-semibold mb-2">
+                                Remarks from Admin:
+                            </p>
+                            <ul className="list-disc list-inside space-y-1">
+                                {projectRemarks
+                                    .filter(
+                                        (remark) =>
+                                            remark.status === null ||
+                                            remark.status === "Rejected"
+                                    )
+                                    .map((remark) => (
+                                        <li className="text-sm" key={remark.id}>
+                                            {remark.remark}
+                                        </li>
+                                    ))}
+                            </ul>
+                        </div>
+                    )}
 
                 <h1 className="text-3xl font-bold mb-6 text-gray-800">
                     Edit Project

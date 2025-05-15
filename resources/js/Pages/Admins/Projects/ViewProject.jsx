@@ -1,9 +1,8 @@
 import AdminLayout from "@/Layouts/AdminLayout";
-
 import { useState } from "react";
 import { router, useForm } from "@inertiajs/react";
 
-export default function ViewProject({ project }) {
+export default function ViewProject({ project, projectRemarks }) {
     const [showRejectModal, setShowRejectModal] = useState(false);
 
     const { data, setData, post, processing, reset, errors, flash, success } =
@@ -26,10 +25,151 @@ export default function ViewProject({ project }) {
             },
         });
     };
+
+    const approveProject = (projectId, status) => {
+        router.put(
+            route("admin.project.update-status", { id: projectId }), // Make sure this route exists
+            { status },
+            {
+                onSuccess: () => {
+                    console.log("Project approved and set to Active.");
+                },
+                onError: () => {
+                    console.error("Failed to approve project.");
+                },
+            }
+        );
+    };
+
+    const updateRemarkStatus = (remarkId, status) => {
+        router.put(
+            route("admin.project.remark.update", remarkId),
+            { status },
+            {
+                onSuccess: () => {
+                    console.log(`Remark ${remarkId} updated to ${status}`);
+                },
+                onError: () => {
+                    console.error("Failed to update remark status.");
+                },
+            }
+        );
+    };
+
     return (
         <AdminLayout>
             <div className="">
                 <div className="max-w-5xl mx-auto">
+                    {project.status === "Pending" &&
+                        project.request_for_approval === 1 &&
+                        projectRemarks.length > 0 &&
+                        projectRemarks.some(
+                            (remark) =>
+                                remark.status === null ||
+                                remark.status === "Rejected"
+                        ) && (
+                            <div className="mb-6 p-4 rounded">
+                                <p className="font-semibold mb-2">
+                                    Remarks to {project.title}:
+                                </p>
+                                <div className="list-disc list-inside space-y-3">
+                                    {projectRemarks.map((remark) => {
+                                        const isResolved =
+                                            remark.status === "Resolved";
+                                        const isRejectedOrNull =
+                                            remark.status === null ||
+                                            remark.status === "Rejected";
+
+                                        return (
+                                            <div
+                                                key={remark.id}
+                                                className={`flex justify-between p-2 rounded ${
+                                                    isResolved
+                                                        ? "bg-green-100 text-green-800"
+                                                        : isRejectedOrNull
+                                                        ? "bg-red-100 text-red-800"
+                                                        : ""
+                                                }`}
+                                            >
+                                                <p className="text-sm">
+                                                    {remark.remark}
+                                                </p>
+                                                {!isResolved ? (
+                                                    <div className="flex gap-4">
+                                                        <button
+                                                            onClick={() =>
+                                                                updateRemarkStatus(
+                                                                    remark.id,
+                                                                    "Resolved"
+                                                                )
+                                                            }
+                                                            className="text-green-700 hover:text-green-900 transition"
+                                                            title="Mark as Resolved"
+                                                        >
+                                                            <svg
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                fill="none"
+                                                                viewBox="0 0 24 24"
+                                                                strokeWidth={
+                                                                    1.5
+                                                                }
+                                                                stroke="currentColor"
+                                                                className="size-6"
+                                                            >
+                                                                <path
+                                                                    strokeLinecap="round"
+                                                                    strokeLinejoin="round"
+                                                                    d="m4.5 12.75 6 6 9-13.5"
+                                                                />
+                                                            </svg>
+                                                        </button>
+                                                        <button
+                                                            onClick={() =>
+                                                                updateRemarkStatus(
+                                                                    remark.id,
+                                                                    "Rejected"
+                                                                )
+                                                            }
+                                                            className="text-red-600 hover:text-red-800 transition"
+                                                            title="Reject Remark"
+                                                        >
+                                                            <svg
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                fill="none"
+                                                                viewBox="0 0 24 24"
+                                                                strokeWidth={
+                                                                    1.5
+                                                                }
+                                                                stroke="currentColor"
+                                                                className="size-6"
+                                                            >
+                                                                <path
+                                                                    strokeLinecap="round"
+                                                                    strokeLinejoin="round"
+                                                                    d="M6 18 18 6M6 6l12 12"
+                                                                />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                ) : isRejectedOrNull ? (
+                                                    <span className="text-sm font-semibold">
+                                                        Rejected
+                                                    </span>
+                                                ) : (
+                                                    <></>
+                                                    // <span className="text-sm font-semibold">
+                                                    //     Pending
+                                                    // </span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                    {/* </div> */}
+
                     <h1 className="text-3xl font-bold text-gray-800 mb-6">
                         Review Project: {project.title}
                     </h1>
@@ -231,24 +371,31 @@ export default function ViewProject({ project }) {
                             )}
 
                         {/* Action Buttons (only show if request_for_approval is true) */}
-                        {project.request_for_approval === 1 && (
-                            <div className="mt-10 flex gap-4">
-                                <button className="bg-green-600 text-white px-5 py-2 rounded hover:bg-green-700 transition">
-                                    Approve Project
-                                </button>
+                        {project.request_for_approval === 1 &&
+                            project.status === "Pending" && (
+                                <div className="mt-10 flex gap-4">
+                                    <button
+                                        // onClick={approveProject}
+                                        onClick={() =>
+                                            approveProject(project.id, "Active")
+                                        }
+                                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold shadow"
+                                    >
+                                        Approve
+                                    </button>
 
-                                <button
-                                    onClick={() => setShowRejectModal(true)}
-                                    className="bg-red-600 text-white px-5 py-2 rounded hover:bg-red-700 transition"
-                                >
-                                    Reject Project
-                                </button>
-
-                                {/* <button className="bg-red-600 text-white px-5 py-2 rounded hover:bg-red-700 transition">
-                                    Reject Project
-                                </button> */}
-                            </div>
-                        )}
+                                    {project.status === "Pending" && (
+                                        <button
+                                            onClick={() =>
+                                                setShowRejectModal(true)
+                                            }
+                                            className="bg-red-600 text-white px-5 py-2 rounded hover:bg-red-700 transition"
+                                        >
+                                            Reject Project
+                                        </button>
+                                    )}
+                                </div>
+                            )}
                     </div>
                 </div>
             </div>

@@ -115,10 +115,18 @@ class AdminsController extends Controller
 
     public function viewProject($slug)
     {
-        $project = Project::with([ 'user', 'organizationProfile', 'category', 'subcategory', 'galleryImages'])
+        $project = Project::with([ 'user', 'organizationProfile', 'category', 'subcategory', 'galleryImages', 'projectRemarks'])
         ->where('slug', $slug)->firstOrFail();
         return inertia('Admins/Projects/ViewProject', [
-            'project' => $project
+            'project' => $project,
+            'projectRemarks' => $project->projectRemarks->map(function ($remark) {
+                return [
+                    'id' => $remark->id,
+                    // 'admin_id' => $remark->admin_id,
+                    'remark' => $remark->remark,
+                    'status' => $remark->status,
+                ];
+            }),
         ]);
     }
 
@@ -142,6 +150,25 @@ class AdminsController extends Controller
         $project->save();
 
         return redirect()->back()->with('success', 'Project rejected with remark.');
+    }
+
+    public function updateRemark(Request $request, $id)
+    {
+        $remark = ProjectRemark::findOrFail($id);
+        $remark->status = $request->status;
+        $remark->save();
+
+        return back()->with('success', 'Remark status updated.');
+    }
+
+    public function updateProjectStatus(Request $request, $id)
+    {
+        $project = Project::findOrFail($id);
+        $project->status = $request->status;
+        // dd($project->status);
+        $project->save();
+
+        return redirect()->back()->with('success', 'Project approved successfully.');
     }
 
 

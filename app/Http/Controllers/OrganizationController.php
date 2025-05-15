@@ -215,6 +215,7 @@ class OrganizationController extends Controller
                 return [
                     'id' => $remark->id,
                     'remark' => $remark->remark,
+                    'status' => $remark->status,
                     'created_at' => $remark->created_at->format('Y-m-d H:i:s'),
                 ];
             }),
