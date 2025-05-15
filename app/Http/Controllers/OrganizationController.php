@@ -238,6 +238,11 @@ class OrganizationController extends Controller
             'slug' => 'required|string|max:255|unique:projects,slug,' . $project->id,
             'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048', // Adjust file size limit as needed
             'featured_image_existing' => 'nullable|string',
+
+            'gallery_images.*' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'existing_gallery_images' => 'array',
+            'existing_gallery_images.*' => 'string',
+
             'category_id' => 'required|exists:categories,id',
             'subcategory_id' => 'required|exists:subcategories,id',
             'address' => 'required|string',
@@ -270,17 +275,30 @@ class OrganizationController extends Controller
         $data['featured_image'] = $request->input('featured_image_existing');
     }
 
-
         $data['suitable'] = $request->input('suitable', []);
         $data['availability_months'] = $request->input('availability_months', []);
 
         // Handle gallery images
-        $gallery = $request->file('gallery_images', []);
-        $galleryPaths = [];
-        foreach ($gallery as $image) {
-            $filename = time() . '_' . Str::random(10) . '.' . $image->getClientOriginalExtension();
-            $path = $image->storeAs('public/gallery', $filename);
-            $galleryPaths[] = str_replace('public/', 'storage/', $path);
+
+        $existingImages = $request->input('existing_gallery_images', []);
+
+        $project->galleryImages()->whereNotIn('image_path', $existingImages)->each(function ($image) {
+            Storage::delete($image->image_path);
+            $image->delete();
+        });
+
+        // Store new uploaded images
+        if ($request->hasFile('gallery_images')) {
+            foreach ($request->file('gallery_images') as $image) {
+
+                $filename = uniqid() . '_' . Str::random(10) . '.' . $image->getClientOriginalExtension();
+
+                $path = $image->storeAs('projects/gallery', $filename, 'public');
+
+                $project->galleryImages()->create([
+                    'image_path' => $path,
+                ]);
+            }
         }
 
         if (!empty($galleryPaths)) {

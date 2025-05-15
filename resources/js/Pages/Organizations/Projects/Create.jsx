@@ -34,7 +34,7 @@ export default function Create({ categories }) {
         const formData = new FormData();
 
         // console.log(errors);
-        alert(errors);
+        // alert(errors);
 
         Object.keys(data).forEach((key) => {
             if (

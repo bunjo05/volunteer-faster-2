@@ -14,9 +14,21 @@ class HomeController extends Controller
 
     public function projects()
     {
-        $projects = Project::where('status', 'Active')->latest()->get();
-        return inertia('Projects', [
+        $projects = Project::where('status', 'Active')
+        ->with(['category', 'subcategory'])
+        ->latest()->get();
+        return inertia('Projects/Projects', [
             'projects' => $projects,
+        ]);
+    }
+
+    public function viewProject($slug)
+    {
+        $project = Project::where('slug', $slug)
+        ->with(['category', 'subcategory', 'galleryImages'])
+        ->firstOrFail();
+        return inertia('Projects/ViewProject', [
+            'project' => $project,
         ]);
     }
     public function about()

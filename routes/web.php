@@ -14,14 +14,6 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\VolunteerController;
 
-// Route::get('/', function () {
-//     return Inertia::render('Welcome', [
-//         'canLogin' => Route::has('login'),
-//         'canRegister' => Route::has('register'),
-//         'laravelVersion' => Application::VERSION,
-//         'phpVersion' => PHP_VERSION,
-//     ]);
-// });
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/about', [HomeController::class, 'about'])->name('about');
 Route::get('/contact', [HomeController::class, 'contact'])->name('contact');
@@ -31,6 +23,7 @@ Route::get('/faq', [HomeController::class, 'faq'])->name('faq');
 Route::get('/volunteer', [HomeController::class, 'volunteer'])->name('volunteer');
 Route::get('/organization', [HomeController::class, 'organization'])->name('organization');
 Route::get('/volunteer-programs', [HomeController::class, 'projects'])->name('projects');
+Route::get('/volunteer-programs/{slug}', [HomeController::class, 'viewProject'])->name('projects.home.view');
 
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');

@@ -29,7 +29,10 @@ export default function Edit({
     const { data, setData, post, errors, processing } = useForm({
         title: project.title || "",
         slug: project.slug || "",
-        featured_image: project.featured_image || "",
+        // featured_image: project.featured_image || "",
+        featured_image: "", // default to empty, new image (if any) goes here
+        featured_image_existing: project.featured_image || "", // track existing one
+
         category_id: project.category_id || "",
         subcategory_id: project.subcategory_id || "",
         address: project.address || "",
@@ -56,37 +59,42 @@ export default function Edit({
 
         const formData = new FormData();
 
-        // Loop through all form data
+        // Append all other fields
         Object.entries(data).forEach(([key, value]) => {
             if (Array.isArray(value)) {
                 if (key === "gallery_images" && value.length > 0) {
                     value.forEach((file) => {
                         if (file instanceof File) {
-                            formData.append("gallery_images[]", file);
+                            formData.append("gallery_images[]", file); // new uploads
+                        } else if (typeof file === "string") {
+                            formData.append("existing_gallery_images[]", file); // existing
                         }
                     });
                 } else {
-                    value.forEach((v, i) => {
-                        formData.append(`${key}[${i}]`, v);
+                    // For other arrays like availability_months or suitable
+                    value.forEach((item) => {
+                        formData.append(`${key}[]`, item);
                     });
                 }
-            } else if (key === "featured_image" && value instanceof File) {
-                formData.append("featured_image", value); // Append new image if selected
             } else if (
-                key === "featured_image_existing" &&
-                !data.featured_image
+                key !== "featured_image" &&
+                key !== "featured_image_existing"
             ) {
-                // If no new image is uploaded, append the existing image URL
-                formData.append(
-                    "featured_image_existing",
-                    project.featured_image
-                );
-            } else {
-                formData.append(key, value); // For other fields
+                formData.append(key, value);
             }
         });
 
-        // Make the POST request
+        // Append featured image data
+        if (data.featured_image instanceof File) {
+            formData.append("featured_image", data.featured_image);
+        } else {
+            formData.append(
+                "featured_image_existing",
+                data.featured_image_existing
+            );
+        }
+
+        // Submit
         post(route("organization.projects.update", project.slug), {
             data: formData,
             forceFormData: true,
@@ -298,23 +306,30 @@ export default function Edit({
                         )}
                     </div>
 
-                    {/* Featured Image Display */}
-                    {data.featured_image || project.featured_image_url ? (
+                    {/* Featured Image */}
+                    {(data.featured_image instanceof File ||
+                        data.featured_image_existing) && (
                         <div className="mb-4">
                             <label className="block text-sm font-medium text-gray-700">
                                 Featured Image
                             </label>
-                            <img
-                                src={
-                                    project.featured_image
-                                        ? `/storage/${project.featured_image}`
-                                        : "/images/placeholder.jpg"
-                                }
-                                alt={project.title}
-                                className="object-cover w-[200px] h-full rounded-lg"
-                            />
+                            {data.featured_image instanceof File ? (
+                                <img
+                                    src={URL.createObjectURL(
+                                        data.featured_image
+                                    )}
+                                    alt={project.title}
+                                    className="object-cover w-[200px] h-full rounded-lg"
+                                />
+                            ) : (
+                                <img
+                                    src={`/storage/${data.featured_image_existing}`}
+                                    alt={project.title}
+                                    className="object-cover w-[200px] h-full rounded-lg"
+                                />
+                            )}
                         </div>
-                    ) : null}
+                    )}
 
                     {/* File Upload for Featured Image */}
                     <div>
@@ -344,22 +359,48 @@ export default function Edit({
                         <label className="block font-semibold text-sm text-gray-700">
                             Gallery Images
                         </label>
-                        {/* Display existing gallery images */}
-                        {project.gallery_images &&
-                            project.gallery_images.length > 0 && (
-                                <div>
-                                    <label className="block font-semibold text-sm text-gray-700 mb-1">
+                        {Array.isArray(data.gallery_images) &&
+                            data.gallery_images.length > 0 && (
+                                <div className="mb-4">
+                                    <label className="block font-semibold text-sm text-gray-700">
                                         Existing Gallery Images
                                     </label>
-                                    <div className="flex flex-wrap gap-4">
-                                        {project.gallery_images.map((img) => (
-                                            <img
-                                                key={img.id}
-                                                src={img.url} // or whatever your controller/resource returns
-                                                alt="Gallery"
-                                                className="w-32 h-32 object-cover rounded border"
-                                            />
-                                        ))}
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {data.gallery_images.map(
+                                            (img, index) => {
+                                                if (typeof img === "string") {
+                                                    return (
+                                                        <img
+                                                            key={index}
+                                                            src={`/storage/${img}`}
+                                                            alt={`Gallery Image ${
+                                                                index + 1
+                                                            }`}
+                                                            className="w-32 h-32 object-cover rounded"
+                                                        />
+                                                    );
+                                                } else if (
+                                                    img instanceof File ||
+                                                    img instanceof Blob
+                                                ) {
+                                                    return (
+                                                        <img
+                                                            key={index}
+                                                            src={URL.createObjectURL(
+                                                                img
+                                                            )}
+                                                            alt={`New Image ${
+                                                                index + 1
+                                                            }`}
+                                                            className="w-32 h-32 object-cover rounded"
+                                                        />
+                                                    );
+                                                } else {
+                                                    // Skip or show fallback if the image format is invalid
+                                                    return null;
+                                                }
+                                            }
+                                        )}
                                     </div>
                                 </div>
                             )}

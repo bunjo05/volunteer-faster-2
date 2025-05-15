@@ -210,7 +210,7 @@ export default function Projects({ userStatus, projects }) {
                                             {/* Request for Review Button */}
                                             {project.status === "Pending" &&
                                                 project.request_for_approval ===
-                                                    1 && (
+                                                    0 && (
                                                     <button
                                                         onClick={() =>
                                                             handleRequestReview(
