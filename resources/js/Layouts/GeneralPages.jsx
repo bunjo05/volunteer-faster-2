@@ -2,7 +2,9 @@ import ApplicationLogo from "@/Components/ApplicationLogo";
 import { Link } from "@inertiajs/react";
 import { useState } from "react";
 
-export default function GeneralPages({ children }) {
+import { LogOut } from "lucide-react";
+
+export default function GeneralPages({ children, auth }) {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     return (
@@ -41,19 +43,42 @@ export default function GeneralPages({ children }) {
                     </nav>
 
                     {/* Auth Links */}
+                    {/* Auth Links */}
                     <div className="hidden sm:flex items-center space-x-4">
-                        <Link
-                            href="/login"
-                            className="text-gray-700 hover:text-blue-600 font-medium"
-                        >
-                            Login
-                        </Link>
-                        <Link
-                            href="/register"
-                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold"
-                        >
-                            Register
-                        </Link>
+                        {auth?.user ? (
+                            <>
+                                <Link
+                                    href="/dashboard"
+                                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold"
+                                >
+                                    Dashboard
+                                </Link>
+                                <Link
+                                    href={route("logout")}
+                                    method="post"
+                                    as="button"
+                                    className="w-full flex items-center gap-3 py-2 px-4 rounded bg-red-500 text-white hover:bg-red-600"
+                                >
+                                    <LogOut className="w-5 h-5" />
+                                    Logout
+                                </Link>
+                            </>
+                        ) : (
+                            <>
+                                <Link
+                                    href="/login"
+                                    className="text-gray-700 hover:text-blue-600 font-medium"
+                                >
+                                    Login
+                                </Link>
+                                <Link
+                                    href="/register"
+                                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold"
+                                >
+                                    Register
+                                </Link>
+                            </>
+                        )}
                     </div>
 
                     {/* Mobile Menu Button */}
@@ -111,18 +136,40 @@ export default function GeneralPages({ children }) {
                             </Link>
 
                             <div className="flex w-full">
-                                <Link
-                                    href="/login"
-                                    className="w-full block text-center text-gray-700 hover:text-blue-600 font-medium"
-                                >
-                                    Login
-                                </Link>
-                                <Link
-                                    href="/register"
-                                    className="w-full block text-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold"
-                                >
-                                    Register
-                                </Link>
+                                {auth?.user ? (
+                                    <>
+                                        <Link
+                                            href="/dashboard"
+                                            className="w-full block text-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold"
+                                        >
+                                            Dashboard
+                                        </Link>
+                                        <Link
+                                            href={route("logout")}
+                                            method="post"
+                                            as="button"
+                                            className="w-full flex items-center gap-3 py-2 px-4 rounded bg-red-500 text-white hover:bg-red-600"
+                                        >
+                                            <LogOut className="w-5 h-5" />
+                                            Logout
+                                        </Link>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Link
+                                            href="/login"
+                                            className="w-1/2 block text-center text-gray-700 hover:text-blue-600 font-medium"
+                                        >
+                                            Login
+                                        </Link>
+                                        <Link
+                                            href="/register"
+                                            className="w-1/2 block text-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold"
+                                        >
+                                            Register
+                                        </Link>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>

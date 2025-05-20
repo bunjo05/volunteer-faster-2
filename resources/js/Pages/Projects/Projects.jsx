@@ -1,9 +1,9 @@
 import GeneralPages from "@/Layouts/GeneralPages";
 import { Link } from "@inertiajs/react";
 
-export default function Projects({ projects }) {
+export default function Projects({ projects, auth }) {
     return (
-        <GeneralPages>
+        <GeneralPages auth={auth}>
             {/* Page Header */}
             <div className="py-12 px-4 sm:px-6 lg:px-8 text-center bg-blue-50">
                 <h1 className="text-4xl font-extrabold text-blue-800 mb-3">
@@ -34,7 +34,14 @@ export default function Projects({ projects }) {
                             />
                             <div className="p-5 flex flex-col flex-grow">
                                 <h3 className="text-xl font-bold text-gray-800 mb-1">
-                                    {project.title}
+                                    <Link
+                                        href={route(
+                                            "projects.home.view",
+                                            project.slug
+                                        )}
+                                    >
+                                        {project.title}
+                                    </Link>
                                 </h3>
                                 <div className="flex flex-wrap gap-2 text-sm mb-2">
                                     <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full">

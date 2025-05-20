@@ -239,7 +239,7 @@ class OrganizationController extends Controller
             'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048', // Adjust file size limit as needed
             'featured_image_existing' => 'nullable|string',
 
-            'gallery_images.*' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'gallery_images.*' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
             'existing_gallery_images' => 'array',
             'existing_gallery_images.*' => 'string',
 
@@ -270,29 +270,27 @@ class OrganizationController extends Controller
         }
         // Store the new image and get the file path
         $data['featured_image'] = $request->file('featured_image')->store('projects/featured', 'public');
-    } elseif ($request->has('featured_image_existing')) {
-        // If no new image, use the existing one
-        $data['featured_image'] = $request->input('featured_image_existing');
-    }
+        } elseif ($request->has('featured_image_existing')) {
+            // If no new image, use the existing one
+            $data['featured_image'] = $request->input('featured_image_existing');
+        }
 
-        $data['suitable'] = $request->input('suitable', []);
-        $data['availability_months'] = $request->input('availability_months', []);
+            $data['suitable'] = $request->input('suitable', []);
+            $data['availability_months'] = $request->input('availability_months', []);
 
-        // Handle gallery images
-
-        $existingImages = $request->input('existing_gallery_images', []);
-
-        $project->galleryImages()->whereNotIn('image_path', $existingImages)->each(function ($image) {
-            Storage::delete($image->image_path);
-            $image->delete();
+            // ⚠️ Delete gallery images removed by the user
+        $existingGalleryImages = $request->input('existing_gallery_images', []);
+        $project->galleryImages()->get()->each(function ($image) use ($existingGalleryImages) {
+            if (!in_array($image->image_path, $existingGalleryImages)) {
+                Storage::disk('public')->delete($image->image_path);
+                $image->delete();
+            }
         });
 
-        // Store new uploaded images
+        // ✅ Store new uploaded gallery images
         if ($request->hasFile('gallery_images')) {
             foreach ($request->file('gallery_images') as $image) {
-
                 $filename = uniqid() . '_' . Str::random(10) . '.' . $image->getClientOriginalExtension();
-
                 $path = $image->storeAs('projects/gallery', $filename, 'public');
 
                 $project->galleryImages()->create([
@@ -301,11 +299,8 @@ class OrganizationController extends Controller
             }
         }
 
-        if (!empty($galleryPaths)) {
-            $data['gallery_images'] = $galleryPaths;
-        }
-
-        $project->update($data);
+    // ✅ Update the project itself
+    $project->update($data);
 
         return redirect()->route('organization.projects')->with('success', 'Project updated successfully.');
     }

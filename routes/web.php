@@ -1,18 +1,20 @@
 <?php
 
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Application;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\SocialAuthController;
+use App\Http\Controllers\HomeController;
 
-use App\Http\Controllers\Admin\Auth\LoginController;
 use App\Http\Controllers\AdminsController;
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\VolunteerController;
+use App\Http\Controllers\SocialAuthController;
+use App\Http\Controllers\OrganizationController;
+use App\Http\Controllers\Admin\Auth\LoginController;
 use App\Http\Controllers\Auth\OtpVerificationController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
-use App\Http\Controllers\HomeController;
-use App\Http\Controllers\OrganizationController;
-use App\Http\Controllers\VolunteerController;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/about', [HomeController::class, 'about'])->name('about');
@@ -25,9 +27,33 @@ Route::get('/organization', [HomeController::class, 'organization'])->name('orga
 Route::get('/volunteer-programs', [HomeController::class, 'projects'])->name('projects');
 Route::get('/volunteer-programs/{slug}', [HomeController::class, 'viewProject'])->name('projects.home.view');
 
+Route::get('/volunteer-programs/{slug}/volunteer', [BookingController::class, 'index'])->name('project.volunteer.booking');
+
+
+Route::post('/send-verification-code', [BookingController::class, 'volunteerEmailSend'])->name('volunteer.email.send');
+Route::post('/volunteer/email/verify', [BookingController::class, 'verify'])->name('volunteer.email.verify');
+Route::post('/volunteer-booking/store', [BookingController::class, 'store'])->name('volunteer.booking.store');
+
+Route::post('/auth/volunteer-booking/store', [BookingController::class, 'authStore'])->name('auth.volunteer.booking.store');
+
 Route::get('/dashboard', function () {
+    $user = Auth::user();
+
+    if ($user->role === "Organization") {
+        return redirect()->route('organization.dashboard');
+    }
+
+    if ($user->role === "Volunteer") {
+        return redirect()->route('volunteer.dashboard');
+    }
+
+    // Default fallback
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
+
+// Route::get('/dashboard', function () {
+//     return Inertia::render('Dashboard');
+// })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

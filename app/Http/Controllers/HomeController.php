@@ -25,7 +25,7 @@ class HomeController extends Controller
     public function viewProject($slug)
     {
         $project = Project::where('slug', $slug)
-        ->with(['category', 'subcategory', 'galleryImages'])
+        ->with(['category', 'subcategory', 'galleryImages', 'organizationProfile'])
         ->firstOrFail();
         return inertia('Projects/ViewProject', [
             'project' => $project,

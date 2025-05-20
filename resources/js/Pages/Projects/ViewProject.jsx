@@ -1,7 +1,8 @@
 import GeneralPages from "@/Layouts/GeneralPages";
 import { useState, useEffect, useRef } from "react";
+import { Link } from "@inertiajs/react";
 
-export default function ViewProject({ project }) {
+export default function ViewProject({ project, auth }) {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const gallery = project.gallery_images || [];
@@ -54,11 +55,11 @@ export default function ViewProject({ project }) {
         );
     };
     return (
-        <GeneralPages>
+        <GeneralPages auth={auth}>
             {/* Hero Image */}
-            <div className="w-full max-w-7xl mx-auto px-4 py-8">
+            <div className="w-full max-w-7xl mx-auto px-4 py-4">
                 {/* Hero Image */}
-                <div className="w-full max-w-7xl mx-auto px-4 py-8">
+                <div className="w-full max-w-7xl mx-auto">
                     {gallery.length > 0 ? (
                         <div
                             className="relative w-full h-[400px] overflow-hidden rounded-lg shadow-lg cursor-pointer"
@@ -201,19 +202,37 @@ export default function ViewProject({ project }) {
 
                     {/* CTA */}
                     <div className="pt-6">
-                        <a
-                            href={`/apply/${project.id}`}
+                        <Link
+                            href={route(
+                                "project.volunteer.booking",
+                                project.slug
+                            )}
                             className="inline-block bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-3 rounded-full text-lg font-semibold transition duration-300 shadow-lg"
                         >
                             Apply to Volunteer
-                        </a>
+                        </Link>
                     </div>
                 </div>
 
                 {/* RIGHT SIDE - Sidebar */}
-                <div className="space-y-8 md:col-span-1">
+                <div className="space-y-4 md:col-span-1">
+                    {/* Organization Info */}
+                    <section className="bg-blue-50 p-2 rounded-xl border border-gray-200 shadow-sm flex items-center gap-2">
+                        <img
+                            className="w-16 h-16 rounded-full"
+                            src={
+                                project.organization_profile.logo
+                                    ? `/storage/${project.organization_profile.logo}`
+                                    : "/images/placeholder.jpg"
+                            }
+                            alt=""
+                        />
+                        <h3 className="text-xl font-bold text-gray-800 mb-2">
+                            {project.organization_profile?.name}
+                        </h3>
+                    </section>
                     {/* Quick Facts */}
-                    <section className="bg-gray-50 p-6 rounded-xl shadow-md">
+                    <section className="bg-blue-50 p-6 rounded-xl shadow-md">
                         <h2 className="text-xl font-semibold text-gray-800 mb-4">
                             Quick Facts
                         </h2>
@@ -264,6 +283,27 @@ export default function ViewProject({ project }) {
                                     </div>
                                 </section>
                             )}
+
+                            {project.availability_months?.length > 0 && (
+                                <section className="">
+                                    <h3 className="text-xl font-semibold text-blue-800 mb-4">
+                                        🗓️ Availability Months
+                                    </h3>
+                                    <div className="flex flex-wrap gap-3">
+                                        {project.availability_months.map(
+                                            (item, index) => (
+                                                <span
+                                                    key={index}
+                                                    className="bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-medium shadow"
+                                                >
+                                                    {item}
+                                                </span>
+                                            )
+                                        )}
+                                    </div>
+                                </section>
+                            )}
+
                             {project.languages && (
                                 <div>
                                     <h4 className="text-gray-800 font-semibold">
@@ -275,20 +315,6 @@ export default function ViewProject({ project }) {
                                 </div>
                             )}
                         </div>
-                    </section>
-
-                    {/* Organization Info */}
-                    <section className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                        <h3 className="text-xl font-bold text-gray-800 mb-2">
-                            Hosted by {project.user?.name}
-                        </h3>
-                        {project.organization && (
-                            <p className="text-gray-600">
-                                {project.organization.name} <br />
-                                {project.organization.city},{" "}
-                                {project.organization.country}
-                            </p>
-                        )}
                     </section>
                 </div>
             </div>

@@ -5,7 +5,7 @@ import { useInView } from "react-intersection-observer";
 
 import { useEffect, useRef } from "react";
 
-export default function Home({ projects }) {
+export default function Home({ projects, auth }) {
     const testimonials = [
         {
             name: "Lina K.",
@@ -52,7 +52,7 @@ export default function Home({ projects }) {
     }, []);
 
     return (
-        <GeneralPages>
+        <GeneralPages auth={auth}>
             {/* Hero Section */}
             <section
                 className="relative bg-cover bg-center bg-no-repeat h-[90vh] flex items-center justify-center"

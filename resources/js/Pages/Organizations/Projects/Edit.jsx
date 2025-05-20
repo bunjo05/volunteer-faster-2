@@ -46,36 +46,36 @@ export default function Edit({
         activities: project.activities || "",
         suitable: project.suitable || [], // make sure this defaults to an array
         availability_months: project.availability_months || [],
-        gallery_images: project.gallery_images || [],
+
+        gallery_images: [],
+        gallery_images_existing: project.gallery_images || [],
+
         start_date: project.start_date || "",
         status: "Pending", // Always reset to Pending on update
         request_for_approval: false,
     });
 
-    console.log(errors);
+    console.log(project.gallery_images);
 
     const handleSubmit = (e) => {
         e.preventDefault();
 
         const formData = new FormData();
 
-        // Append all other fields
+        // Append standard fields
         Object.entries(data).forEach(([key, value]) => {
-            if (Array.isArray(value)) {
-                if (key === "gallery_images" && value.length > 0) {
-                    value.forEach((file) => {
-                        if (file instanceof File) {
-                            formData.append("gallery_images[]", file); // new uploads
-                        } else if (typeof file === "string") {
-                            formData.append("existing_gallery_images[]", file); // existing
-                        }
-                    });
-                } else {
-                    // For other arrays like availability_months or suitable
-                    value.forEach((item) => {
-                        formData.append(`${key}[]`, item);
-                    });
-                }
+            if (key === "gallery_images") {
+                // If there are new files, append them
+                value.forEach((file) => {
+                    if (file instanceof File) {
+                        formData.append("gallery_images[]", file);
+                    }
+                });
+
+                // Also always append existing images to preserve them
+                data.gallery_images_existing.forEach((existingPath) => {
+                    formData.append("existing_gallery_images[]", existingPath);
+                });
             } else if (
                 key !== "featured_image" &&
                 key !== "featured_image_existing"
@@ -84,7 +84,7 @@ export default function Edit({
             }
         });
 
-        // Append featured image data
+        // Handle featured image separately
         if (data.featured_image instanceof File) {
             formData.append("featured_image", data.featured_image);
         } else {
@@ -94,7 +94,6 @@ export default function Edit({
             );
         }
 
-        // Submit
         post(route("organization.projects.update", project.slug), {
             data: formData,
             forceFormData: true,
@@ -359,55 +358,58 @@ export default function Edit({
                         <label className="block font-semibold text-sm text-gray-700">
                             Gallery Images
                         </label>
-                        {Array.isArray(data.gallery_images) &&
-                            data.gallery_images.length > 0 && (
-                                <div className="mb-4">
-                                    <label className="block font-semibold text-sm text-gray-700">
-                                        Existing Gallery Images
-                                    </label>
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                        {data.gallery_images.map(
-                                            (img, index) => {
-                                                if (typeof img === "string") {
-                                                    return (
-                                                        <img
-                                                            key={index}
-                                                            src={`/storage/${img}`}
-                                                            alt={`Gallery Image ${
-                                                                index + 1
-                                                            }`}
-                                                            className="w-32 h-32 object-cover rounded"
-                                                        />
-                                                    );
-                                                } else if (
-                                                    img instanceof File ||
-                                                    img instanceof Blob
-                                                ) {
-                                                    return (
-                                                        <img
-                                                            key={index}
-                                                            src={URL.createObjectURL(
-                                                                img
-                                                            )}
-                                                            alt={`New Image ${
-                                                                index + 1
-                                                            }`}
-                                                            className="w-32 h-32 object-cover rounded"
-                                                        />
-                                                    );
-                                                } else {
-                                                    // Skip or show fallback if the image format is invalid
-                                                    return null;
-                                                }
-                                            }
-                                        )}
-                                    </div>
-                                </div>
-                            )}
+                        {/* Gallery Images Display */}
+                        <div>
+                            <label className="block font-semibold text-sm text-gray-700 mb-2">
+                                Existing Gallery Images
+                            </label>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                {data.gallery_images_existing &&
+                                data.gallery_images_existing.length > 0 ? (
+                                    data.gallery_images_existing.map(
+                                        (image, index) => (
+                                            <div
+                                                key={index}
+                                                className="relative"
+                                            >
+                                                <img
+                                                    src={`/storage/${image.image_path}`} // Update this path if images are stored elsewhere
+                                                    alt={`Gallery image ${
+                                                        index + 1
+                                                    }`}
+                                                    className="w-full h-32 object-cover rounded"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setData(
+                                                            "gallery_images_existing",
+                                                            data.gallery_images_existing.filter(
+                                                                (img) =>
+                                                                    img !==
+                                                                    image
+                                                            )
+                                                        )
+                                                    }
+                                                    className="absolute top-0 right-0 bg-red-500 text-white rounded-full px-1"
+                                                >
+                                                    &times;
+                                                </button>
+                                            </div>
+                                        )
+                                    )
+                                ) : (
+                                    <p className="text-gray-500 text-sm">
+                                        No images available.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
 
+                        {/* Upload new gallery images */}
                         <div>
                             <label className="block font-semibold text-sm text-gray-700">
-                                Add More Gallery Images
+                                Upload New Gallery Images
                             </label>
                             <input
                                 type="file"
@@ -418,12 +420,12 @@ export default function Edit({
                                         Array.from(e.target.files)
                                     )
                                 }
-                                className="mt-1"
+                                className="w-full mt-1"
                             />
                             {errors.gallery_images && (
-                                <div className="text-red-500">
+                                <p className="text-red-500 text-sm">
                                     {errors.gallery_images}
-                                </div>
+                                </p>
                             )}
                         </div>
                     </div>
