@@ -31,6 +31,7 @@ Route::get('/volunteer-programs/{slug}/volunteer', [BookingController::class, 'i
 
 
 Route::post('/send-verification-code', [BookingController::class, 'volunteerEmailSend'])->name('volunteer.email.send');
+Route::post('/check-email-exists', [BookingController::class, 'checkEmailExists'])->name('volunteer.email.exists');
 Route::post('/volunteer/email/verify', [BookingController::class, 'verify'])->name('volunteer.email.verify');
 Route::post('/volunteer-booking/store', [BookingController::class, 'store'])->name('volunteer.booking.store');
 
@@ -50,10 +51,6 @@ Route::get('/dashboard', function () {
     // Default fallback
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
-
-// Route::get('/dashboard', function () {
-//     return Inertia::render('Dashboard');
-// })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -78,8 +75,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
 // Admin Dashboard Routes
 Route::prefix('admin')->middleware('auth:admin')->group(function () {
-    Route::get('/dashboard', [AdminsController::class , 'index'])->name('admin.dashboard');
-    Route::get('/users', [AdminsController::class , 'users'])->name('admin.users');
+    Route::get('/dashboard', [AdminsController::class, 'index'])->name('admin.dashboard');
+    Route::get('/users', [AdminsController::class, 'users'])->name('admin.users');
     Route::put('/users/{user}/status', [AdminsController::class, 'updateStatus']);
 
     Route::put('/project/{id}/status', [AdminsController::class, 'updateProjectStatus'])->name('admin.project.update-status');
@@ -87,24 +84,25 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     Route::post('/project/remark', [AdminsController::class, 'storeRemark'])->name('admin.project.remark.store');
     Route::put('/admin/project-remark/{id}', [AdminsController::class, 'updateRemark'])->name('admin.project.remark.update');
 
-    Route::get('/organizations', [AdminsController::class , 'organizations'])->name('admin.organizations');
-    Route::get('/volunteers', [AdminsController::class , 'volunteers'])->name('admin.volunteers');
-    Route::get('/projects', [AdminsController::class , 'projects'])->name('admin.projects');
-    Route::get('/projects/{slug}', [AdminsController::class , 'viewProject'])->name('admin.projects.view');
-    Route::get('/messages', [AdminsController::class , 'messages'])->name('admin.messages');
-    Route::get('/categories', [AdminsController::class , 'categories'])->name('admin.categories');
-    Route::post('/categories', [AdminsController::class , 'storeCategory'])->name('admin.categories.store');
-    Route::get('/subcategories', [AdminsController::class , 'subcategories'])->name('admin.subcategories');
-    Route::post('/subcategories', [AdminsController::class , 'storeSubcategory'])->name('admin.subcategories.store');
+    Route::get('/organizations', [AdminsController::class, 'organizations'])->name('admin.organizations');
+    Route::get('/volunteers', [AdminsController::class, 'volunteers'])->name('admin.volunteers');
+    Route::get('/projects', [AdminsController::class, 'projects'])->name('admin.projects');
+    Route::get('/projects/{slug}', [AdminsController::class, 'viewProject'])->name('admin.projects.view');
+    Route::get('/messages', [AdminsController::class, 'messages'])->name('admin.messages');
+    Route::get('/categories', [AdminsController::class, 'categories'])->name('admin.categories');
+    Route::post('/categories', [AdminsController::class, 'storeCategory'])->name('admin.categories.store');
+    Route::get('/subcategories', [AdminsController::class, 'subcategories'])->name('admin.subcategories');
+    Route::post('/subcategories', [AdminsController::class, 'storeSubcategory'])->name('admin.subcategories.store');
 });
 
 
-Route::prefix('volunteer')->middleware('check.role:Volunteer')->group(function(){
-   Route::get('/dashboard', [VolunteerController::class, 'index'])->name('volunteer.dashboard');
-   Route::get('/messages', [VolunteerController::class, 'messages'])->name('volunteer.messages');
+Route::prefix('volunteer')->middleware('check.role:Volunteer')->group(function () {
+    Route::get('/dashboard', [VolunteerController::class, 'index'])->name('volunteer.dashboard');
+    Route::get('/messages', [VolunteerController::class, 'messages'])->name('volunteer.messages');
+    Route::get('/project', [VolunteerController::class, 'projects'])->name('volunteer.projects');
 });
 
-Route::prefix('organization')->middleware('check.role:Organization')->group(function(){
+Route::prefix('organization')->middleware('check.role:Organization')->group(function () {
     Route::get('/dashboard', [OrganizationController::class, 'index'])->name('organization.dashboard');
     Route::get('/profile', [OrganizationController::class, 'profile'])->name('organization.profile');
     Route::post('/profile', [OrganizationController::class, 'updateProfile'])->name('organization.profile.update');
@@ -119,4 +117,4 @@ Route::prefix('organization')->middleware('check.role:Organization')->group(func
     Route::get('/projects/{slug}/edit', [OrganizationController::class, 'editProject'])->name('organization.projects.edit');
     Route::post('/projects/{slug}', [OrganizationController::class, 'updateProject'])->name('organization.projects.update');
 });
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

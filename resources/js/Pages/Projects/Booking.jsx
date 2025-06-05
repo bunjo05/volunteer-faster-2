@@ -1,59 +1,105 @@
 import { useState } from "react";
 import GeneralPages from "@/Layouts/GeneralPages";
+import { usePage } from "@inertiajs/react"; // Add this import
 import { useForm } from "@inertiajs/react";
 
-export default function Booking({ project, auth }) {
+import InputError from "@/Components/InputError";
+import InputLabel from "@/Components/InputLabel";
+import TextInput from "@/Components/TextInput";
+import Checkbox from "@/Components/Checkbox";
+import PrimaryButton from "@/Components/PrimaryButton";
+
+import Modal from "@/Components/Modal"; // Assuming you have a Modal component
+
+export default function Booking({ project, auth, canResetPassword }) {
     const [step, setStep] = useState(1);
     const [emailVerified, setEmailVerified] = useState(false);
     const [verificationCode, setVerificationCode] = useState("");
     const [sentCode, setSentCode] = useState("");
     const [showVerificationInput, setShowVerificationInput] = useState(false);
+    const [emailExists, setEmailExists] = useState(false);
+    const [showLoginModal, setShowLoginModal] = useState(false);
 
-    const { data, setData, post, errors, processing } = useForm({
-        email: "",
-        password: "",
-        confirmPassword: "",
-        name: "",
-        gender: "",
-        dob: "",
-        country: "",
-        address: "",
-        city: "",
-        postal: "",
-        phone: "",
-        start_date: "",
-        end_date: "",
-        number_of_travellers: "",
-        message: "",
-        project_id: project.id,
-    });
+    const { url } = usePage(); // Get current URL
+
+    const { data, setData, post, errors, processing, fullData, reset } =
+        useForm({
+            email: "",
+            password: "",
+            confirmPassword: "",
+            name: "",
+            gender: "",
+            dob: "",
+            country: "",
+            address: "",
+            city: "",
+            postal: "",
+            phone: "",
+            start_date: "",
+            end_date: "",
+            number_of_travellers: "",
+            message: "",
+            project_id: project.id,
+            booking_status: "Pending",
+        });
+
+    const [isSendingCode, setIsSendingCode] = useState(false);
+
+    const LoginSubmit = (e) => {
+        e.preventDefault();
+
+        post(route("login"), {
+            preserveState: true,
+            preserveScroll: true,
+            data: {
+                email: data.email,
+                password: data.password,
+                remember: data.remember,
+                redirect_to: route("projects.home.view", {
+                    slug: project.slug,
+                }), // Add redirect parameter
+            },
+            onSuccess: () => {
+                setShowLoginModal(false);
+                window.location.reload();
+            },
+            onError: (errors) => {
+                console.error("Login failed:", errors);
+                // Handle login errors here
+            },
+            // onFinish: () => reset("password"),
+        });
+    };
 
     const nextStep = () => setStep(step + 1);
     const prevStep = () => setStep(step - 1);
 
-    const sendVerificationCode = async (e) => {
-        e.preventDefault();
-
-        if (!data.email) {
-            alert("Please enter your email first.");
-            return;
-        }
+    const sendVerificationCode = async () => {
+        setIsSendingCode(true);
+        setEmailExists(false); // Reset email exists error
 
         try {
-            const response = await axios.post(route("volunteer.email.send"), {
+            const response = await axios.post("/check-email-exists", {
                 email: data.email,
             });
 
-            if (response.data.success) {
-                setSentCode(response.data.code); // store the code for later comparison
-                setShowVerificationInput(true);
-                alert("Verification code sent to your email.");
-            } else {
-                alert("Failed to send verification code.");
+            if (response.data.exists) {
+                setEmailExists(true);
+                return;
             }
+
+            // Call your backend logic here (e.g., axios.post or Inertia.post)
+            await axios.post("/send-verification-code", { email: data.email });
+
+            // Optionally show input for code
+            setShowVerificationInput(true);
         } catch (error) {
-            console.error(error);
-            alert("Error sending verification code.");
+            console.error("Failed to send code:", error);
+            if (error.response && error.response.status === 422) {
+                setEmailExists(true);
+            }
+        } finally {
+            setIsSendingCode(false);
         }
     };
 
@@ -87,9 +133,7 @@ export default function Booking({ project, auth }) {
                 number_of_travellers: data.number_of_travellers,
                 message: data.message,
                 project_id: project.id,
-                // user_id: auth.user.id,
             };
-            // console.log(payload);
             post(route("auth.volunteer.booking.store"), {
                 data: payload,
                 onSuccess: () => console.log("Booking successful"),
@@ -141,6 +185,11 @@ export default function Booking({ project, auth }) {
                                         type="date"
                                         name="start_date"
                                         value={data.start_date}
+                                        min={
+                                            new Date()
+                                                .toISOString()
+                                                .split("T")[0]
+                                        }
                                         onChange={(e) =>
                                             setData(
                                                 "start_date",
@@ -263,19 +312,68 @@ export default function Booking({ project, auth }) {
                                                         "email",
                                                         e.target.value
                                                     );
+                                                    setEmailExists(false); // Reset when typing
                                                 }}
                                                 className="w-full p-2 border rounded pr-28"
                                                 required
                                             />
-                                            {!emailVerified && (
+                                            {emailExists && (
+                                                <div className="text-red-500 text-sm mt-1">
+                                                    Email already exists. Please{" "}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setShowLoginModal(
+                                                                true
+                                                            )
+                                                        }
+                                                        className="text-indigo-600 underline hover:text-indigo-800"
+                                                    >
+                                                        login
+                                                    </button>{" "}
+                                                    to continue.
+                                                </div>
+                                            )}
+                                            {!emailVerified && !emailExists && (
                                                 <button
                                                     type="button"
                                                     onClick={
                                                         sendVerificationCode
                                                     }
-                                                    className="absolute right-2 top-8 text-sm bg-indigo-600 text-white px-2 py-1 rounded"
+                                                    disabled={isSendingCode}
+                                                    className={`absolute right-2 top-8 text-sm px-2 py-1 rounded transition ${
+                                                        isSendingCode
+                                                            ? "bg-gray-400 cursor-not-allowed"
+                                                            : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                                                    }`}
                                                 >
-                                                    Send Code
+                                                    {isSendingCode ? (
+                                                        <span className="flex items-center gap-1">
+                                                            <svg
+                                                                className="animate-spin h-4 w-4 text-white"
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                fill="none"
+                                                                viewBox="0 0 24 24"
+                                                            >
+                                                                <circle
+                                                                    className="opacity-25"
+                                                                    cx="12"
+                                                                    cy="12"
+                                                                    r="10"
+                                                                    stroke="currentColor"
+                                                                    strokeWidth="4"
+                                                                ></circle>
+                                                                <path
+                                                                    className="opacity-75"
+                                                                    fill="currentColor"
+                                                                    d="M4 12a8 8 0 018-8v8z"
+                                                                ></path>
+                                                            </svg>
+                                                            Sending...
+                                                        </span>
+                                                    ) : (
+                                                        "Send Code"
+                                                    )}
                                                 </button>
                                             )}
                                             {emailVerified && (
@@ -642,6 +740,93 @@ export default function Booking({ project, auth }) {
                     )}
                 </div>
             </div>
+
+            {/* Login Modal */}
+            <Modal
+                show={showLoginModal}
+                onClose={() => setShowLoginModal(false)}
+            >
+                <div className="p-6">
+                    <h2 className="text-2xl font-bold mb-4">Login</h2>
+                    <form onSubmit={LoginSubmit}>
+                        <div>
+                            <InputLabel htmlFor="email" value="Email" />
+
+                            <TextInput
+                                id="email"
+                                type="email"
+                                name="email"
+                                value={data.email}
+                                className="mt-1 block w-full"
+                                autoComplete="username"
+                                isFocused={true}
+                                onChange={(e) =>
+                                    setData("email", e.target.value)
+                                }
+                            />
+
+                            <InputError
+                                message={errors.email}
+                                className="mt-2"
+                            />
+                        </div>
+
+                        <div className="mt-4">
+                            <InputLabel htmlFor="password" value="Password" />
+
+                            <TextInput
+                                id="password"
+                                type="password"
+                                name="password"
+                                value={data.password}
+                                className="mt-1 block w-full"
+                                autoComplete="current-password"
+                                onChange={(e) =>
+                                    setData("password", e.target.value)
+                                }
+                            />
+
+                            <InputError
+                                message={errors.password}
+                                className="mt-2"
+                            />
+                        </div>
+
+                        <div className="mt-4 block">
+                            <label className="flex items-center">
+                                <Checkbox
+                                    name="remember"
+                                    checked={data.remember}
+                                    onChange={(e) =>
+                                        setData("remember", e.target.checked)
+                                    }
+                                />
+                                <span className="ms-2 text-sm text-gray-600">
+                                    Remember me
+                                </span>
+                            </label>
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-end">
+                            {canResetPassword && (
+                                <Link
+                                    href={route("password.request")}
+                                    className="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                                >
+                                    Forgot your password?
+                                </Link>
+                            )}
+
+                            <PrimaryButton
+                                className="ms-4"
+                                disabled={processing}
+                            >
+                                Log in
+                            </PrimaryButton>
+                        </div>
+                    </form>
+                </div>
+            </Modal>
         </GeneralPages>
     );
 }

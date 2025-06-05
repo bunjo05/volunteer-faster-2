@@ -48,7 +48,7 @@ class OrganizationController extends Controller
 
     public function profile()
     {
-        $organization = auth()->user()->organization;
+        $organization = Auth::user()->organization;
         return Inertia::render('Organizations/Profile', [
             'organization' => $organization,
             'auth' => [
@@ -97,7 +97,7 @@ class OrganizationController extends Controller
 
     public function projects()
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         $projects = Project::with('category', 'subcategory')
             ->where('user_id', $user->id)

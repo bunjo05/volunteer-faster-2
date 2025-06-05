@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\VolunteerBooking;
+use Illuminate\Support\Facades\Auth;
 
 class VolunteerController extends Controller
 {
@@ -13,7 +15,13 @@ class VolunteerController extends Controller
 
     public function projects()
     {
-        return inertia('Volunteers/Projects');
+        $bookings = VolunteerBooking::with('project')
+            ->where('user_id', Auth::id())
+            ->get();
+
+        return inertia('Volunteers/Projects', [
+            'bookings' => $bookings
+        ]);
     }
     public function messages()
     {

@@ -21,13 +21,13 @@ export default function GuestLayout({ children }) {
                     {/* Desktop Navigation */}
                     <nav className="hidden sm:flex items-center space-x-6">
                         <Link
-                            href="/"
+                            href={route("home")}
                             className="text-gray-600 hover:text-blue-600 font-medium"
                         >
                             Home
                         </Link>
                         <Link
-                            href="/programs"
+                            href={route("projects")}
                             className="text-gray-600 hover:text-blue-600 font-medium"
                         >
                             Volunteer Programs
@@ -92,13 +92,13 @@ export default function GuestLayout({ children }) {
                     <div className="sm:hidden px-4 pb-4">
                         <div className="space-y-2">
                             <Link
-                                href="/"
+                                href={route("home")}
                                 className="block text-gray-700 hover:text-blue-600 font-medium"
                             >
                                 Home
                             </Link>
                             <Link
-                                href="/programs"
+                                href={route("projects")}
                                 className="block text-gray-700 hover:text-blue-600 font-medium"
                             >
                                 Volunteer Programs

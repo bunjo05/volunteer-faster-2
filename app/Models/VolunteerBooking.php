@@ -13,9 +13,15 @@ class VolunteerBooking extends Model
         'end_date',
         'number_of_travellers',
         'message',
+        'status'
     ];
         public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+        public function project()
+    {
+        return $this->belongsTo(Project::class);
     }
 }

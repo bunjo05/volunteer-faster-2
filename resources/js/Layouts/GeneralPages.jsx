@@ -23,13 +23,13 @@ export default function GeneralPages({ children, auth }) {
                     {/* Desktop Navigation */}
                     <nav className="hidden sm:flex items-center space-x-6">
                         <Link
-                            href="/"
+                            href={route("home")}
                             className="text-gray-600 hover:text-blue-600 font-medium"
                         >
                             Home
                         </Link>
                         <Link
-                            href="/volunteer-programs"
+                            href={route("projects")}
                             className="text-gray-600 hover:text-blue-600 font-medium"
                         >
                             Volunteer Programs
@@ -48,7 +48,7 @@ export default function GeneralPages({ children, auth }) {
                         {auth?.user ? (
                             <>
                                 <Link
-                                    href="/dashboard"
+                                    href={route("dashboard")}
                                     className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold"
                                 >
                                     Dashboard
@@ -117,13 +117,13 @@ export default function GeneralPages({ children, auth }) {
                     <div className="sm:hidden px-4 pb-4">
                         <div className="space-y-2">
                             <Link
-                                href="/"
+                                href={route("home")}
                                 className="block text-gray-700 hover:text-blue-600 font-medium"
                             >
                                 Home
                             </Link>
                             <Link
-                                href="/programs"
+                                href={route("projects")}
                                 className="block text-gray-700 hover:text-blue-600 font-medium"
                             >
                                 Volunteer Programs
@@ -139,7 +139,7 @@ export default function GeneralPages({ children, auth }) {
                                 {auth?.user ? (
                                     <>
                                         <Link
-                                            href="/dashboard"
+                                            href={route("dashboard")}
                                             className="w-full block text-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-semibold"
                                         >
                                             Dashboard

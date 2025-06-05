@@ -40,13 +40,13 @@ export default function VolunteerLayout({ children }) {
                 </div>
                 <nav className="flex-1 px-4 py-6 space-y-2">
                     <SidebarLink
-                        // href={route("volunteer.dashboard")}
+                        href={route("volunteer.dashboard")}
                         icon={Home}
                     >
                         Dashboard
                     </SidebarLink>
                     <SidebarLink
-                        // href={route("volunteer.projects")}
+                        href={route("volunteer.projects")}
                         icon={FolderKanban}
                     >
                         My Projects

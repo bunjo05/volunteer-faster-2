@@ -55,7 +55,13 @@ class User extends Authenticatable
     }
 
     public function organization()
-{
-    return $this->hasOne(OrganizationProfile::class);
-}
+    {
+        return $this->hasOne(OrganizationProfile::class);
+    }
+
+    public function project()
+    {
+        return $this->belongsTo(Project::class);
+    }
+
 }

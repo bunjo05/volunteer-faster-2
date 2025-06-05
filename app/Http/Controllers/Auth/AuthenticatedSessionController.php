@@ -74,6 +74,11 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
+        // Check for redirect_to parameter and validate it's a local URL
+        if ($request->has('redirect_to') && $this->isLocalUrl($request->input('redirect_to'))) {
+            return redirect()->to($request->input('redirect_to'));
+        }
+
         // Device is known, redirect based on role
         switch ($user->role) {
             case 'Volunteer':
@@ -84,6 +89,25 @@ class AuthenticatedSessionController extends Controller
                 Auth::logout(); // fallback for unknown roles
                 return redirect()->route('error.unauthorized')->withErrors(['role' => 'Unknown user role. Access denied.']);
         }
+    }
+
+    // Add this helper method to validate local URLs
+    protected function isLocalUrl($url)
+    {
+        if (empty($url)) {
+            return false;
+        }
+
+        // Check if the URL is relative
+        if (str_starts_with($url, '/')) {
+            return true;
+        }
+
+        // Check if the URL belongs to your domain
+        $host = parse_url($url, PHP_URL_HOST);
+        $appHost = parse_url(config('app.url'), PHP_URL_HOST);
+
+        return $host === $appHost;
     }
 
 
@@ -125,5 +149,4 @@ class AuthenticatedSessionController extends Controller
 
         return back()->with('message', 'A new OTP has been sent to your email.');
     }
-
 }
