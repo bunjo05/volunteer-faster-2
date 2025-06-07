@@ -10,6 +10,7 @@ use App\Models\UserDevice;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Log;
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
@@ -56,42 +57,58 @@ class AuthenticatedSessionController extends Controller
             ->exists();
 
         if (!$deviceKnown) {
-            // Generate OTP with leading zeros
-            $user->otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $user->otp = $otp;
             $user->otp_expires_at = now()->addMinutes(10);
             $user->save();
 
-            // Send OTP
-            Mail::to($user->email)->send(new SendOtp($user->otp));
+            try {
+                Mail::to($user->email)->send(new SendOtp($otp));
+                Log::info("OTP sent to {$user->email}", ['otp' => $otp]);
+            } catch (\Exception $e) {
+                Log::error("Failed to send OTP to {$user->email}: " . $e->getMessage());
+                Auth::logout();
+                return back()->withErrors(['email' => 'Failed to send OTP. Please try again later.']);
+            }
 
-            // Logout user temporarily
             Auth::logout();
 
-            // Redirect to OTP verification page
             return redirect()->route('otp.verify')->with([
                 'email' => $user->email,
+                'redirect_to' => $request->input('redirect_to') ?? $request->session()->pull('url.intended', url()->previous()),
                 'message' => 'A new device was detected. Please enter the OTP sent to your email.'
             ]);
         }
 
-        // Check for redirect_to parameter and validate it's a local URL
+        // First priority: redirect_to parameter from request
         if ($request->has('redirect_to') && $this->isLocalUrl($request->input('redirect_to'))) {
             return redirect()->to($request->input('redirect_to'));
         }
 
-        // Device is known, redirect based on role
+        // Second priority: intended URL from session (used by auth middleware)
+        if (session()->has('url.intended') && $this->isLocalUrl(session('url.intended'))) {
+            $redirectTo = session('url.intended');
+            session()->forget('url.intended');
+            return redirect()->to($redirectTo);
+        }
+
+        // Third priority: previous URL
+        $previousUrl = url()->previous();
+        if ($this->isLocalUrl($previousUrl) && $previousUrl !== route('login')) {
+            return redirect()->to($previousUrl);
+        }
+
+        // Final fallback: role-based redirect
         switch ($user->role) {
             case 'Volunteer':
                 return redirect()->route('volunteer.dashboard')->with('success', 'Welcome back!');
             case 'Organization':
                 return redirect()->route('organization.dashboard')->with('success', 'Welcome back!');
             default:
-                Auth::logout(); // fallback for unknown roles
+                Auth::logout();
                 return redirect()->route('error.unauthorized')->withErrors(['role' => 'Unknown user role. Access denied.']);
         }
     }
-
-    // Add this helper method to validate local URLs
     protected function isLocalUrl($url)
     {
         if (empty($url)) {
@@ -109,8 +126,6 @@ class AuthenticatedSessionController extends Controller
 
         return $host === $appHost;
     }
-
-
 
     /**
      * Destroy an authenticated session.

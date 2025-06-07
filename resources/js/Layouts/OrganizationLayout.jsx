@@ -58,6 +58,12 @@ export default function OrganizationLayout({ children }) {
                         Messages
                     </SidebarLink>
                     <SidebarLink
+                        href={route("organization.bookings")}
+                        icon={ClipboardList}
+                    >
+                        Bookings
+                    </SidebarLink>
+                    <SidebarLink
                         href={route("organization.profile")}
                         icon={User}
                     >

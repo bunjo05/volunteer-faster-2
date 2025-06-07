@@ -9,6 +9,7 @@ use App\Models\Category;
 use Illuminate\Support\Str;
 use App\Models\GalleryImage;
 use Illuminate\Http\Request;
+use App\Models\VolunteerBooking;
 use App\Models\OrganizationProfile;
 use App\Mail\ProjectReviewRequested;
 use Illuminate\Support\Facades\Auth;
@@ -33,6 +34,8 @@ class OrganizationController extends Controller
                 'approved' => $projects->where('status', 'Approved')->count(),
                 'pending' => $projects->where('status', 'Pending')->count(),
                 'rejected' => $projects->where('status', 'Rejected')->count(),
+                'completed' => $projects->where('status', 'Completed')->count(),
+                'cancelled' => $projects->where('status', 'Cancelled')->count(),
             ],
             // 'messagesCount' => Message::where('receiver_id', $user->id)->count(),
             // 'recentMessages' => $messages->map(function ($msg) {
@@ -46,6 +49,47 @@ class OrganizationController extends Controller
         ]);
     }
 
+    public function volunteerBookings()
+    {
+        $user = Auth::user();
+
+        // Get bookings for projects owned by this organization
+        $bookings = VolunteerBooking::with(['project', 'user'])
+            ->whereHas('project', function ($query) use ($user) {
+                $query->where('user_id', $user->id);
+            })
+            ->latest()
+            ->get();
+
+        return Inertia::render('Organizations/Bookings', [
+            'bookings' => $bookings->map(function ($booking) {
+                return [
+                    'id' => $booking->id,
+                    'start_date' => $booking->start_date,
+                    'end_date' => $booking->end_date,
+                    'number_of_travellers' => $booking->number_of_travellers,
+                    'status' => $booking->booking_status,
+                    'message' => $booking->message,
+                    'created_at' => $booking->created_at->format('M d, Y'),
+
+                    'volunteer' => [
+                        'name' => $booking->user->name,
+                        'email' => $booking->user->email,
+                        // Add more volunteer details as needed
+                    ],
+                    'project' => [
+                        'title' => $booking->project->title,
+                        'slug' => $booking->project->slug,
+                        'location' => $booking->project->location,
+                        'start_date' => $booking->project->start_date,
+                        'end_date' => $booking->project->end_date,
+                        'fees' => $booking->project->fees,
+
+                    ],
+                ];
+            }),
+        ]);
+    }
     public function profile()
     {
         $organization = Auth::user()->organization;
@@ -263,22 +307,22 @@ class OrganizationController extends Controller
             'request_for_approval' => 'nullable|boolean',
         ]);
 
-       // Handle the featured image upload
-    if ($request->hasFile('featured_image')) {
-        if ($project->featured_image) {
-            Storage::disk('public')->delete($project->featured_image);
-        }
-        // Store the new image and get the file path
-        $data['featured_image'] = $request->file('featured_image')->store('projects/featured', 'public');
+        // Handle the featured image upload
+        if ($request->hasFile('featured_image')) {
+            if ($project->featured_image) {
+                Storage::disk('public')->delete($project->featured_image);
+            }
+            // Store the new image and get the file path
+            $data['featured_image'] = $request->file('featured_image')->store('projects/featured', 'public');
         } elseif ($request->has('featured_image_existing')) {
             // If no new image, use the existing one
             $data['featured_image'] = $request->input('featured_image_existing');
         }
 
-            $data['suitable'] = $request->input('suitable', []);
-            $data['availability_months'] = $request->input('availability_months', []);
+        $data['suitable'] = $request->input('suitable', []);
+        $data['availability_months'] = $request->input('availability_months', []);
 
-            // ⚠️ Delete gallery images removed by the user
+        // ⚠️ Delete gallery images removed by the user
         $existingGalleryImages = $request->input('existing_gallery_images', []);
         $project->galleryImages()->get()->each(function ($image) use ($existingGalleryImages) {
             if (!in_array($image->image_path, $existingGalleryImages)) {
@@ -299,8 +343,8 @@ class OrganizationController extends Controller
             }
         }
 
-    // ✅ Update the project itself
-    $project->update($data);
+        // ✅ Update the project itself
+        $project->update($data);
 
         return redirect()->route('organization.projects')->with('success', 'Project updated successfully.');
     }
@@ -342,5 +386,4 @@ class OrganizationController extends Controller
 
         return response()->json(['message' => 'Gallery image deleted successfully.']);
     }
-
 }

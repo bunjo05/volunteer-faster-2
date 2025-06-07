@@ -64,4 +64,8 @@ class User extends Authenticatable
         return $this->belongsTo(Project::class);
     }
 
+    public function volunteerBookings()
+    {
+        return $this->hasMany(VolunteerBooking::class);
+    }
 }

@@ -78,12 +78,9 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     Route::get('/dashboard', [AdminsController::class, 'index'])->name('admin.dashboard');
     Route::get('/users', [AdminsController::class, 'users'])->name('admin.users');
     Route::put('/users/{user}/status', [AdminsController::class, 'updateStatus']);
-
     Route::put('/project/{id}/status', [AdminsController::class, 'updateProjectStatus'])->name('admin.project.update-status');
-
     Route::post('/project/remark', [AdminsController::class, 'storeRemark'])->name('admin.project.remark.store');
     Route::put('/admin/project-remark/{id}', [AdminsController::class, 'updateRemark'])->name('admin.project.remark.update');
-
     Route::get('/organizations', [AdminsController::class, 'organizations'])->name('admin.organizations');
     Route::get('/volunteers', [AdminsController::class, 'volunteers'])->name('admin.volunteers');
     Route::get('/projects', [AdminsController::class, 'projects'])->name('admin.projects');
@@ -108,13 +105,12 @@ Route::prefix('organization')->middleware('check.role:Organization')->group(func
     Route::post('/profile', [OrganizationController::class, 'updateProfile'])->name('organization.profile.update');
     Route::get('/messages', [OrganizationController::class, 'messages'])->name('organization.messages');
     Route::get('/projects', [OrganizationController::class, 'projects'])->name('organization.projects');
-
     Route::get('/projects/create', [OrganizationController::class, 'createProject'])->name('organization.projects.create');
     Route::post('/projects', [OrganizationController::class, 'storeProject'])->name('organization.projects.store');
-
     Route::post('/projects/{project}/request-review', [OrganizationController::class, 'requestReview'])->name('projects.requestReview');
-
     Route::get('/projects/{slug}/edit', [OrganizationController::class, 'editProject'])->name('organization.projects.edit');
     Route::post('/projects/{slug}', [OrganizationController::class, 'updateProject'])->name('organization.projects.update');
+
+    Route::get('/bookings', [OrganizationController::class, 'volunteerBookings'])->name('organization.bookings');
 });
 require __DIR__ . '/auth.php';

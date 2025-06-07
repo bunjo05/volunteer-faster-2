@@ -45,8 +45,20 @@ export default function Booking({ project, auth, canResetPassword }) {
 
     const [isSendingCode, setIsSendingCode] = useState(false);
 
+    const handleShowLoginModal = () => {
+        setShowLoginModal(true);
+        // Store the current URL in session storage
+        sessionStorage.setItem(
+            "preLoginUrl",
+            window.location.pathname + window.location.search
+        );
+    };
+
     const LoginSubmit = (e) => {
         e.preventDefault();
+
+        const preLoginUrl =
+            sessionStorage.getItem("preLoginUrl") || window.location.pathname;
 
         post(route("login"), {
             preserveState: true,
@@ -55,19 +67,17 @@ export default function Booking({ project, auth, canResetPassword }) {
                 email: data.email,
                 password: data.password,
                 remember: data.remember,
-                redirect_to: route("projects.home.view", {
-                    slug: project.slug,
-                }), // Add redirect parameter
+                redirect_to: preLoginUrl,
             },
             onSuccess: () => {
                 setShowLoginModal(false);
-                window.location.reload();
+                sessionStorage.removeItem("preLoginUrl");
+                // Use Inertia's reload instead of window.location.reload()
+                window.location.href = preLoginUrl;
             },
             onError: (errors) => {
                 console.error("Login failed:", errors);
-                // Handle login errors here
             },
-            // onFinish: () => reset("password"),
         });
     };
 
@@ -322,10 +332,8 @@ export default function Booking({ project, auth, canResetPassword }) {
                                                     Email already exists. Please{" "}
                                                     <button
                                                         type="button"
-                                                        onClick={() =>
-                                                            setShowLoginModal(
-                                                                true
-                                                            )
+                                                        onClick={
+                                                            handleShowLoginModal
                                                         }
                                                         className="text-indigo-600 underline hover:text-indigo-800"
                                                     >
