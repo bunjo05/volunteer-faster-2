@@ -43,12 +43,23 @@ export default function Bookings({ bookings }) {
         return duration * fees * travellers;
     };
 
-    const updateStatus = (status) => {
+    const updateStatus = (booking_status) => {
         if (!activeBooking) return;
 
-        post(route("bookings.update-status", activeBooking.id), {
-            status,
-        });
+        post(
+            route("bookings.update-status", activeBooking.id),
+            {
+                booking_status,
+            },
+            {
+                onError: (errors) => {
+                    console.error("Error updating status:", errors);
+                },
+                onSuccess: () => {
+                    // Optionally refresh the data or show a success message
+                },
+            }
+        );
     };
 
     return (
@@ -316,8 +327,8 @@ export default function Bookings({ bookings }) {
                                                                         }{" "}
                                                                         {activeBooking.number_of_travellers ===
                                                                         1
-                                                                            ? "person"
-                                                                            : "people"}
+                                                                            ? "People"
+                                                                            : "Person"}
                                                                     </p>
                                                                 </div>
                                                             </div>
@@ -425,7 +436,7 @@ export default function Bookings({ bookings }) {
                                                             Status
                                                         </h3>
                                                         <div className="flex flex-wrap gap-3">
-                                                            {activeBooking.status !==
+                                                            {activeBooking.booking_status !==
                                                                 "Approved" && (
                                                                 <button
                                                                     onClick={() =>
@@ -443,7 +454,7 @@ export default function Bookings({ bookings }) {
                                                                 </button>
                                                             )}
 
-                                                            {activeBooking.status !==
+                                                            {activeBooking.booking_status !==
                                                                 "Rejected" && (
                                                                 <button
                                                                     onClick={() =>
@@ -461,7 +472,7 @@ export default function Bookings({ bookings }) {
                                                                 </button>
                                                             )}
 
-                                                            {activeBooking.status !==
+                                                            {activeBooking.booking_status !==
                                                                 "Cancelled" && (
                                                                 <button
                                                                     onClick={() =>
@@ -479,7 +490,7 @@ export default function Bookings({ bookings }) {
                                                                 </button>
                                                             )}
 
-                                                            {activeBooking.status !==
+                                                            {activeBooking.booking_status !==
                                                                 "Completed" && (
                                                                 <button
                                                                     onClick={() =>
@@ -498,7 +509,7 @@ export default function Bookings({ bookings }) {
                                                                 </button>
                                                             )}
 
-                                                            {activeBooking.status !==
+                                                            {activeBooking.booking_status !==
                                                                 "Pending" && (
                                                                 <button
                                                                     onClick={() =>

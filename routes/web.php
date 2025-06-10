@@ -47,8 +47,6 @@ Route::get('/dashboard', function () {
     if ($user->role === "Volunteer") {
         return redirect()->route('volunteer.dashboard');
     }
-
-    // Default fallback
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
@@ -103,14 +101,24 @@ Route::prefix('organization')->middleware('check.role:Organization')->group(func
     Route::get('/dashboard', [OrganizationController::class, 'index'])->name('organization.dashboard');
     Route::get('/profile', [OrganizationController::class, 'profile'])->name('organization.profile');
     Route::post('/profile', [OrganizationController::class, 'updateProfile'])->name('organization.profile.update');
-    Route::get('/messages', [OrganizationController::class, 'messages'])->name('organization.messages');
+
+    Route::get('/messages', [OrganizationController::class, 'messages'])
+        ->name('organization.messages');
+
+    Route::patch('/messages/{message}/mark-as-read', [OrganizationController::class, 'markAsRead'])
+        ->name('organization.messages.mark-as-read');
+
+
+    // Route::get('/messages', [OrganizationController::class, 'messages'])->name('organization.messages');
     Route::get('/projects', [OrganizationController::class, 'projects'])->name('organization.projects');
     Route::get('/projects/create', [OrganizationController::class, 'createProject'])->name('organization.projects.create');
     Route::post('/projects', [OrganizationController::class, 'storeProject'])->name('organization.projects.store');
     Route::post('/projects/{project}/request-review', [OrganizationController::class, 'requestReview'])->name('projects.requestReview');
     Route::get('/projects/{slug}/edit', [OrganizationController::class, 'editProject'])->name('organization.projects.edit');
     Route::post('/projects/{slug}', [OrganizationController::class, 'updateProject'])->name('organization.projects.update');
-
     Route::get('/bookings', [OrganizationController::class, 'volunteerBookings'])->name('organization.bookings');
+
+    Route::post('/bookings/{booking}/update-status', [OrganizationController::class, 'updateBookingStatus'])
+        ->name('bookings.update-status');
 });
 require __DIR__ . '/auth.php';

@@ -9,9 +9,14 @@ import TextInput from "@/Components/TextInput";
 import Checkbox from "@/Components/Checkbox";
 import PrimaryButton from "@/Components/PrimaryButton";
 
+import OtpModal from "@/Components/OtpModal"; // Add this import
+
 import Modal from "@/Components/Modal"; // Assuming you have a Modal component
 
 export default function Booking({ project, auth, canResetPassword }) {
+    const [showOtpModal, setShowOtpModal] = useState(false);
+    const [otpEmail, setOtpEmail] = useState("");
+
     const [step, setStep] = useState(1);
     const [emailVerified, setEmailVerified] = useState(false);
     const [verificationCode, setVerificationCode] = useState("");
@@ -57,26 +62,23 @@ export default function Booking({ project, auth, canResetPassword }) {
     const LoginSubmit = (e) => {
         e.preventDefault();
 
-        const preLoginUrl =
-            sessionStorage.getItem("preLoginUrl") || window.location.pathname;
+        // const preLoginUrl = window.location.pathname + window.location.search;
 
         post(route("login"), {
-            preserveState: true,
-            preserveScroll: true,
             data: {
                 email: data.email,
                 password: data.password,
                 remember: data.remember,
-                redirect_to: preLoginUrl,
+                // redirect_to: preLoginUrl,
             },
-            onSuccess: () => {
-                setShowLoginModal(false);
-                sessionStorage.removeItem("preLoginUrl");
-                // Use Inertia's reload instead of window.location.reload()
-                window.location.href = preLoginUrl;
-            },
-            onError: (errors) => {
-                console.error("Login failed:", errors);
+            onSuccess: (response) => {
+                // Check if OTP verification is required
+                if (response.props.requiresOtp) {
+                    setOtpEmail(data.email);
+                    setShowOtpModal(true);
+                } else {
+                    // window.location.href = preLoginUrl;
+                }
             },
         });
     };
@@ -814,6 +816,12 @@ export default function Booking({ project, auth, canResetPassword }) {
                                 </span>
                             </label>
                         </div>
+
+                        {/* <OtpModal
+                            show={showOtpModal}
+                            onClose={() => setShowOtpModal(false)}
+                            email={otpEmail}
+                        /> */}
 
                         <div className="mt-4 flex items-center justify-end">
                             {canResetPassword && (

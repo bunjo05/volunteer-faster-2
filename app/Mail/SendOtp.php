@@ -25,7 +25,9 @@ class SendOtp extends Mailable
      */
     public function build()
     {
+        // dd($this->otp); // Dump and die to see the OTP
         return $this->subject('Your OTP Verification Code')
-                    ->view('emails.otp');
+            ->markdown('emails.otp')
+            ->with(['code' => $this->otp]);
     }
 }

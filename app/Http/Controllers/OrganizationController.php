@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Inertia\Inertia;
 use App\Models\Admin;
+use App\Models\Message;
 use App\Models\Project;
 use App\Models\Category;
 use Illuminate\Support\Str;
@@ -90,6 +91,18 @@ class OrganizationController extends Controller
             }),
         ]);
     }
+
+    public function updateBookingStatus(VolunteerBooking $booking, Request $request)
+    {
+        $validated = $request->validate([
+            'booking_status' => 'required|in:Pending,Approved,Rejected,Cancelled,Completed'
+        ]);
+
+        $booking->update(['booking_status' => $validated['booking_status']]);
+
+        return back()->with('message', 'Booking status updated successfully');
+    }
+
     public function profile()
     {
         $organization = Auth::user()->organization;
@@ -134,10 +147,53 @@ class OrganizationController extends Controller
         return redirect()->back()->with('success', 'Profile updated successfully.');
     }
 
+
     public function messages()
     {
-        return inertia('Organizations/Messages');
+        $user = Auth::user();
+
+        $messages = Message::with('sender')
+            ->where('receiver_id', $user->id)
+            ->latest()
+            ->get()
+            ->map(function ($message) {
+                return [
+                    'id' => $message->id,
+                    'subject' => $message->subject,
+                    'body' => $message->body,
+                    'status' => $message->status,
+                    'created_at' => $message->created_at,
+                    'sender' => [
+                        'id' => $message->sender->id,
+                        'name' => $message->sender->name,
+                        'email' => $message->sender->email,
+                    ],
+                ];
+            });
+
+        return inertia('Organizations/Messages', [
+            'messages' => $messages,
+        ]);
     }
+
+    public function markAsRead($messageId)
+    {
+        $message = Message::findOrFail($messageId);
+
+        // Verify the message belongs to the authenticated user
+        if ($message->receiver_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $message->update(['status' => 'Read']);
+
+        return response()->noContent();
+    }
+
+    // public function messages()
+    // {
+    //     return inertia('Organizations/Messages');
+    // }
 
     public function projects()
     {

@@ -13,9 +13,14 @@ class OtpVerificationController extends Controller
 {
     public function show(Request $request)
     {
+        if (!session()->has('email')) {
+            return redirect()->route('login');
+        }
+
         return Inertia::render('Auth/OtpVerify', [
             'email' => session('email'),
             'message' => session('message'),
+            'redirect_to' => session('redirect_to'),
         ]);
     }
 
@@ -49,18 +54,21 @@ class OtpVerificationController extends Controller
 
         Auth::login($user);
 
-            // Redirect based on role
+        // Redirect to the stored URL or default dashboard
+        $redirectTo = session('redirect_to') ?? $this->getDefaultRedirectForUser($user);
 
-            switch (strtolower($user->role)) {
-                case 'volunteer':
-                    return redirect()->route('volunteer.dashboard')->with('success', 'Welcome back!');
-                case 'organization':
-                    return redirect()->route('organization.dashboard')->with('success', 'Welcome back!');
-                default:
-                    Auth::logout(); // fallback for unknown roles
-                    return redirect()->route('error.unauthorized')->withErrors(['role' => 'Unknown user role. Access denied.']);
-            }
+        return redirect()->to($redirectTo)->with('success', 'OTP verified successfully!');
     }
 
+    protected function getDefaultRedirectForUser($user)
+    {
+        switch (strtolower($user->role)) {
+            case 'volunteer':
+                return route('volunteer.dashboard');
+            case 'organization':
+                return route('organization.dashboard');
+            default:
+                return route('home');
+        }
+    }
 }
-
