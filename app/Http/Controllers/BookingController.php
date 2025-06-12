@@ -163,6 +163,7 @@ class BookingController extends Controller
                 'sender_id' => $user->id,
                 'receiver_id' => $project->user_id, // Assuming projects have a user_id field
                 'message' => $validated['message'],
+                'project_id' => $validated['project_id'],
                 'status' => 'Unread',
             ]);
         }

@@ -19,7 +19,6 @@ return new class extends Migration
             $table->string('message');
             $table->enum('status', ['Unread', 'Read'])->default('Unread');
             $table->foreignId('reply_to')->nullable()->constrained('messages')->onDelete('set null');
-            $table->text('reply_context')->nullable(); // Store snippet of original message
             $table->timestamps();
 
             // Indexes for better performance
