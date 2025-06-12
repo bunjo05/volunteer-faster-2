@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Cache;
 use App\Mail\EmailVolunteerVerificationCode;
+use App\Models\Message;
 
 class BookingController extends Controller
 {
@@ -133,6 +134,9 @@ class BookingController extends Controller
             'message' => 'nullable|string',
             'project_id' => 'required|exists:projects,id',
             'booking_status' => 'required',
+            'sender_id' => 'nullable',
+            'receiver_id' => 'nullable',
+            'status' => 'nullable'
         ]);
 
         $user = Auth::user();
@@ -147,6 +151,21 @@ class BookingController extends Controller
             'message' => $validated['message'] ?? null,
             'booking_status' => $validated['booking_status']
         ]);
+
+        // Get the project to find its creator
+        $project = Project::findOrFail($validated['project_id']);
+
+        // Only create message if one was provided
+        if (!empty($validated['message'])) {
+            $project = Project::findOrFail($validated['project_id']);
+
+            Message::create([
+                'sender_id' => $user->id,
+                'receiver_id' => $project->user_id, // Assuming projects have a user_id field
+                'message' => $validated['message'],
+                'status' => 'Unread',
+            ]);
+        }
 
         return redirect(route('volunteer.projects'))->with('success', 'Booking made successfully.');
     }

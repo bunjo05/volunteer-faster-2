@@ -14,9 +14,9 @@ class Message extends Model
         'sender_id',
         'receiver_id',
         'project_id',
-        'subject',
-        'body',
+        'message',
         'status',
+        'reply_to'
     ];
 
     protected $casts = [
@@ -37,6 +37,18 @@ class Message extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
+    }
+
+    // Add this relationship
+    public function originalMessage(): BelongsTo
+    {
+        return $this->belongsTo(Message::class, 'reply_to');
+    }
+
+    // Add this if you want to get all replies to a message
+    public function replies()
+    {
+        return $this->hasMany(Message::class, 'reply_to');
     }
 
     public function markAsRead(): void

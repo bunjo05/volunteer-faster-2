@@ -18,7 +18,6 @@ return new class extends Migration
             $table->string('start_date');
             $table->string('end_date');
             $table->string('number_of_travellers');
-            $table->text('message')->nullable();
             $table->enum('booking_status', allowed: ['Pending', 'Cancelled', 'Approved', 'Rejected', 'Completed'])->default('Pending');
             $table->timestamps();
         });

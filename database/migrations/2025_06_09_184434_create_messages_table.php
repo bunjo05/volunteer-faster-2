@@ -16,9 +16,10 @@ return new class extends Migration
             $table->foreignId('sender_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('receiver_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('project_id')->nullable()->constrained()->onDelete('cascade');
-            $table->string('subject');
-            $table->text('body');
-            $table->enum('status', ['unread', 'read'])->default('unread');
+            $table->string('message');
+            $table->enum('status', ['Unread', 'Read'])->default('Unread');
+            $table->foreignId('reply_to')->nullable()->constrained('messages')->onDelete('set null');
+            $table->text('reply_context')->nullable(); // Store snippet of original message
             $table->timestamps();
 
             // Indexes for better performance

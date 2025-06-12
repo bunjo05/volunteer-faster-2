@@ -6,21 +6,20 @@ use Illuminate\Database\Eloquent\Model;
 
 class VolunteerBooking extends Model
 {
-        protected $fillable = [
+    protected $fillable = [
         'user_id',
         'project_id',
         'start_date',
         'end_date',
         'number_of_travellers',
-        'message',
         'status'
     ];
-        public function user()
+    public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-        public function project()
+    public function project()
     {
         return $this->belongsTo(Project::class);
     }

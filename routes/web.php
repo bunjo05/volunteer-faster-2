@@ -94,6 +94,14 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
 Route::prefix('volunteer')->middleware('check.role:Volunteer')->group(function () {
     Route::get('/dashboard', [VolunteerController::class, 'index'])->name('volunteer.dashboard');
     Route::get('/messages', [VolunteerController::class, 'messages'])->name('volunteer.messages');
+
+
+    Route::patch('/messages/mark-all-read/{senderId}', [VolunteerController::class, 'markAllRead'])
+        ->name('volunteer.messages.mark-all-read');
+
+    Route::post('/messages', [VolunteerController::class, 'storeMessage'])
+        ->name('volunteer.messages.store');
+
     Route::get('/project', [VolunteerController::class, 'projects'])->name('volunteer.projects');
 });
 
@@ -105,8 +113,12 @@ Route::prefix('organization')->middleware('check.role:Organization')->group(func
     Route::get('/messages', [OrganizationController::class, 'messages'])
         ->name('organization.messages');
 
-    Route::patch('/messages/{message}/mark-as-read', [OrganizationController::class, 'markAsRead'])
-        ->name('organization.messages.mark-as-read');
+
+    Route::patch('/messages/mark-all-read/{senderId}', [OrganizationController::class, 'markAllRead'])
+        ->name('organization.messages.mark-all-read');
+
+    Route::post('/messages', [OrganizationController::class, 'storeMessage'])
+        ->name('organization.messages.store');
 
 
     // Route::get('/messages', [OrganizationController::class, 'messages'])->name('organization.messages');
