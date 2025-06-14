@@ -10,8 +10,33 @@ export default function Messages() {
     const [isReplying, setIsReplying] = useState(false);
     const [replyToMessage, setReplyToMessage] = useState(null);
     const [highlightedMessageId, setHighlightedMessageId] = useState(null);
+    const [showConversations, setShowConversations] = useState(false);
     const messageRefs = useRef({});
     const messagesEndRef = useRef(null);
+    const [contentWarning, setContentWarning] = useState(false);
+
+    // Regex patterns for restricted content
+    const restrictedPatterns = {
+        phone: /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g,
+        email: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
+        url: /(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/g,
+    };
+
+    // Function to filter restricted content
+    const filterContent = (text) => {
+        let hasRestrictedContent = false;
+        let cleanedText = text;
+
+        // Check each pattern
+        Object.values(restrictedPatterns).forEach((pattern) => {
+            if (pattern.test(cleanedText)) {
+                cleanedText = cleanedText.replace(pattern, "[content removed]");
+                hasRestrictedContent = true;
+            }
+        });
+
+        return { cleanedText, hasRestrictedContent };
+    };
 
     // Initialize grouped messages from props
     useEffect(() => {
@@ -34,6 +59,15 @@ export default function Messages() {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [groupedMessages, selectedConversationId]);
 
+    // Hide content warning after 3 seconds
+    useEffect(() => {
+        if (contentWarning) {
+            const timer = setTimeout(() => {
+                setContentWarning(false);
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [contentWarning]);
     // Handle highlighting a message
     useEffect(() => {
         if (highlightedMessageId) {
@@ -50,6 +84,7 @@ export default function Messages() {
             setIsReplying(false);
             setReplyToMessage(null);
             setHighlightedMessageId(null);
+            setShowConversations(false); // Hide the menu after selection
 
             // Mark all messages as read if there are unread messages
             if (groupedMessages[senderId]?.unreadCount > 0) {
@@ -103,76 +138,80 @@ export default function Messages() {
 
     const handleSendMessage = (e) => {
         e.preventDefault();
-        if (newMessage.trim() && selectedConversationId) {
-            const receiverId = isReplying
-                ? replyToMessage.sender_id
-                : selectedConversationId;
 
-            router.post(
-                route("volunteer.messages.store"),
-                {
-                    receiver_id: receiverId,
-                    message: newMessage,
-                    reply_to: isReplying ? replyToMessage.id : null,
-                },
-                {
-                    preserveScroll: true,
-                    onSuccess: () => {
-                        setNewMessage("");
-                        setIsReplying(false);
-                        setReplyToMessage(null);
+        if (!newMessage.trim() || !selectedConversationId) return;
 
-                        // Optimistically update the messages
-                        const newMsg = {
-                            id: Date.now(), // temporary ID
-                            message: newMessage,
-                            sender_id: auth.user.id,
-                            receiver_id: receiverId,
-                            created_at: new Date().toISOString(),
-                            status: "Read",
-                            reply_to: isReplying ? replyToMessage.id : null,
-                            original_message: isReplying
-                                ? replyToMessage
-                                : null,
-                        };
+        // Filter the message content
+        const { cleanedText, hasRestrictedContent } = filterContent(newMessage);
 
-                        // Update the conversation in both directions
-                        setGroupedMessages((prev) => {
-                            const updated = { ...prev };
-
-                            // Add to sender's conversation
-                            if (updated[receiverId]) {
-                                updated[receiverId] = {
-                                    ...updated[receiverId],
-                                    messages: [
-                                        ...updated[receiverId].messages,
-                                        newMsg,
-                                    ],
-                                    latestMessage: newMsg,
-                                };
-                            } else {
-                                // Create new conversation if it doesn't exist
-                                updated[receiverId] = {
-                                    sender: {
-                                        id: receiverId,
-                                        name:
-                                            replyToMessage?.sender?.name ||
-                                            "Unknown",
-                                        email:
-                                            replyToMessage?.sender?.email || "",
-                                    },
-                                    messages: [newMsg],
-                                    latestMessage: newMsg,
-                                    unreadCount: 0,
-                                };
-                            }
-
-                            return updated;
-                        });
-                    },
-                }
-            );
+        if (hasRestrictedContent) {
+            setContentWarning(true);
+            setNewMessage(cleanedText);
+            return;
         }
+
+        const receiverId = isReplying
+            ? replyToMessage.sender_id
+            : selectedConversationId;
+
+        router.post(
+            route("volunteer.messages.store"),
+            {
+                receiver_id: receiverId,
+                message: cleanedText,
+                reply_to: isReplying ? replyToMessage.id : null,
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setNewMessage("");
+                    setIsReplying(false);
+                    setReplyToMessage(null);
+
+                    // Optimistically update the messages
+                    const newMsg = {
+                        id: Date.now(),
+                        message: cleanedText,
+                        sender_id: auth.user.id,
+                        receiver_id: receiverId,
+                        created_at: new Date().toISOString(),
+                        status: "Read",
+                        reply_to: isReplying ? replyToMessage.id : null,
+                        original_message: isReplying ? replyToMessage : null,
+                    };
+
+                    setGroupedMessages((prev) => {
+                        const updated = { ...prev };
+
+                        if (updated[receiverId]) {
+                            updated[receiverId] = {
+                                ...updated[receiverId],
+                                messages: [
+                                    ...updated[receiverId].messages,
+                                    newMsg,
+                                ],
+                                latestMessage: newMsg,
+                            };
+                        } else {
+                            updated[receiverId] = {
+                                sender: {
+                                    id: receiverId,
+                                    name:
+                                        replyToMessage?.sender?.name ||
+                                        "Unknown",
+                                    email: replyToMessage?.sender?.email || "",
+                                },
+                                messages: [newMsg],
+                                latestMessage: newMsg,
+                                unreadCount: 0,
+                            };
+                        }
+
+                        return updated;
+                    });
+                },
+            }
+        );
     };
 
     const selectedConversation = selectedConversationId
@@ -184,83 +223,119 @@ export default function Messages() {
             <div className="max-w-7xl mx-auto py-2 px-4 sm:px-6 lg:px-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white rounded-xl shadow overflow-hidden">
                     {/* Conversations List */}
-                    <div className="col-span-1 border-r border-gray-200">
-                        <div className="p-4 border-b border-gray-200 bg-gray-50">
-                            <h2 className="text-lg font-semibold">
-                                Conversations
-                            </h2>
-                        </div>
-                        <ul className="divide-y divide-gray-200 max-h-[70vh] overflow-y-auto">
-                            {Object.values(groupedMessages).length > 0 ? (
-                                Object.values(groupedMessages).map(
-                                    (conversation) => {
-                                        const latestMessage =
-                                            conversation.latestMessage
-                                                ?.message || "No messages yet";
-                                        const previewText =
-                                            latestMessage.length > 30
-                                                ? `${latestMessage.substring(
-                                                      0,
-                                                      30
-                                                  )}...`
-                                                : latestMessage;
+                    <div
+                        className={`${
+                            showConversations
+                                ? "block fixed inset-0 z-10 bg-black bg-opacity-50 md:bg-opacity-0"
+                                : "hidden"
+                        } md:block md:relative`}
+                    >
+                        <div
+                            className={`absolute md:relative left-0 top-0 h-full w-80 bg-white shadow-lg md:shadow-none z-20 transform ${
+                                showConversations
+                                    ? "translate-x-0"
+                                    : "-translate-x-full"
+                            } md:translate-x-0 transition-transform duration-300 ease-in-out border-r border-gray-200`}
+                        >
+                            <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                                <h2 className="text-lg font-semibold">
+                                    Conversations
+                                </h2>
+                                <button
+                                    onClick={() => setShowConversations(false)}
+                                    className="md:hidden p-1 rounded-full hover:bg-gray-200"
+                                >
+                                    <svg
+                                        className="w-5 h-5"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M6 18L18 6M6 6l12 12"
+                                        />
+                                    </svg>
+                                </button>
+                            </div>
+                            <ul className="divide-y divide-gray-200 max-h-[70vh] overflow-y-auto">
+                                {Object.values(groupedMessages).length > 0 ? (
+                                    Object.values(groupedMessages).map(
+                                        (conversation) => {
+                                            const latestMessage =
+                                                conversation.latestMessage
+                                                    ?.message ||
+                                                "No messages yet";
+                                            const previewText =
+                                                latestMessage.length > 30
+                                                    ? `${latestMessage.substring(
+                                                          0,
+                                                          30
+                                                      )}...`
+                                                    : latestMessage;
 
-                                        return (
-                                            <li
-                                                key={conversation.sender.id}
-                                                className={`py-3 px-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                                                    selectedConversationId ===
-                                                    conversation.sender.id
-                                                        ? "bg-blue-50 border-l-4 border-blue-500"
-                                                        : ""
-                                                }`}
-                                                onClick={() =>
-                                                    handleConversationClick(
+                                            return (
+                                                <li
+                                                    key={conversation.sender.id}
+                                                    className={`py-3 px-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+                                                        selectedConversationId ===
                                                         conversation.sender.id
-                                                    )
-                                                }
-                                            >
-                                                <div className="flex justify-between items-center">
-                                                    <div className="flex items-center min-w-0">
-                                                        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
-                                                            {conversation.sender.name?.charAt(
-                                                                0
-                                                            ) || "U"}
+                                                            ? "bg-blue-50 border-l-4 border-blue-500"
+                                                            : ""
+                                                    }`}
+                                                    onClick={() =>
+                                                        handleConversationClick(
+                                                            conversation.sender
+                                                                .id
+                                                        )
+                                                    }
+                                                >
+                                                    <div className="flex justify-between items-center">
+                                                        <div className="flex items-center min-w-0">
+                                                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
+                                                                {conversation.sender.name?.charAt(
+                                                                    0
+                                                                ) || "U"}
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="text-sm font-medium text-gray-900 truncate">
+                                                                    {
+                                                                        conversation
+                                                                            .sender
+                                                                            .name
+                                                                    }
+                                                                </p>
+                                                                <p className="text-xs text-gray-500 truncate">
+                                                                    {
+                                                                        previewText
+                                                                    }
+                                                                </p>
+                                                            </div>
                                                         </div>
-                                                        <div className="min-w-0">
-                                                            <p className="text-sm font-medium text-gray-900 truncate">
+                                                        {conversation.unreadCount >
+                                                            0 && (
+                                                            <span className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-full">
                                                                 {
-                                                                    conversation
-                                                                        .sender
-                                                                        .name
+                                                                    conversation.unreadCount
                                                                 }
-                                                            </p>
-                                                            <p className="text-xs text-gray-500 truncate">
-                                                                {previewText}
-                                                            </p>
-                                                        </div>
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                    {conversation.unreadCount >
-                                                        0 && (
-                                                        <span className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-full">
-                                                            {
-                                                                conversation.unreadCount
-                                                            }
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </li>
-                                        );
-                                    }
-                                )
-                            ) : (
-                                <li className="py-4 px-4 text-center">
-                                    <p className="text-gray-500 text-sm">
-                                        No conversations found.
-                                    </p>
-                                </li>
-                            )}
-                        </ul>
+                                                </li>
+                                            );
+                                        }
+                                    )
+                                ) : (
+                                    <li className="py-4 px-4 text-center">
+                                        <p className="text-gray-500 text-sm">
+                                            No conversations found.
+                                        </p>
+                                    </li>
+                                )}
+                            </ul>
+                        </div>
                     </div>
 
                     {/* Chat Interface */}
@@ -268,6 +343,26 @@ export default function Messages() {
                         {selectedConversation ? (
                             <>
                                 <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center">
+                                    <button
+                                        onClick={() =>
+                                            setShowConversations(true)
+                                        }
+                                        className="md:hidden mr-2 p-1 rounded-full hover:bg-gray-200"
+                                    >
+                                        <svg
+                                            className="w-5 h-5"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M4 6h16M4 12h16M4 18h16"
+                                            />
+                                        </svg>
+                                    </button>
                                     <div className="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
                                         {selectedConversation.sender.name?.charAt(
                                             0
@@ -440,6 +535,12 @@ export default function Messages() {
                                 </div>
 
                                 <div className="p-4 border-t border-gray-200">
+                                    {contentWarning && (
+                                        <div className="mb-2 p-2 bg-yellow-50 rounded-lg text-yellow-800 text-sm">
+                                            Phone numbers, emails, and links are
+                                            not allowed and have been removed.
+                                        </div>
+                                    )}
                                     {isReplying && (
                                         <div className="mb-2 p-2 bg-blue-50 rounded-lg">
                                             <div className="flex justify-between items-center">

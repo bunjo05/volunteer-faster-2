@@ -255,12 +255,29 @@ class OrganizationController extends Controller
             'reply_to' => 'nullable|exists:messages,id',
         ]);
 
+        // Filter restricted content
+        $patterns = [
+            'phone' => '/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/',
+            'email' => '/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/',
+            'url' => '/(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)/'
+        ];
+
+        $filteredMessage = $request->message;
+        $hasRestrictedContent = false;
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $filteredMessage)) {
+                $filteredMessage = preg_replace($pattern, '[content removed]', $filteredMessage);
+                $hasRestrictedContent = true;
+            }
+        }
+
         $user = Auth::user();
 
         $message = Message::create([
             'sender_id' => $user->id,
             'receiver_id' => $request->receiver_id,
-            'message' => $request->message,
+            'message' =>  $filteredMessage,
             'status' => 'Unread',
             'reply_to' => $request->reply_to,
         ]);
@@ -268,7 +285,10 @@ class OrganizationController extends Controller
         // Load relationships
         $message->load(['sender', 'receiver', 'originalMessage.sender']);
 
-        return back()->with('success', 'Message sent successfully.');
+        return back()->with([
+            'success' => 'Message sent successfully.',
+            'hasRestrictedContent' => $hasRestrictedContent
+        ]);
     }
 
 
