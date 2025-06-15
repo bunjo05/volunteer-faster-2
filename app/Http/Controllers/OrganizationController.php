@@ -38,15 +38,6 @@ class OrganizationController extends Controller
                 'completed' => $projects->where('status', 'Completed')->count(),
                 'cancelled' => $projects->where('status', 'Cancelled')->count(),
             ],
-            // 'messagesCount' => Message::where('receiver_id', $user->id)->count(),
-            // 'recentMessages' => $messages->map(function ($msg) {
-            //     return [
-            //         'id' => $msg->id,
-            //         'subject' => $msg->subject,
-            //         'body' => $msg->body,
-            //         'status' => $msg->status,
-            //     ];
-            // }),
         ]);
     }
 

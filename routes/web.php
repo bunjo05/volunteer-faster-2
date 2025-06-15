@@ -91,7 +91,7 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
 });
 
 
-Route::prefix('volunteer')->middleware('check.role:Volunteer')->group(function () {
+Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
     Route::get('/dashboard', [VolunteerController::class, 'index'])->name('volunteer.dashboard');
     Route::get('/messages', [VolunteerController::class, 'messages'])->name('volunteer.messages');
 
@@ -105,7 +105,7 @@ Route::prefix('volunteer')->middleware('check.role:Volunteer')->group(function (
     Route::get('/project', [VolunteerController::class, 'projects'])->name('volunteer.projects');
 });
 
-Route::prefix('organization')->middleware('check.role:Organization')->group(function () {
+Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->group(function () {
     Route::get('/dashboard', [OrganizationController::class, 'index'])->name('organization.dashboard');
     Route::get('/profile', [OrganizationController::class, 'profile'])->name('organization.profile');
     Route::post('/profile', [OrganizationController::class, 'updateProfile'])->name('organization.profile.update');
