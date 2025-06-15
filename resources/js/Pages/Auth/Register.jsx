@@ -145,16 +145,16 @@ export default function Register() {
                     <div className="flex items-center justify-center mt-4">
                         <p className="text-sm text-gray-600">register with</p>
 
-                        <Link
-                            href="/auth/google"
-                            className="flex items-center justify-center ms-2"
+                        <a
+                            href={route("google.login")}
+                            className="flex items-center justify-center ms-2 "
                         >
                             <img
                                 src="/google.png"
                                 alt="Google"
                                 className="w-[20px] h-[20px]"
                             />
-                        </Link>
+                        </a>
                     </div>
                 </div>
             )}

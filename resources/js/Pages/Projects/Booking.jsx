@@ -1,7 +1,7 @@
 import { useState } from "react";
 import GeneralPages from "@/Layouts/GeneralPages";
 import { usePage } from "@inertiajs/react"; // Add this import
-import { useForm } from "@inertiajs/react";
+import { useForm, Link } from "@inertiajs/react";
 
 import InputError from "@/Components/InputError";
 import InputLabel from "@/Components/InputLabel";
@@ -815,6 +815,32 @@ export default function Booking({ project, auth, canResetPassword }) {
                                     Remember me
                                 </span>
                             </label>
+                        </div>
+
+                        <div className="flex items-center justify-center mt-4">
+                            <span className="text-gray-500">Sign in with</span>
+                            <a
+                                href={route("google.login")}
+                                className="flex items-center justify-center ms-2 "
+                            >
+                                <img
+                                    src="/google.png"
+                                    alt="Google"
+                                    className="w-[20px] h-[20px]"
+                                />
+                            </a>
+                        </div>
+                        <div className="mt-4 text-center flex justify-center gap-2">
+                            <p className="text-sm text-gray-600">
+                                Don't have an account?
+                            </p>
+
+                            <Link
+                                href={route("register")}
+                                className="text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                            >
+                                Register
+                            </Link>
                         </div>
 
                         {/* <OtpModal
