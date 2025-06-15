@@ -103,7 +103,7 @@ export default function Login({ status, canResetPassword }) {
                 </div>
                 <div className="flex items-center justify-center mt-4">
                     <span className="text-gray-500">Sign in with</span>
-                    <Link
+                    <a
                         href={route("google.login")}
                         className="flex items-center justify-center ms-2 "
                     >
@@ -112,7 +112,7 @@ export default function Login({ status, canResetPassword }) {
                             alt="Google"
                             className="w-[20px] h-[20px]"
                         />
-                    </Link>
+                    </a>
                 </div>
                 <div className="mt-4 text-center flex justify-center gap-2">
                     <p className="text-sm text-gray-600">
