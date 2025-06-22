@@ -256,6 +256,7 @@ export default function Booking({ project, auth, canResetPassword }) {
                                             setData("message", e.target.value)
                                         }
                                         className="w-full p-2 border rounded"
+                                        maxLength={255}
                                         rows="3"
                                         placeholder="Optional message..."
                                     ></textarea>

@@ -118,6 +118,9 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
         ->name('admin.report-subcategories.update');
     Route::delete('/report/report-subcategories/{reportSubcategory}', [AdminsController::class, 'destroyReportSubcategory'])
         ->name('admin.report-subcategories.destroy');
+
+    Route::get('/project/reports', [AdminsController::class, 'projectReports'])
+        ->name('admin.project.reports');
 });
 
 
@@ -129,6 +132,8 @@ Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(
     Route::post('/messages', [VolunteerController::class, 'storeMessage'])
         ->name('volunteer.messages.store');
     Route::get('/project', [VolunteerController::class, 'projects'])->name('volunteer.projects');
+    Route::post('/send-reminder/{bookingId}', [VolunteerController::class, 'sendReminder'])
+        ->name('volunteer.send-reminder');
 });
 
 Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->group(function () {

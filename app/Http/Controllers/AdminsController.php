@@ -14,8 +14,10 @@ use App\Models\ReportCategory;
 use App\Mail\UserStatusChanged;
 use App\Models\ReportSubcategory;
 use App\Models\OrganizationProfile;
+use App\Models\ReportProject;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use SebastianBergmann\CodeCoverage\Report\Xml\Report;
 
 class AdminsController extends Controller
 {
@@ -181,6 +183,17 @@ class AdminsController extends Controller
     public function messages()
     {
         return inertia('Admins/Messages');
+    }
+
+    public function projectReports()
+    {
+        // $projects = Project::with(['user', 'organizationProfile']) // eager load user relationship too
+        //     ->latest()
+        //     ->get();
+        $reports = ReportProject::with(['project', 'user', 'reportCategory', 'reportSubcategory'])->latest()->get();
+        return inertia('Admins/Reports/Index', [
+            'reports' => $reports
+        ]);
     }
 
     // public function createReportCategory()

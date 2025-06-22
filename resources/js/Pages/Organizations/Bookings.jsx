@@ -10,7 +10,6 @@ import {
     Badge,
     Mail,
     User,
-    ArrowRight,
     DollarSign,
     Check,
     X,
@@ -200,11 +199,11 @@ export default function Bookings({ bookings }) {
                                                             </div>
 
                                                             <div className="flex items-start gap-4">
-                                                                <div className="flex items-center justify-center h-11 w-11 rounded-xl bg-blue-100 text-blue-600 flex-shrink-0">
+                                                                {/* <div className="flex items-center justify-center h-11 w-11 rounded-xl bg-blue-100 text-blue-600 flex-shrink-0">
                                                                     <Mail className="w-5 h-5" />
-                                                                </div>
+                                                                </div> */}
                                                                 <div>
-                                                                    <h4 className="font-medium text-gray-700 mb-1">
+                                                                    {/* <h4 className="font-medium text-gray-700 mb-1">
                                                                         Email
                                                                     </h4>
                                                                     <p className="text-gray-600">
@@ -213,15 +212,7 @@ export default function Bookings({ bookings }) {
                                                                                 .volunteer
                                                                                 .email
                                                                         }
-                                                                    </p>
-                                                                    <Link
-                                                                        href={`mailto:${activeBooking.volunteer.email}`}
-                                                                        className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mt-1 group"
-                                                                    >
-                                                                        Send
-                                                                        Reminder{" "}
-                                                                        <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-0.5 transition-transform" />
-                                                                    </Link>
+                                                                    </p> */}
                                                                 </div>
                                                             </div>
                                                         </div>

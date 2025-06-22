@@ -372,9 +372,9 @@ export default function Messages() {
                                         <h2 className="text-lg font-semibold text-gray-900">
                                             {selectedConversation.sender.name}
                                         </h2>
-                                        <p className="text-xs text-gray-500">
+                                        {/* <p className="text-xs text-gray-500">
                                             {selectedConversation.sender.email}
-                                        </p>
+                                        </p> */}
                                     </div>
                                 </div>
 

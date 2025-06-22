@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\OrganizationReminder;
 use App\Models\Message;
-use App\Models\ReportProject;
+use App\Models\Reminder;
 use Illuminate\Http\Request;
+use App\Models\ReportProject;
 use App\Models\VolunteerBooking;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 
 class VolunteerController extends Controller
 {
@@ -170,7 +173,7 @@ class VolunteerController extends Controller
             'project_id' => 'required|exists:projects,id',
             'report_category_id' => 'required|exists:report_categories,id',
             'report_subcategory_id' => 'required|exists:report_subcategories,id',
-            'description' => 'required'
+            'description' => 'required',
         ]);
 
         $user = Auth::user();
@@ -180,9 +183,40 @@ class VolunteerController extends Controller
             'project_id' => $validated['project_id'],
             'report_category_id' => $validated['report_category_id'],
             'report_subcategory_id' => $validated['report_subcategory_id'],
-            'description' => $validated['description']
+            'description' => $validated['description'],
+            'mark_as_resolved' => 0
         ]);
         return redirect()->back()->with('success', 'Report made Successfully');
+    }
+
+    public function sendReminder(Request $request, $bookingId)
+    {
+        $booking = VolunteerBooking::with(['project.user', 'user'])
+            ->where('id', $bookingId)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        // Send email to project owner
+        Mail::to($booking->project->user->email)
+            ->send(new OrganizationReminder($booking));
+
+        // Optionally create a message record
+        Message::create([
+            'sender_id' => Auth::id(),
+            'receiver_id' => $booking->project->user_id,
+            'message' => 'Reminder sent about booking on ' . $booking->created_at->format('F j, Y'),
+            'project_id' => $booking->project_id,
+            'status' => 'Unread',
+        ]);
+
+        Reminder::create([
+            'user_id' => Auth::id(),
+            'project_id' => $booking->project_id,
+            'message' => 'Reminder sent about booking on ' . $booking->created_at->format('F j, Y'),
+            'project_id' => $booking->project_id,
+        ]);
+
+        return back()->with('success', 'Reminder sent successfully to the project owner.');
     }
 
     public function profile()

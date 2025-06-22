@@ -1,11 +1,13 @@
 import VolunteerLayout from "@/Layouts/VolunteerLayout";
-import { usePage, Link } from "@inertiajs/react";
+import { usePage, Link, useForm } from "@inertiajs/react";
 import {
     CalendarDays,
     Users,
     MessageCircle,
     MapPin,
+    Mail,
     Clock,
+    ArrowRight,
     ChevronRight,
     ArrowUpRight,
     DollarSign,
@@ -15,6 +17,8 @@ import { useState } from "react";
 export default function Projects() {
     const { bookings = [] } = usePage().props;
     const [activeBooking, setActiveBooking] = useState(bookings[0] || null);
+
+    const { post } = useForm();
 
     return (
         <VolunteerLayout>
@@ -276,12 +280,37 @@ export default function Projects() {
                                                     ?.short_description ||
                                                     "No additional description available."}
                                             </p>
-                                            <Link
-                                                href={`/volunteer-programs/${activeBooking.project?.slug}`}
-                                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                                            >
-                                                View Full Project Details
-                                            </Link>
+                                            <div className="flex justify-between">
+                                                <button
+                                                    onClick={() =>
+                                                        post(
+                                                            route(
+                                                                "volunteer.send-reminder",
+                                                                {
+                                                                    bookingId:
+                                                                        activeBooking.id,
+                                                                }
+                                                            )
+                                                        )
+                                                    }
+                                                    className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mt-1 group relative"
+                                                >
+                                                    Send Reminder{" "}
+                                                    <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-0.5 transition-transform" />
+                                                    {/* Enhanced tooltip with arrow */}
+                                                    <span className="absolute hidden group-hover:block -top-10 left-2/3 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap transition-opacity delay-200 opacity-0 group-hover:opacity-100">
+                                                        Send a reminder to the
+                                                        Project Admin
+                                                        <span className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-gray-800 border-t-transparent border-r-transparent border-b-transparent border-l-transparent border-t-gray-800"></span>
+                                                    </span>
+                                                </button>
+                                                <Link
+                                                    href={`/volunteer-programs/${activeBooking.project?.slug}`}
+                                                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                                                >
+                                                    View Full Project Details
+                                                </Link>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

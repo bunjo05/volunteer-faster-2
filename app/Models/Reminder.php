@@ -5,27 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class ReportProject extends Model
+class Reminder extends Model
 {
     use HasFactory;
-
     protected $fillable = [
         'user_id',
         'project_id',
-        'report_category_id',
-        'report_subcategory_id',
-        'description',
-        'mark_as_resolved'
+        'message'
     ];
 
-    public function reportCategory()
-    {
-        return $this->belongsTo(ReportCategory::class);
-    }
-    public function reportSubcategory()
-    {
-        return $this->belongsTo(ReportSubcategory::class);
-    }
     public function user()
     {
         return $this->belongsTo(User::class);

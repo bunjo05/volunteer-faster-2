@@ -19,6 +19,10 @@ export default function ViewProject({ project, auth, reportCategories }) {
 
     // Check if user is logged in and has organization role
     const isOrganization = auth.user && auth.user.role === "Organization";
+
+    // Check if user is logged in and has volunteer role
+    const isVolunteer = auth.user && auth.user.role === "Volunteer";
+
     // Auto-slide every 4 seconds
     useEffect(() => {
         const interval = setInterval(() => {
@@ -246,30 +250,44 @@ export default function ViewProject({ project, auth, reportCategories }) {
                                 Apply to Volunteer
                             </Link>
 
-                            <button
-                                onClick={() => setIsReportModalOpen(true)}
-                                className="text-red-500 hover:text-red-700 text-sm flex items-center gap-1"
-                                title="Report this project"
-                            >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    className="h-4 w-4"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
+                            {isVolunteer && (
+                                <button
+                                    onClick={() => setIsReportModalOpen(true)}
+                                    className="text-red-500 hover:text-red-700 text-sm flex items-center gap-1"
+                                    title="Report this project"
                                 >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                                    />
-                                </svg>
-                                Report this Project
-                            </button>
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-4 w-4"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                                        />
+                                    </svg>
+                                    Report this Project
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
+
+                {errors.booking && (
+                    <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
+                        <p>{errors.booking}</p>
+                    </div>
+                )}
+
+                {/* {success.booking && (
+                    <div className="bg-red-100 border-l-4 border-green-500 text-green-700 p-4 mb-4">
+                        <p>{errors.booking}</p>
+                    </div>
+                )} */}
 
                 {isReportModalOpen && (
                     <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center px-4">
