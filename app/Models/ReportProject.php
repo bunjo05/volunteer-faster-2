@@ -1,0 +1,36 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class ReportProject extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'user_id',
+        'project_id',
+        'report_category_id',
+        'report_subcategory_id',
+        'description'
+    ];
+
+    public function reportCategory()
+    {
+        return $this->belongsTo(ReportCategory::class);
+    }
+    public function reportSubcategory()
+    {
+        return $this->belongsTo(ReportSubcategory::class);
+    }
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+    public function project()
+    {
+        return $this->belongsTo(Project::class);
+    }
+}

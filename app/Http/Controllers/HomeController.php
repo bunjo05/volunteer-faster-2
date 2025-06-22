@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use Illuminate\Http\Request;
+use App\Models\ReportCategory;
 
 class HomeController extends Controller
 {
@@ -15,8 +16,9 @@ class HomeController extends Controller
     public function projects()
     {
         $projects = Project::where('status', 'Active')
-        ->with(['category', 'subcategory'])
-        ->latest()->get();
+            ->with(['category', 'subcategory'])
+            ->latest()->get();
+
         return inertia('Projects/Projects', [
             'projects' => $projects,
         ]);
@@ -25,10 +27,14 @@ class HomeController extends Controller
     public function viewProject($slug)
     {
         $project = Project::where('slug', $slug)
-        ->with(['category', 'subcategory', 'galleryImages', 'organizationProfile'])
-        ->firstOrFail();
+            ->with(['category', 'subcategory', 'galleryImages', 'organizationProfile'])
+            ->firstOrFail();
+
+        // Load report categories with their subcategories
+        $reportCategories = ReportCategory::with('subcategories')->get();
         return inertia('Projects/ViewProject', [
             'project' => $project,
+            'reportCategories' => $reportCategories, // Add this line
         ]);
     }
     public function about()

@@ -1,12 +1,24 @@
 import GeneralPages from "@/Layouts/GeneralPages";
 import { useState, useEffect, useRef } from "react";
-import { Link } from "@inertiajs/react";
+import { Link, useForm } from "@inertiajs/react";
+// import  from "@inertiajs/react";
 
-export default function ViewProject({ project, auth }) {
+export default function ViewProject({ project, auth, reportCategories }) {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+    const [subcategories, setSubcategories] = useState([]);
     const gallery = project.gallery_images || [];
 
+    const { data, setData, post, processing, errors } = useForm({
+        project_id: project.id,
+        report_category_id: "",
+        report_subcategory_id: "",
+        description: "",
+    });
+
+    // Check if user is logged in and has organization role
+    const isOrganization = auth.user && auth.user.role === "Organization";
     // Auto-slide every 4 seconds
     useEffect(() => {
         const interval = setInterval(() => {
@@ -16,6 +28,26 @@ export default function ViewProject({ project, auth }) {
         }, 4000);
         return () => clearInterval(interval);
     }, [gallery.length]);
+
+    const handleSubmitReport = (e) => {
+        e.preventDefault();
+        post(route("project.report.store"), {
+            onSuccess: () => {
+                setIsReportModalOpen(false);
+                // Optionally show a success message
+            },
+        });
+    };
+
+    useEffect(() => {
+        if (data.report_category_id) {
+            const selectedCategory = reportCategories.find(
+                (cat) => cat.id == data.report_category_id
+            );
+            setSubcategories(selectedCategory?.subcategories || []);
+            setData("report_subcategory_id", ""); // Reset subcategory when category changes
+        }
+    }, [data.report_category_id]);
 
     const openModal = () => {
         setIsModalOpen(true);
@@ -202,17 +234,194 @@ export default function ViewProject({ project, auth }) {
 
                     {/* CTA */}
                     <div className="pt-6">
-                        <Link
-                            href={route(
-                                "project.volunteer.booking",
-                                project.slug
-                            )}
-                            className="inline-block bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-3 rounded-full text-lg font-semibold transition duration-300 shadow-lg"
-                        >
-                            Apply to Volunteer
-                        </Link>
+                        {!isOrganization && (
+                            <Link
+                                href={route(
+                                    "project.volunteer.booking",
+                                    project.slug
+                                )}
+                                className="inline-block bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-3 rounded-full text-lg font-semibold transition duration-300 shadow-lg"
+                            >
+                                Apply to Volunteer
+                            </Link>
+                        )}
                     </div>
+
+                    {!isOrganization && (
+                        <button
+                            onClick={() => setIsReportModalOpen(true)}
+                            className="inline-block bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-full text-lg font-semibold transition duration-300 shadow-lg ml-4"
+                        >
+                            Report Project
+                        </button>
+                    )}
                 </div>
+
+                {isReportModalOpen && (
+                    <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center px-4">
+                        <div className="relative w-full max-w-md bg-white rounded-lg shadow-xl p-6">
+                            <button
+                                onClick={() => setIsReportModalOpen(false)}
+                                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="h-6 w-6"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M6 18L18 6M6 6l12 12"
+                                    />
+                                </svg>
+                            </button>
+
+                            <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                                Report Project
+                            </h2>
+
+                            <form onSubmit={handleSubmitReport}>
+                                <div className="mb-4">
+                                    <label
+                                        htmlFor="report_category_id"
+                                        className="block text-sm font-medium text-gray-700 mb-1"
+                                    >
+                                        Issue Category *
+                                    </label>
+                                    <select
+                                        id="report_category_id"
+                                        value={data.report_category_id}
+                                        onChange={(e) => {
+                                            setData(
+                                                "report_category_id",
+                                                e.target.value
+                                            );
+                                            // Find and set subcategories immediately
+                                            const selectedCategory =
+                                                reportCategories.find(
+                                                    (cat) =>
+                                                        cat.id == e.target.value
+                                                );
+                                            setSubcategories(
+                                                selectedCategory?.subcategories ||
+                                                    []
+                                            );
+                                        }}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    >
+                                        <option value="">
+                                            Select a category
+                                        </option>
+                                        {reportCategories.map((category) => (
+                                            <option
+                                                key={category.id}
+                                                value={category.id}
+                                            >
+                                                {category.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {errors.report_category_id && (
+                                        <p className="mt-1 text-sm text-red-600">
+                                            {errors.report_category_id}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="mb-4">
+                                    <label
+                                        htmlFor="report_subcategory_id"
+                                        className="block text-sm font-medium text-gray-700 mb-1"
+                                    >
+                                        Issue Type *
+                                    </label>
+                                    <select
+                                        id="report_subcategory_id"
+                                        value={data.report_subcategory_id}
+                                        onChange={(e) =>
+                                            setData(
+                                                "report_subcategory_id",
+                                                e.target.value
+                                            )
+                                        }
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                        disabled={!data.report_category_id}
+                                    >
+                                        <option value="">Select a type</option>
+                                        {subcategories.map((subcategory) => (
+                                            <option
+                                                key={subcategory.id}
+                                                value={subcategory.id}
+                                            >
+                                                {subcategory.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {errors.report_subcategory_id && (
+                                        <p className="mt-1 text-sm text-red-600">
+                                            {errors.report_subcategory_id}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="mb-6">
+                                    <label
+                                        htmlFor="description"
+                                        className="block text-sm font-medium text-gray-700 mb-1"
+                                    >
+                                        Description *
+                                    </label>
+                                    <textarea
+                                        id="description"
+                                        value={data.description}
+                                        onChange={(e) =>
+                                            setData(
+                                                "description",
+                                                e.target.value
+                                            )
+                                        }
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        rows={4}
+                                        placeholder="Please provide details about your report"
+                                        required
+                                    />
+                                    {errors.description && (
+                                        <p className="mt-1 text-sm text-red-600">
+                                            {errors.description}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="flex justify-end space-x-3">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setIsReportModalOpen(false)
+                                        }
+                                        className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={processing}
+                                        className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                                    >
+                                        {processing
+                                            ? "Submitting..."
+                                            : "Submit Report"}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
 
                 {/* RIGHT SIDE - Sidebar */}
                 <div className="space-y-4 md:col-span-1">

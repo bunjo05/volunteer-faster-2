@@ -85,6 +85,21 @@ export default function AdminLayout({ children }) {
                         <Folder size={18} />
                         Subcategories
                     </Link>
+
+                    <Link
+                        href={route("admin.report-categories")}
+                        className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
+                    >
+                        <Folder size={18} />
+                        Reports Categories
+                    </Link>
+                    <Link
+                        href={route("admin.report-subcategories.index")}
+                        className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
+                    >
+                        <Folder size={18} />
+                        Reports Subcategories
+                    </Link>
                     <Link
                         href={route("logout")}
                         method="post"

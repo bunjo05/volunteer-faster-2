@@ -29,6 +29,8 @@ Route::get('/volunteer-programs/{slug}', [HomeController::class, 'viewProject'])
 
 Route::get('/volunteer-programs/{slug}/volunteer', [BookingController::class, 'index'])->name('project.volunteer.booking');
 
+Route::post('/volunteer-programs/report', [VolunteerController::class, 'storeProjectReport'])->name('project.report.store');
+
 
 Route::post('/send-verification-code', [BookingController::class, 'volunteerEmailSend'])->name('volunteer.email.send');
 Route::post('/check-email-exists', [BookingController::class, 'checkEmailExists'])->name('volunteer.email.exists');
@@ -88,20 +90,44 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     Route::post('/categories', [AdminsController::class, 'storeCategory'])->name('admin.categories.store');
     Route::get('/subcategories', [AdminsController::class, 'subcategories'])->name('admin.subcategories');
     Route::post('/subcategories', [AdminsController::class, 'storeSubcategory'])->name('admin.subcategories.store');
+
+    // Report Categories
+    Route::get('/report/report-categories', [AdminsController::class, 'reportCategories'])
+        ->name('admin.report-categories');
+    Route::get('/report/report-categories/create', [AdminsController::class, 'createReportCategory'])
+        ->name('admin.report-categories.create');
+    Route::post('/report/report-categories', [AdminsController::class, 'storeReportCategory'])
+        ->name('admin.report-categories.store');
+    Route::get('/report/report-categories/{reportCategory}/edit', [AdminsController::class, 'editReportCategory'])
+        ->name('admin.report-categories.edit');
+    Route::put('/report/report-categories/{reportCategory}', [AdminsController::class, 'updateReportCategory'])
+        ->name('admin.report-categories.update');
+    Route::delete('/report/report-categories/{reportCategory}', [AdminsController::class, 'destroyReportCategory'])
+        ->name('admin.report-categories.destroy');
+
+    // Report Subcategories
+    Route::get('/report/report-subcategories', [AdminsController::class, 'reportSubcategories'])
+        ->name('admin.report-subcategories.index');
+    Route::get('/report/report-subcategories/create', [AdminsController::class, 'createReportSubcategory'])
+        ->name('admin.report-subcategories.create');
+    Route::post('/report/report-subcategories', [AdminsController::class, 'storeReportSubcategory'])
+        ->name('admin.report-subcategories.store');
+    Route::get('/report/report-subcategories/{reportSubcategory}/edit', [AdminsController::class, 'editReportSubcategory'])
+        ->name('admin.report-subcategories.edit');
+    Route::put('/report/report-subcategories/{reportSubcategory}', [AdminsController::class, 'updateReportSubcategory'])
+        ->name('admin.report-subcategories.update');
+    Route::delete('/report/report-subcategories/{reportSubcategory}', [AdminsController::class, 'destroyReportSubcategory'])
+        ->name('admin.report-subcategories.destroy');
 });
 
 
 Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
     Route::get('/dashboard', [VolunteerController::class, 'index'])->name('volunteer.dashboard');
     Route::get('/messages', [VolunteerController::class, 'messages'])->name('volunteer.messages');
-
-
     Route::patch('/messages/mark-all-read/{senderId}', [VolunteerController::class, 'markAllRead'])
         ->name('volunteer.messages.mark-all-read');
-
     Route::post('/messages', [VolunteerController::class, 'storeMessage'])
         ->name('volunteer.messages.store');
-
     Route::get('/project', [VolunteerController::class, 'projects'])->name('volunteer.projects');
 });
 
@@ -109,19 +135,12 @@ Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->
     Route::get('/dashboard', [OrganizationController::class, 'index'])->name('organization.dashboard');
     Route::get('/profile', [OrganizationController::class, 'profile'])->name('organization.profile');
     Route::post('/profile', [OrganizationController::class, 'updateProfile'])->name('organization.profile.update');
-
     Route::get('/messages', [OrganizationController::class, 'messages'])
         ->name('organization.messages');
-
-
     Route::patch('/messages/mark-all-read/{senderId}', [OrganizationController::class, 'markAllRead'])
         ->name('organization.messages.mark-all-read');
-
     Route::post('/messages', [OrganizationController::class, 'storeMessage'])
         ->name('organization.messages.store');
-
-
-    // Route::get('/messages', [OrganizationController::class, 'messages'])->name('organization.messages');
     Route::get('/projects', [OrganizationController::class, 'projects'])->name('organization.projects');
     Route::get('/projects/create', [OrganizationController::class, 'createProject'])->name('organization.projects.create');
     Route::post('/projects', [OrganizationController::class, 'storeProject'])->name('organization.projects.store');
@@ -129,7 +148,6 @@ Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->
     Route::get('/projects/{slug}/edit', [OrganizationController::class, 'editProject'])->name('organization.projects.edit');
     Route::post('/projects/{slug}', [OrganizationController::class, 'updateProject'])->name('organization.projects.update');
     Route::get('/bookings', [OrganizationController::class, 'volunteerBookings'])->name('organization.bookings');
-
     Route::post('/bookings/{booking}/update-status', [OrganizationController::class, 'updateBookingStatus'])
         ->name('bookings.update-status');
 });

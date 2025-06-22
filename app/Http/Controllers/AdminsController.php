@@ -10,7 +10,9 @@ use App\Models\Subcategory;
 
 use Illuminate\Http\Request;
 use App\Models\ProjectRemark;
+use App\Models\ReportCategory;
 use App\Mail\UserStatusChanged;
+use App\Models\ReportSubcategory;
 use App\Models\OrganizationProfile;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
@@ -83,19 +85,19 @@ class AdminsController extends Controller
     }
 
     public function storeSubcategory(Request $request)
-{
-    $request->validate([
-        'name' => 'required|string|max:255',
-        'category_id' => 'required|exists:categories,id',
-    ]);
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'category_id' => 'required|exists:categories,id',
+        ]);
 
-    Subcategory::create([
-        'name' => $request->name,
-        'category_id' => $request->category_id,
-    ]);
+        Subcategory::create([
+            'name' => $request->name,
+            'category_id' => $request->category_id,
+        ]);
 
-    return redirect()->route('admin.subcategories')->with('success', 'Subcategory added successfully!');
-}
+        return redirect()->route('admin.subcategories')->with('success', 'Subcategory added successfully!');
+    }
 
 
     public function volunteers()
@@ -104,7 +106,7 @@ class AdminsController extends Controller
     }
     public function projects()
     {
-        $projects = Project::with([ 'user', 'organizationProfile']) // eager load user relationship too
+        $projects = Project::with(['user', 'organizationProfile']) // eager load user relationship too
             ->latest()
             ->get();
 
@@ -115,14 +117,18 @@ class AdminsController extends Controller
 
     public function viewProject($slug)
     {
-        $project = Project::with([ 'user', 'organizationProfile', 'category', 'subcategory', 'galleryImages', 'projectRemarks'])
-        ->where('slug', $slug)->firstOrFail();
-        return inertia('Admins/Projects/ViewProject', [
+        $project = Project::with(['user', 'organizationProfile', 'category', 'subcategory', 'galleryImages', 'projectRemarks'])
+            ->where('slug', $slug)
+            ->firstOrFail();
+
+        $reportCategories = ReportCategory::with('subcategories')->all();
+
+        return inertia('Projects/ViewProject', [
             'project' => $project,
+            'reportCategories' => $reportCategories,
             'projectRemarks' => $project->projectRemarks->map(function ($remark) {
                 return [
                     'id' => $remark->id,
-                    // 'admin_id' => $remark->admin_id,
                     'remark' => $remark->remark,
                     'status' => $remark->status,
                 ];
@@ -175,5 +181,146 @@ class AdminsController extends Controller
     public function messages()
     {
         return inertia('Admins/Messages');
+    }
+
+    // public function createReportCategory()
+    // {
+    //     return inertia('Admins/Reports/CreateCategory');
+    // }
+
+    // public function storeReportCategory(Request $request)
+    // {
+    //     ReportCategory::create([
+    //         'name' => $request->name,
+    //     ]);
+    //     return redirect()->back()->with('success', 'Project rejected with remark.');
+    // }
+
+    /**
+     * Report Categories Section
+     */
+    public function reportCategories()
+    {
+        $categories = ReportCategory::latest()->get();
+
+        return inertia('Admins/Reports/Categories/Index', [
+            'categories' => $categories
+        ]);
+    }
+
+    public function createReportCategory()
+    {
+        return inertia('Admins/Reports/Categories/Form');
+    }
+
+    public function storeReportCategory(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255|unique:report_categories',
+        ]);
+
+        ReportCategory::create($validated);
+
+        return redirect()->route('admin.report-categories')
+            ->with('message', 'Category created successfully')
+            ->with('type', 'success');
+    }
+
+    public function editReportCategory(ReportCategory $reportCategory)
+    {
+        return inertia('Admins/Reports/Categories/Form', [
+            'reportCategory' => $reportCategory
+        ]);
+    }
+
+    public function updateReportCategory(Request $request, ReportCategory $reportCategory)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255|unique:report_categories,name,' . $reportCategory->id,
+        ]);
+
+        $reportCategory->update($validated);
+
+        return redirect()->route('admin.report-categories')
+            ->with('message', 'Category updated successfully')
+            ->with('type', 'success');
+    }
+
+    public function destroyReportCategory(ReportCategory $reportCategory)
+    {
+        $reportCategory->delete();
+
+        return redirect()->back()
+            ->with('message', 'Category deleted successfully')
+            ->with('type', 'success');
+    }
+
+    // Report Subcategories Section
+    public function reportSubcategories()
+    {
+        $subcategories = ReportSubcategory::with('category')
+            ->latest()
+            ->get();
+
+        return inertia('Admins/Reports/Subcategories/Index', [
+            'subcategories' => $subcategories
+        ]);
+    }
+
+    public function createReportSubcategory()
+    {
+        $categories = ReportCategory::all();
+
+        return inertia('Admins/Reports/Subcategories/Form', [
+            'reportCategories' => $categories
+        ]);
+    }
+
+    public function storeReportSubcategory(Request $request)
+    {
+        $validated = $request->validate([
+            'report_category_id' => 'required|exists:report_categories,id',
+            'name' => 'required|string|max:255|unique:report_subcategories',
+
+        ]);
+
+        ReportSubcategory::create($validated);
+
+        return redirect()->route('admin.report-subcategories.index')
+            ->with('message', 'Subcategory created successfully')
+            ->with('type', 'success');
+    }
+
+    public function editReportSubcategory(ReportSubcategory $reportSubcategory)
+    {
+        $categories = ReportCategory::all();
+
+        return inertia('Admins/Reports/Subcategories/Form', [
+            'reportSubcategory' => $reportSubcategory,
+            'reportCategories' => $categories
+        ]);
+    }
+
+    public function updateReportSubcategory(Request $request, ReportSubcategory $reportSubcategory)
+    {
+        $validated = $request->validate([
+            'report_category_id' => 'required|exists:report_categories,id',
+            'name' => 'required|string|max:255|unique:report_subcategories,name,' . $reportSubcategory->id,
+        ]);
+
+        $reportSubcategory->update($validated);
+
+        return redirect()->route('admin.report-subcategories.index')
+            ->with('message', 'Subcategory updated successfully')
+            ->with('type', 'success');
+    }
+
+    public function destroyReportSubcategory(ReportSubcategory $reportSubcategory)
+    {
+        $reportSubcategory->delete();
+
+        return redirect()->back()
+            ->with('message', 'Subcategory deleted successfully')
+            ->with('type', 'success');
     }
 }

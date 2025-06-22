@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Message;
+use App\Models\ReportProject;
 use Illuminate\Http\Request;
 use App\Models\VolunteerBooking;
 use Illuminate\Support\Facades\Auth;
@@ -161,6 +162,27 @@ class VolunteerController extends Controller
             'success' => 'Message sent successfully.',
             'hasRestrictedContent' => $hasRestrictedContent
         ]);
+    }
+
+    public function storeProjectReport(Request $request)
+    {
+        $validated = $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'report_category_id' => 'required|exists:report_categories,id',
+            'report_subcategory_id' => 'required|exists:report_subcategories,id',
+            'description' => 'required'
+        ]);
+
+        $user = Auth::user();
+
+        $report_project = ReportProject::create([
+            'user_id' => $user->id,
+            'project_id' => $validated['project_id'],
+            'report_category_id' => $validated['report_category_id'],
+            'report_subcategory_id' => $validated['report_subcategory_id'],
+            'description' => $validated['description']
+        ]);
+        return redirect()->back()->with('success', 'Report made Successfully');
     }
 
     public function profile()
