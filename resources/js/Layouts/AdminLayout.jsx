@@ -6,12 +6,16 @@ import {
     Home,
     Bell,
     Menu,
+    ChevronDown,
+    ChevronRight,
 } from "lucide-react";
 import { Link } from "@inertiajs/react";
 import { useState } from "react";
 
 export default function AdminLayout({ children }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [projectsOpen, setProjectsOpen] = useState(false);
+    const [reportsOpen, setReportsOpen] = useState(false);
 
     return (
         <div className="flex h-screen bg-gray-100 overflow-hidden">
@@ -35,7 +39,7 @@ export default function AdminLayout({ children }) {
                         Admin Panel
                     </span>
                 </div>
-                <nav className="flex-1 px-4 py-6 space-y-3 overflow-y-auto">
+                <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
                     <Link
                         href={route("admin.dashboard")}
                         className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
@@ -43,13 +47,7 @@ export default function AdminLayout({ children }) {
                         <Home size={18} />
                         Dashboard
                     </Link>
-                    <Link
-                        href={route("admin.users")}
-                        className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                    >
-                        <Users size={18} />
-                        Manage Users
-                    </Link>
+
                     <Link
                         href={route("admin.organizations")}
                         className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
@@ -57,13 +55,47 @@ export default function AdminLayout({ children }) {
                         <Folder size={18} />
                         Organizations
                     </Link>
-                    <Link
-                        href={route("admin.projects")}
-                        className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                    >
-                        <Folder size={18} />
-                        Projects
-                    </Link>
+
+                    {/* Projects Dropdown */}
+                    <div className="space-y-1">
+                        <button
+                            onClick={() => setProjectsOpen(!projectsOpen)}
+                            className="flex items-center justify-between w-full text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
+                        >
+                            <div className="flex items-center gap-3">
+                                <Folder size={18} />
+                                <span>Projects</span>
+                            </div>
+                            {projectsOpen ? (
+                                <ChevronDown size={16} />
+                            ) : (
+                                <ChevronRight size={16} />
+                            )}
+                        </button>
+                        {projectsOpen && (
+                            <div className="pl-8 space-y-1">
+                                <Link
+                                    href={route("admin.projects")}
+                                    className="block text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
+                                >
+                                    All Projects
+                                </Link>
+                                <Link
+                                    href={route("admin.categories")}
+                                    className="block text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
+                                >
+                                    Categories
+                                </Link>
+                                <Link
+                                    href={route("admin.subcategories")}
+                                    className="block text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
+                                >
+                                    Subcategories
+                                </Link>
+                            </div>
+                        )}
+                    </div>
+
                     <Link
                         href={route("admin.messages")}
                         className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
@@ -71,35 +103,56 @@ export default function AdminLayout({ children }) {
                         <MessageSquare size={18} />
                         Messages
                     </Link>
+
+                    {/* Reports Dropdown */}
+                    <div className="space-y-1">
+                        <button
+                            onClick={() => setReportsOpen(!reportsOpen)}
+                            className="flex items-center justify-between w-full text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
+                        >
+                            <div className="flex items-center gap-3">
+                                <Folder size={18} />
+                                <span>Reports</span>
+                            </div>
+                            {reportsOpen ? (
+                                <ChevronDown size={16} />
+                            ) : (
+                                <ChevronRight size={16} />
+                            )}
+                        </button>
+                        {reportsOpen && (
+                            <div className="pl-8 space-y-1">
+                                <Link
+                                    href={route("admin.project.reports")}
+                                    className="block text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
+                                >
+                                    Project Reports
+                                </Link>
+                                <Link
+                                    href={route("admin.report-categories")}
+                                    className="block text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
+                                >
+                                    Report Categories
+                                </Link>
+                                <Link
+                                    href={route(
+                                        "admin.report-subcategories.index"
+                                    )}
+                                    className="block text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
+                                >
+                                    Report Subcategories
+                                </Link>
+                            </div>
+                        )}
+                    </div>
                     <Link
-                        href={route("admin.categories")}
+                        href={route("admin.users")}
                         className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
                     >
-                        <Folder size={18} />
-                        Categories
-                    </Link>
-                    <Link
-                        href={route("admin.subcategories")}
-                        className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                    >
-                        <Folder size={18} />
-                        Subcategories
+                        <Users size={18} />
+                        Manage Users
                     </Link>
 
-                    <Link
-                        href={route("admin.report-categories")}
-                        className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                    >
-                        <Folder size={18} />
-                        Reports Categories
-                    </Link>
-                    <Link
-                        href={route("admin.report-subcategories.index")}
-                        className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                    >
-                        <Folder size={18} />
-                        Reports Subcategories
-                    </Link>
                     <Link
                         href={route("logout")}
                         method="post"
