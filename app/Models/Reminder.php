@@ -11,7 +11,9 @@ class Reminder extends Model
     protected $fillable = [
         'user_id',
         'project_id',
-        'message'
+        'booking_id', // Add this line
+        'message',
+        'stage'
     ];
 
     public function user()
@@ -21,5 +23,10 @@ class Reminder extends Model
     public function project()
     {
         return $this->belongsTo(Project::class);
+    }
+
+    public function booking()
+    {
+        return $this->belongsTo(VolunteerBooking::class);
     }
 }

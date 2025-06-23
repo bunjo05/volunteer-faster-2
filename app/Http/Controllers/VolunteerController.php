@@ -20,9 +20,34 @@ class VolunteerController extends Controller
 
     public function projects()
     {
-        $bookings = VolunteerBooking::with('project')
+        $bookings = VolunteerBooking::with(['project', 'reminders'])
             ->where('user_id', Auth::id())
-            ->get();
+            ->get()
+            ->map(function ($booking) {
+                $daysPending = $booking->created_at->diffInDays(now());
+                $lastReminder = $booking->reminders->sortByDesc('created_at')->first();
+
+                // Determine which reminder stage we're at
+                if ($booking->booking_status !== 'Pending') {
+                    $booking->can_send_reminder = false;
+                } elseif (!$lastReminder) {
+                    // No reminders sent yet - check if 7 days passed
+                    $booking->can_send_reminder = $daysPending >= 7;
+                    $booking->reminder_stage = 'first';
+                } elseif ($lastReminder->stage === 'first' && $daysPending >= 14) {
+                    // First reminder sent - check if 14 days total passed
+                    $booking->can_send_reminder = true;
+                    $booking->reminder_stage = 'second';
+                } elseif ($lastReminder->stage === 'second' && $daysPending >= 30) {
+                    // Second reminder sent - check if 30 days total passed
+                    $booking->can_send_reminder = true;
+                    $booking->reminder_stage = 'final';
+                } else {
+                    $booking->can_send_reminder = false;
+                }
+
+                return $booking;
+            });
 
         return inertia('Volunteers/Projects', [
             'bookings' => $bookings
@@ -191,34 +216,52 @@ class VolunteerController extends Controller
 
     public function sendReminder(Request $request, $bookingId)
     {
-        $booking = VolunteerBooking::with(['project.user', 'user'])
+        $booking = VolunteerBooking::with(['project.user', 'user', 'reminders'])
             ->where('id', $bookingId)
             ->where('user_id', Auth::id())
             ->firstOrFail();
 
+        $daysPending = $booking->created_at->diffInDays(now());
+        $lastReminder = $booking->reminders->sortByDesc('created_at')->first();
+
+        // Determine current stage
+        $stage = 'first';
+        if ($lastReminder) {
+            if ($lastReminder->stage === 'first' && $daysPending >= 14) {
+                $stage = 'second';
+            } elseif ($lastReminder->stage === 'second' && $daysPending >= 30) {
+                $stage = 'final';
+            } else {
+                return back()->with('error', 'Not enough time has passed since the last reminder.');
+            }
+        } elseif ($daysPending < 7) {
+            return back()->with('error', 'First reminder can only be sent after 7 days.');
+        }
+
         // Send email to project owner
         Mail::to($booking->project->user->email)
-            ->send(new OrganizationReminder($booking));
+            ->send(new OrganizationReminder($booking, $stage));
 
-        // Optionally create a message record
+        // Create a message record
         Message::create([
             'sender_id' => Auth::id(),
             'receiver_id' => $booking->project->user_id,
-            'message' => 'Reminder sent about booking on ' . $booking->created_at->format('F j, Y'),
+            'message' => ucfirst($stage) . ' reminder sent about the bookingthat was made on ' . $booking->created_at->format('F j, Y'),
             'project_id' => $booking->project_id,
             'status' => 'Unread',
         ]);
 
+        // Create reminder record
         Reminder::create([
             'user_id' => Auth::id(),
             'project_id' => $booking->project_id,
-            'message' => 'Reminder sent about booking on ' . $booking->created_at->format('F j, Y'),
-            'project_id' => $booking->project_id,
+            'booking_id' => $booking->id,
+            'stage' => $stage,
+            'message' => ucfirst($stage) . ' reminder sent about the bookingthat was made on ' . $booking->created_at->format('F j, Y'),
         ]);
 
-        return back()->with('success', 'Reminder sent successfully to the project owner.');
+        return back()->with('success', ucfirst($stage) . ' reminder sent successfully!');
     }
-
     public function profile()
     {
         return inertia('Volunteers/Profile');

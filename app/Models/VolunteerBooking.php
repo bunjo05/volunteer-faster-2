@@ -23,4 +23,9 @@ class VolunteerBooking extends Model
     {
         return $this->belongsTo(Project::class);
     }
+
+    public function reminders()
+    {
+        return $this->hasMany(Reminder::class, 'booking_id');
+    }
 }

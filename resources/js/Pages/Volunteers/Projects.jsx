@@ -12,16 +12,46 @@ import {
     ArrowUpRight,
     DollarSign,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Projects() {
-    const { bookings = [] } = usePage().props;
+    const { bookings = [], flash } = usePage().props;
     const [activeBooking, setActiveBooking] = useState(bookings[0] || null);
+    const [showSuccess, setShowSuccess] = useState(false);
+
+    useEffect(() => {
+        if (flash?.success) {
+            setShowSuccess(true);
+            const timer = setTimeout(() => {
+                setShowSuccess(false);
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [flash]);
 
     const { post } = useForm();
 
     return (
         <VolunteerLayout>
+            {showSuccess && (
+                <div className="fixed top-4 right-4 z-50">
+                    <div className="bg-green-500 text-white px-4 py-2 rounded-md shadow-lg flex items-center animate-fade-in-up">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5 mr-2"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                        >
+                            <path
+                                fillRule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                clipRule="evenodd"
+                            />
+                        </svg>
+                        {flash.success}
+                    </div>
+                </div>
+            )}
             <div className="mx-auto bg-white max-w-7xl p-6 lg:p-4 rounded-xl shadow-sm border border-gray-200">
                 <div className="text-center mb-5">
                     <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -281,29 +311,43 @@ export default function Projects() {
                                                     "No additional description available."}
                                             </p>
                                             <div className="flex justify-between">
-                                                <button
-                                                    onClick={() =>
-                                                        post(
-                                                            route(
-                                                                "volunteer.send-reminder",
-                                                                {
-                                                                    bookingId:
-                                                                        activeBooking.id,
-                                                                }
-                                                            )
-                                                        )
-                                                    }
-                                                    className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mt-1 group relative"
-                                                >
-                                                    Send Reminder{" "}
-                                                    <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-0.5 transition-transform" />
-                                                    {/* Enhanced tooltip with arrow */}
-                                                    <span className="absolute hidden group-hover:block -top-10 left-2/3 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap transition-opacity delay-200 opacity-0 group-hover:opacity-100">
-                                                        Send a reminder to the
-                                                        Project Admin
-                                                        <span className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-gray-800 border-t-transparent border-r-transparent border-b-transparent border-l-transparent border-t-gray-800"></span>
-                                                    </span>
-                                                </button>
+                                                {activeBooking.can_send_reminder && (
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() =>
+                                                                post(
+                                                                    route(
+                                                                        "volunteer.send-reminder",
+                                                                        {
+                                                                            bookingId:
+                                                                                activeBooking.id,
+                                                                        }
+                                                                    )
+                                                                )
+                                                            }
+                                                            className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mt-1 group relative"
+                                                        >
+                                                            Send{" "}
+                                                            {
+                                                                activeBooking.reminder_stage
+                                                            }{" "}
+                                                            Reminder{" "}
+                                                            <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-0.5 transition-transform" />
+                                                            {/* Tooltip remains the same */}
+                                                        </button>
+                                                        <span className="text-xs text-gray-500">
+                                                            {activeBooking.reminder_stage ===
+                                                                "first" &&
+                                                                "7+ days pending"}
+                                                            {activeBooking.reminder_stage ===
+                                                                "second" &&
+                                                                "14+ days pending"}
+                                                            {activeBooking.reminder_stage ===
+                                                                "final" &&
+                                                                "30+ days pending"}
+                                                        </span>
+                                                    </div>
+                                                )}
                                                 <Link
                                                     href={`/volunteer-programs/${activeBooking.project?.slug}`}
                                                     className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
