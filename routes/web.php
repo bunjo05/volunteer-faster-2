@@ -4,8 +4,9 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Application;
-use App\Http\Controllers\HomeController;
+use App\Http\Controllers\ChatController;
 
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\AdminsController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ProfileController;
@@ -121,6 +122,16 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
 
     Route::get('/project/reports', [AdminsController::class, 'projectReports'])
         ->name('admin.project.reports');
+
+
+    Route::prefix('chats')->group(function () {
+        Route::get('/', [ChatController::class, 'AdminIndex'])->name('chat.index');
+        Route::post('/{chat}/messages', [ChatController::class, 'AdminStore'])->name('admin.chat.store');
+        Route::post('/{chat}', [ChatController::class, 'AdminStore'])->name('admin.chats.store');
+        Route::post('/{chat}/read', [ChatController::class, 'AdminMarkAsRead'])->name('admin.chats.markAsRead');
+
+        Route::post('/{chat}/accept', [ChatController::class, 'AdminAcceptChat'])->name('admin.chat.accept');
+    });
 });
 
 
@@ -156,4 +167,14 @@ Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->
     Route::post('/bookings/{booking}/update-status', [OrganizationController::class, 'updateBookingStatus'])
         ->name('bookings.update-status');
 });
+
+// routes/web.php
+Route::middleware('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
+    Route::prefix('chat')->group(function () {
+        Route::get('/', [ChatController::class, 'index']);
+        Route::post('/', [ChatController::class, 'store']);
+        Route::post('/{chat}/read', [ChatController::class, 'markAsRead']);
+    });
+});
+
 require __DIR__ . '/auth.php';

@@ -1,8 +1,8 @@
 import VolunteerLayout from "@/Layouts/VolunteerLayout";
 
-export default function Dashboard() {
+export default function Dashboard({ auth }) {
     return (
-        <VolunteerLayout>
+        <VolunteerLayout auth={auth}>
             <div className="flex flex-col items-center justify-center min-h-screen py-4 sm:py-0">
                 {/* <Head title="Dashboard" /> */}
 

@@ -2,8 +2,9 @@ import VolunteerLayout from "@/Layouts/VolunteerLayout";
 import { usePage, router } from "@inertiajs/react";
 import { useState, useEffect, useCallback, useRef } from "react";
 
-export default function Messages() {
-    const { messages: initialMessages = [], auth } = usePage().props;
+export default function Messages({ auth: propAuth }) {
+    const { messages: initialMessages = [] } = usePage().props;
+    const auth = propAuth || usePage().props.auth;
     const [groupedMessages, setGroupedMessages] = useState({});
     const [selectedConversationId, setSelectedConversationId] = useState(null);
     const [newMessage, setNewMessage] = useState("");
@@ -68,12 +69,13 @@ export default function Messages() {
             return () => clearTimeout(timer);
         }
     }, [contentWarning]);
+
     // Handle highlighting a message
     useEffect(() => {
         if (highlightedMessageId) {
             const timer = setTimeout(() => {
                 setHighlightedMessageId(null);
-            }, 3000); // Remove highlight after 3 seconds
+            }, 3000);
             return () => clearTimeout(timer);
         }
     }, [highlightedMessageId]);
@@ -84,19 +86,15 @@ export default function Messages() {
             setIsReplying(false);
             setReplyToMessage(null);
             setHighlightedMessageId(null);
-            setShowConversations(false); // Hide the menu after selection
+            setShowConversations(false);
 
-            // Mark all messages as read if there are unread messages
             if (groupedMessages[senderId]?.unreadCount > 0) {
                 router.patch(
-                    route("volunteer.messages.mark-all-read", {
-                        senderId: senderId,
-                    }),
+                    route("volunteer.messages.mark-all-read", { senderId }),
                     {},
                     {
                         preserveScroll: true,
                         onSuccess: () => {
-                            // Update all messages to read status locally
                             setGroupedMessages((prev) => ({
                                 ...prev,
                                 [senderId]: {
@@ -129,7 +127,6 @@ export default function Messages() {
 
     const handleOriginalMessageClick = (messageId) => {
         setHighlightedMessageId(messageId);
-        // Scroll to the original message
         messageRefs.current[messageId]?.scrollIntoView({
             behavior: "smooth",
             block: "center",
@@ -141,7 +138,6 @@ export default function Messages() {
 
         if (!newMessage.trim() || !selectedConversationId) return;
 
-        // Filter the message content
         const { cleanedText, hasRestrictedContent } = filterContent(newMessage);
 
         if (hasRestrictedContent) {
@@ -168,7 +164,6 @@ export default function Messages() {
                     setIsReplying(false);
                     setReplyToMessage(null);
 
-                    // Optimistically update the messages
                     const newMsg = {
                         id: Date.now(),
                         message: cleanedText,
@@ -219,7 +214,7 @@ export default function Messages() {
         : null;
 
     return (
-        <VolunteerLayout>
+        <VolunteerLayout auth={auth}>
             <div className="max-w-7xl mx-auto py-2 px-4 sm:px-6 lg:px-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white rounded-xl shadow overflow-hidden">
                     {/* Conversations List */}

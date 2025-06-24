@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link } from "@inertiajs/react";
 import SidebarLink from "@/Components/SidebarLink";
 
+import FloatingChat from "@/Components/FloatingChat";
+
 // Icons
 import {
     Home,
@@ -13,7 +15,7 @@ import {
     X,
 } from "lucide-react";
 
-export default function VolunteerLayout({ children }) {
+export default function VolunteerLayout({ children, auth }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     return (
@@ -99,8 +101,8 @@ export default function VolunteerLayout({ children }) {
                     </span>
                     <div className="w-6" /> {/* placeholder to center title */}
                 </div>
-
                 <main className="p-6">{children}</main>
+                <FloatingChat auth={auth} /> {/* Pass auth prop directly */}
             </div>
         </div>
     );

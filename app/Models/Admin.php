@@ -25,4 +25,15 @@ class Admin extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
+
+    public function chats()
+    {
+        return $this->belongsToMany(Chat::class, 'chat_participants')
+            ->withTimestamps();
+    }
+
+    public function chatMessages()
+    {
+        return $this->morphMany(ChatMessage::class, 'sender');
+    }
 }

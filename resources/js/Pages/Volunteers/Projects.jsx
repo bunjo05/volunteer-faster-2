@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
-export default function Projects() {
+export default function Projects({ auth }) {
     const { bookings = [], flash } = usePage().props;
     const [activeBooking, setActiveBooking] = useState(bookings[0] || null);
     const [showSuccess, setShowSuccess] = useState(false);
@@ -32,7 +32,7 @@ export default function Projects() {
     const { post } = useForm();
 
     return (
-        <VolunteerLayout>
+        <VolunteerLayout auth={auth}>
             {showSuccess && (
                 <div className="fixed top-4 right-4 z-50">
                     <div className="bg-green-500 text-white px-4 py-2 rounded-md shadow-lg flex items-center animate-fade-in-up">
