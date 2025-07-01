@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link } from "@inertiajs/react";
 import {
-    LayoutDashboard,
     ClipboardList,
     MessageSquare,
     User,
@@ -13,7 +12,9 @@ import {
 } from "lucide-react";
 import SidebarLink from "@/Components/SidebarLink";
 
-export default function OrganizationLayout({ children }) {
+import FloatingChat from "@/Components/FloatingChat";
+
+export default function OrganizationLayout({ children, auth }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     return (
@@ -108,6 +109,7 @@ export default function OrganizationLayout({ children }) {
                 </div>
 
                 <main className="p-6">{children}</main>
+                <FloatingChat auth={auth} />
             </div>
         </div>
     );

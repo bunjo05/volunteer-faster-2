@@ -1,10 +1,7 @@
 import { useState } from "react";
 import { Link } from "@inertiajs/react";
 import SidebarLink from "@/Components/SidebarLink";
-
 import FloatingChat from "@/Components/FloatingChat";
-
-// Icons
 import {
     Home,
     FolderKanban,

@@ -7,10 +7,11 @@ use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class NewChatMessage implements ShouldBroadcast
+class NewChatMessage implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -35,16 +36,21 @@ class NewChatMessage implements ShouldBroadcast
 
     public function broadcastWith()
     {
+        // Ensure consistent message format
+        $messageData = is_array($this->message) ? $this->message : [
+            'id' => $this->message->id,
+            'content' => $this->message->content,
+            'sender_id' => $this->message->sender_id,
+            'sender_type' => $this->message->sender_type,
+            'created_at' => $this->message->created_at->toISOString(),
+            'status' => 'Sent',
+            'sender' => $this->message->sender,
+            'is_admin' => $this->message->sender_type === 'App\Models\Admin'
+        ];
+
         return [
-            'message' => [
-                'id' => $this->message->id,
-                'message' => $this->message->content,
-                'sender_id' => $this->message->sender_id,
-                'sender_type' => $this->message->sender_type,
-                'created_at' => $this->message->created_at,
-                'status' => 'Sent',
-                'sender' => $this->message->sender,
-            ]
+            'message' => $messageData,
+            'chatId' => $this->chatId
         ];
     }
 }

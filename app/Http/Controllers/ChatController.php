@@ -34,7 +34,7 @@ class ChatController extends Controller
             $chat = $chat->fresh(['chatMessages.sender', 'participants.admin']);
 
             // Notify all online admins
-            event(new NewChatMessage($chat));
+            event(new NewChatMessage($chatId = $chat->id, 'A new chat has been created'));
         }
 
         return response()->json([
@@ -78,11 +78,6 @@ class ChatController extends Controller
             'sender_type' => get_class($user)
         ]);
 
-        // If chat is pending, notify admins again
-        if ($chat->status === 'pending') {
-            event(new NewChatMessage($chat));
-        }
-
         // Load the sender relationship
         $message->load('sender');
 
@@ -98,15 +93,13 @@ class ChatController extends Controller
             'is_admin' => $message->sender_type === 'App\Models\Admin'
         ];
 
-        // Broadcast the formatted message only if chat is active
-        if ($chat->status === 'active') {
-            broadcast(new NewChatMessage($formattedMessage, $chat->id))->toOthers();
-        }
+        // Always broadcast the message
+        broadcast(new NewChatMessage($formattedMessage, $chat->id))->toOthers();
 
         return back();
-        // return response()->json([
-        //     'success' => true,
-        //     'message' => $formattedMessage
+        // response()->json([
+        // 'success' => true,
+        // 'message' => $formattedMessage
         // ]);
     }
 
@@ -235,6 +228,7 @@ class ChatController extends Controller
                         ->count()
                 ];
             });
+        // event(new NewChatMessage($chatId = $chat->id, 'Admin dashboard loaded'));
 
         return Inertia::render('Admins/Chat/Index', [
             'chats' => $assignedChats,
@@ -268,22 +262,7 @@ class ChatController extends Controller
 
         // Pass both message and chat ID to the event
         broadcast(new NewChatMessage($message, $chat->id))->toOthers();
-
         return back();
-        // response()->json([
-        //     'success' => true,
-        //     'message' => [
-        //         'id' => $message->id,
-        //         'message' => $message->content,
-        //         'sender_id' => $message->sender_id,
-        //         'sender_type' => $message->sender_type,
-        //         'created_at' => $message->created_at,
-        //         'status' => 'Sent',
-        //         'sender' => $message->sender,
-        //         'reply_to' => $message->reply_to,
-        //         'original_message' => $message->reply_to ? ChatMessage::find($message->reply_to) : null
-        //     ]
-        // ]);
     }
     public function AdminMarkAsRead(Chat $chat)
     {
@@ -293,7 +272,6 @@ class ChatController extends Controller
             ->update(['read_at' => now()]);
 
         return back();
-        // return response()->json(['success' => true]);
     }
 
     public function AdminAcceptChat(Request $request, Chat $chat)
@@ -344,11 +322,6 @@ class ChatController extends Controller
             broadcast(new NewChatMessage($message, $chat->id))->toOthers();
 
             return back();
-            // response()->json([
-            //     'success' => true,
-            //     'message' => 'Chat accepted successfully',
-            //     'chat' => $this->formatChatResponse($chat->fresh())
-            // ]);
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error("Chat acceptance failed: " . $e->getMessage());

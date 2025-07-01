@@ -8,6 +8,8 @@ import {
     Send,
     Search,
     MoreVertical,
+    Menu,
+    X,
 } from "lucide-react";
 
 export default function AdminChatIndex({
@@ -27,6 +29,13 @@ export default function AdminChatIndex({
     const messagesEndRef = useRef(null);
     const messageRefs = useRef({});
 
+    // Close sidebar when chat is selected on mobile
+    useEffect(() => {
+        if (selectedChat && window.innerWidth < 768) {
+            setShowConversations(false);
+        }
+    }, [selectedChat]);
+
     useEffect(() => {
         const allConversations = [...chats, ...requests];
         if (allConversations.length > 0 && !selectedChat) {
@@ -36,66 +45,53 @@ export default function AdminChatIndex({
             });
         }
 
-        // Setup Echo listener for all chats
         if (window.Echo) {
-            allConversations.forEach((chat) => {
-                window.Echo.private(`chat.${chat.id}`).listen(
-                    "NewChatMessage",
-                    (e) => {
-                        // Update the selected chat if it's the current one
-                        if (selectedChat && selectedChat.id === e.chatId) {
-                            setSelectedChat((prev) => ({
-                                ...prev,
-                                messages: [...(prev.messages || []), e.message],
-                            }));
-                        }
+            const allConversations = [...chats, ...requests];
+            const listeners = allConversations.map((chat) => {
+                const channel = window.Echo.private(`chat.${chat.id}`);
 
-                        // Update the appropriate list (chats or requests)
-                        const updateList = (list) =>
-                            list.map((c) => {
-                                if (c.id === e.chatId) {
-                                    return {
-                                        ...c,
-                                        latestMessage: {
-                                            message: e.message.content,
-                                            created_at: e.message.created_at,
-                                        },
-                                        unreadCount:
-                                            e.message.sender_type ===
-                                            "App\\Models\\User"
-                                                ? (c.unreadCount || 0) + 1
-                                                : c.unreadCount,
-                                    };
-                                }
-                                return c;
-                            });
-
-                        setChats(updateList(chats));
-                        setRequests(updateList(requests));
-
-                        // Scroll to bottom if this is the active chat
-                        if (selectedChat && selectedChat.id === e.chatId) {
-                            setTimeout(() => {
-                                messagesEndRef.current?.scrollIntoView({
-                                    behavior: "smooth",
-                                });
-                            }, 100);
-                        }
+                channel.listen(".NewChatMessage", (e) => {
+                    if (selectedChat && selectedChat.id === e.chatId) {
+                        setSelectedChat((prev) => ({
+                            ...prev,
+                            messages: [...(prev.messages || []), e.message],
+                        }));
                     }
-                );
+
+                    const updateList = (list) =>
+                        list.map((c) => {
+                            if (c.id === e.chatId) {
+                                return {
+                                    ...c,
+                                    latestMessage: {
+                                        message: e.message.content,
+                                        created_at: e.message.created_at,
+                                    },
+                                    unreadCount:
+                                        e.message.sender_type ===
+                                        "App\\Models\\User"
+                                            ? (c.unreadCount || 0) + 1
+                                            : c.unreadCount,
+                                };
+                            }
+                            return c;
+                        });
+
+                    setChats(updateList(chats));
+                    setRequests(updateList(requests));
+                });
+
+                return channel;
             });
 
             return () => {
-                allConversations.forEach((chat) => {
-                    window.Echo.private(`chat.${chat.id}`).stopListening(
-                        "NewChatMessage"
-                    );
+                listeners.forEach((channel) => {
+                    channel.stopListening(".NewChatMessage");
                 });
             };
         }
     }, [chats, requests, selectedChat]);
 
-    // Scroll to bottom when messages change
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [selectedChat?.messages]);
@@ -125,7 +121,6 @@ export default function AdminChatIndex({
         if (!newMessage.trim() || !selectedChat) return;
 
         try {
-            // Optimistic update
             const tempId = Date.now();
             const newMsg = {
                 id: tempId,
@@ -156,7 +151,6 @@ export default function AdminChatIndex({
             setIsReplying(false);
             setReplyToMessage(null);
 
-            // Send to server
             await router.post(
                 route("admin.chat.store", selectedChat.id),
                 {
@@ -169,7 +163,6 @@ export default function AdminChatIndex({
             );
         } catch (error) {
             console.error("Error sending message:", error);
-            // Optionally revert optimistic update on error
         }
     };
 
@@ -211,7 +204,6 @@ export default function AdminChatIndex({
                     },
                     onError: (errors) => {
                         if (errors?.response?.status === 409) {
-                            // Chat already assigned - move to chats
                             const existingRequest = requests.find(
                                 (r) => r.id === chatId
                             );
@@ -240,28 +232,38 @@ export default function AdminChatIndex({
         <AdminLayout>
             <Head title="Volunteer Chats" />
 
-            <div className="max-w-7xl mx-auto py-2 px-4 sm:px-6 lg:px-8">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white rounded-xl shadow overflow-hidden">
+            <div className="max-w-7xl mx-auto py-2 px-2 sm:px-4 lg:px-8">
+                <div className="flex flex-col md:flex-row bg-white rounded-xl shadow overflow-hidden h-[calc(100vh-100px)] md:h-[calc(100vh-150px)]">
                     {/* Conversations List - Sidebar */}
                     <div
                         className={`${
                             showConversations
-                                ? "block fixed inset-0 z-10 bg-black bg-opacity-50 md:bg-opacity-0"
+                                ? "fixed inset-0 z-20 bg-black bg-opacity-50 md:bg-opacity-0"
                                 : "hidden"
                         } md:block md:relative`}
                     >
                         <div
-                            className={`absolute md:relative left-0 top-0 h-full w-full md:w-80 bg-white shadow-lg md:shadow-none z-20 transform ${
+                            className={`absolute md:relative left-0 top-0 h-full w-full md:w-80 bg-white shadow-lg md:shadow-none z-30 transform ${
                                 showConversations
                                     ? "translate-x-0"
                                     : "-translate-x-full"
-                            } md:translate-x-0 transition-transform duration-300 ease-in-out border-r border-gray-200`}
+                            } md:translate-x-0 transition-transform duration-300 ease-in-out border-r border-gray-200 flex flex-col`}
                         >
-                            <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+                            {/* Mobile header */}
+                            <div className="md:hidden p-3 border-b border-gray-200 flex items-center justify-between">
                                 <h2 className="text-lg font-semibold text-gray-800">
-                                    Volunteer Chats
+                                    Conversations
                                 </h2>
-                                <div className="mt-3 relative">
+                                <button
+                                    onClick={() => setShowConversations(false)}
+                                    className="p-1 rounded-full hover:bg-gray-200"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="p-3 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+                                <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                         <Search className="h-4 w-4 text-gray-400" />
                                     </div>
@@ -307,7 +309,7 @@ export default function AdminChatIndex({
                             </div>
 
                             {/* Chat List */}
-                            <ul className="divide-y divide-gray-200 max-h-[70vh] overflow-y-auto">
+                            <div className="flex-1 overflow-y-auto">
                                 {activeTab === "chats" ? (
                                     filteredChats?.length > 0 ? (
                                         filteredChats.map((chat) => {
@@ -323,7 +325,7 @@ export default function AdminChatIndex({
                                                 : "No messages yet";
 
                                             return (
-                                                <li
+                                                <div
                                                     key={chat.id}
                                                     className={`py-3 px-4 hover:bg-gray-50 cursor-pointer transition-colors ${
                                                         selectedChat?.id ===
@@ -374,21 +376,20 @@ export default function AdminChatIndex({
                                                             </button>
                                                         </div>
                                                     </div>
-                                                </li>
+                                                </div>
                                             );
                                         })
                                     ) : (
-                                        <li className="py-4 px-4 text-center">
+                                        <div className="py-4 px-4 text-center">
                                             <MessageSquare className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                                             <p className="text-gray-500 text-sm">
                                                 {searchQuery
                                                     ? "No matching chats found"
                                                     : "No active chats"}
                                             </p>
-                                        </li>
+                                        </div>
                                     )
-                                ) : // Requests Tab Content
-                                filteredRequests?.length > 0 ? (
+                                ) : filteredRequests?.length > 0 ? (
                                     filteredRequests.map((request) => {
                                         const previewText = request
                                             .latestMessage?.message
@@ -402,7 +403,7 @@ export default function AdminChatIndex({
                                             : "No messages yet";
 
                                         return (
-                                            <li
+                                            <div
                                                 key={request.id}
                                                 className={`py-3 px-4 hover:bg-gray-50 cursor-pointer transition-colors ${
                                                     selectedChat?.id ===
@@ -451,29 +452,28 @@ export default function AdminChatIndex({
                                                         </button>
                                                     </div>
                                                 </div>
-                                            </li>
+                                            </div>
                                         );
                                     })
                                 ) : (
-                                    <li className="py-4 px-4 text-center">
+                                    <div className="py-4 px-4 text-center">
                                         <MessageSquare className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                                         <p className="text-gray-500 text-sm">
                                             {searchQuery
                                                 ? "No matching requests found"
                                                 : "No pending requests"}
                                         </p>
-                                    </li>
+                                    </div>
                                 )}
-                            </ul>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Rest of the chat interface remains the same */}
                     {/* Chat Interface - Main Content */}
-                    <div className="col-span-2 flex flex-col">
+                    <div className="flex-1 flex flex-col border-l border-gray-200">
                         {selectedChat ? (
                             <>
-                                <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between">
+                                <div className="p-3 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between">
                                     <div className="flex items-center">
                                         <button
                                             onClick={() =>
@@ -481,31 +481,19 @@ export default function AdminChatIndex({
                                             }
                                             className="md:hidden mr-2 p-1 rounded-full hover:bg-gray-200"
                                         >
-                                            <svg
-                                                className="w-5 h-5"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth={2}
-                                                    d="M4 6h16M4 12h16M4 18h16"
-                                                />
-                                            </svg>
+                                            <Menu className="w-5 h-5" />
                                         </button>
                                         <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-r from-blue-100 to-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
                                             {selectedChat.user?.name?.charAt(
                                                 0
                                             ) || "V"}
                                         </div>
-                                        <div>
-                                            <h2 className="text-lg font-semibold text-gray-900">
+                                        <div className="min-w-0">
+                                            <h2 className="text-lg font-semibold text-gray-900 truncate">
                                                 {selectedChat.user?.name ||
                                                     "Unknown Volunteer"}
                                             </h2>
-                                            <p className="text-xs text-gray-500">
+                                            <p className="text-xs text-gray-500 truncate">
                                                 {selectedChat.user?.email ||
                                                     "No email provided"}
                                             </p>
@@ -542,26 +530,11 @@ export default function AdminChatIndex({
                                                 />
                                             </svg>
                                         </button>
-                                        <button className="p-2 rounded-full hover:bg-gray-200 text-gray-600">
-                                            <svg
-                                                className="w-5 h-5"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth={2}
-                                                    d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-                                                />
-                                            </svg>
-                                        </button>
                                     </div>
                                 </div>
 
-                                <div className="flex-1 p-4 overflow-y-auto max-h-[60vh]">
-                                    <div className="space-y-4">
+                                <div className="flex-1 p-3 overflow-y-auto">
+                                    <div className="space-y-3">
                                         {(selectedChat.messages || []).map(
                                             (message) => (
                                                 <div
@@ -579,7 +552,7 @@ export default function AdminChatIndex({
                                                     }`}
                                                 >
                                                     <div
-                                                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg shadow-sm ${
+                                                        className={`max-w-[80%] lg:max-w-md px-3 py-2 rounded-lg shadow-sm ${
                                                             message.sender_id ===
                                                             auth.user.id
                                                                 ? "bg-blue-500 text-white"
@@ -752,7 +725,7 @@ export default function AdminChatIndex({
                                     </div>
                                 </div>
 
-                                <div className="p-4 border-t border-gray-200 bg-white">
+                                <div className="p-3 border-t border-gray-200 bg-white">
                                     {isReplying && (
                                         <div className="mb-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
                                             <div className="flex justify-between items-center">
@@ -789,7 +762,7 @@ export default function AdminChatIndex({
                                             onChange={(e) =>
                                                 setNewMessage(e.target.value)
                                             }
-                                            className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+                                            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
                                             placeholder={
                                                 isReplying
                                                     ? `Reply to ${
@@ -804,7 +777,7 @@ export default function AdminChatIndex({
                                         />
                                         <button
                                             type="submit"
-                                            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-md flex items-center justify-center"
+                                            className="px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-md flex items-center justify-center"
                                         >
                                             <Send className="w-5 h-5" />
                                         </button>
@@ -812,8 +785,8 @@ export default function AdminChatIndex({
                                 </div>
                             </>
                         ) : (
-                            <div className="h-full flex flex-col items-center justify-center p-12 bg-gray-50">
-                                <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200 max-w-md text-center">
+                            <div className="h-full flex flex-col items-center justify-center p-4 bg-gray-50">
+                                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 w-full max-w-md text-center">
                                     <MessageSquare className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
                                     <h3 className="text-lg font-medium text-gray-900 mb-2">
                                         No conversation selected
@@ -826,7 +799,7 @@ export default function AdminChatIndex({
                                         onClick={() =>
                                             setShowConversations(true)
                                         }
-                                        className="md:hidden px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                                        className="md:hidden px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                                     >
                                         Browse Conversations
                                     </button>

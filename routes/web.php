@@ -172,7 +172,7 @@ Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->
 Route::middleware('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
     Route::prefix('chat')->group(function () {
         Route::get('/', [ChatController::class, 'index']);
-        Route::post('/', [ChatController::class, 'store']);
+        Route::post('/', [ChatController::class, 'store'])->name('volunteer.chat.store');
         Route::post('/{chat}/read', [ChatController::class, 'markAsRead']);
     });
 });

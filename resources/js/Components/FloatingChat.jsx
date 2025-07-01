@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useForm } from "@inertiajs/react";
+import { useForm, usePage, router } from "@inertiajs/react";
 import { X, MessageSquare, Send } from "lucide-react";
 import axios from "axios";
 
 export default function FloatingChat() {
+    const { auth } = usePage().props;
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([]);
     const [chat, setChat] = useState(null);
@@ -16,19 +17,54 @@ export default function FloatingChat() {
         chat_id: null,
     });
 
+    // Fetch chat when opening
     useEffect(() => {
-        if (isOpen) {
-            fetchChat();
-        }
+        if (isOpen) fetchChat();
     }, [isOpen]);
 
+    // Setup Echo listener
     useEffect(() => {
-        scrollToBottom();
-    }, [messages]);
+        if (!isOpen || !window.Echo || !data.chat_id) return;
 
+        const channel = window.Echo.private(`chat.${data.chat_id}`);
+
+        channel.listen(".NewChatMessage", (e) => {
+            setMessages((prev) => {
+                if (!e.message?.id) return prev; // Guard against invalid messages
+
+                const isOwnMessage = e.message.sender_id === auth.user.id;
+                const isNewMessage = !prev.some(
+                    (msg) => msg.id === e.message.id
+                );
+
+                if (isNewMessage) {
+                    if (isOwnMessage) {
+                        return prev.map((msg) =>
+                            msg.status === "Sending" &&
+                            msg.sender_id === auth.user.id
+                                ? e.message
+                                : msg
+                        );
+                    }
+                    return [...prev, e.message];
+                }
+                return prev;
+            });
+
+            if (e.message?.sender_type === "App\\Models\\Admin") {
+                axios.post(`/chat/${data.chat_id}/read`);
+            }
+            setTimeout(scrollToBottom, 100);
+        });
+
+        return () => channel.stopListening(".NewChatMessage");
+    }, [isOpen, data.chat_id, auth.user.id]);
+
+    // Auto-scroll
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
+    useEffect(scrollToBottom, [messages]);
 
     const fetchChat = async () => {
         setLoading(true);
@@ -36,57 +72,84 @@ export default function FloatingChat() {
         try {
             const response = await axios.get("/chat");
 
-            if (response.data.error) {
-                setError(response.data.error);
-                return;
+            // Problem likely occurs here:
+            if (!response.data?.chat?.id) {
+                throw new Error("Invalid chat data received");
             }
 
             setChat(response.data.chat);
-            // No need to reverse here since backend sends in oldest order
-            setMessages(response.data.messages);
+            setMessages(response.data.messages || []);
             setData("chat_id", response.data.chat.id);
-
-            // Set up Echo listener
-            if (window.Echo) {
-                window.Echo.private(`chat.${response.data.chat.id}`).listen(
-                    "NewChatMessage",
-                    (e) => {
-                        // Add new message to the end of the array
-                        setMessages((prev) => [...prev, e.message]);
-                        if (e.message.sender_type === "App\\Models\\Admin") {
-                            axios.post(`/chat/${response.data.chat.id}/read`);
-                        }
-                        // Scroll to bottom when new message arrives
-                        setTimeout(scrollToBottom, 100);
-                    }
-                );
-            }
         } catch (error) {
-            console.error("Error fetching chat:", error);
-            setError("Failed to load chat. Please try again.");
-            if (error.response?.data?.message) {
-                setError(error.response.data.message);
-            }
+            console.error("Fetch chat error:", error);
+            setError(
+                error.response?.data?.message ||
+                    error.message ||
+                    "Failed to load chat"
+            );
+            // Initialize empty chat if needed
+            setChat({ id: null, messages: [] });
         } finally {
             setLoading(false);
         }
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         if (!data.content.trim()) return;
 
-        post("/chat", {
-            preserveScroll: true,
-            onSuccess: () => {
-                reset();
-                // Scroll to bottom after sending
-                setTimeout(scrollToBottom, 100);
+        // Generate a temporary ID for optimistic update
+        const tempId = Date.now();
+
+        // Create optimistic message
+        const optimisticMessage = {
+            id: tempId,
+            content: data.content,
+            sender_id: auth.user.id,
+            sender_type: "App\\Models\\User",
+            created_at: new Date().toISOString(),
+            status: "Sending",
+            sender: {
+                id: auth.user.id,
+                name: auth.user.name,
+                email: auth.user.email,
             },
-            onError: (errors) => {
-                setError("Failed to send message. Please try again.");
-            },
-        });
+        };
+
+        // Optimistic update - add message immediately
+        setMessages((prev) => [...prev, optimisticMessage]);
+        setData("content", "");
+        setTimeout(scrollToBottom, 100);
+
+        try {
+            // Ensure we have a valid chat_id
+            const chatId = data.chat_id || (chat?.id ?? null);
+            if (!chatId) {
+                throw new Error("No chat session available");
+            }
+
+            await router.post(
+                route("volunteer.chat.store"),
+                {
+                    content: data.content,
+                    chat_id: chatId,
+                    temp_id: tempId,
+                },
+                {
+                    preserveScroll: true,
+                    onError: (errors) => {
+                        setError(errors?.message || "Failed to send message");
+                        setMessages((prev) =>
+                            prev.filter((msg) => msg.id !== tempId)
+                        );
+                    },
+                }
+            );
+        } catch (error) {
+            console.error("Message send error:", error);
+            setError(error.message || "Failed to send message");
+            setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
+        }
     };
 
     return (
@@ -115,7 +178,6 @@ export default function FloatingChat() {
                                 No messages yet. Start the conversation!
                             </p>
                         ) : (
-                            // Messages will naturally appear in order with newest at bottom
                             messages.map((message) => (
                                 <div
                                     key={message.id}
@@ -132,9 +194,18 @@ export default function FloatingChat() {
                                             "App\\Models\\User"
                                                 ? "bg-indigo-500 text-white"
                                                 : "bg-gray-200"
+                                        } ${
+                                            message.status === "Sending"
+                                                ? "opacity-75"
+                                                : ""
                                         }`}
                                     >
                                         {message.content}
+                                        {message.status === "Sending" && (
+                                            <div className="text-xs italic mt-1">
+                                                Sending...
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="text-xs text-gray-500 mt-1">
                                         {message.sender?.name} -{" "}
@@ -159,12 +230,12 @@ export default function FloatingChat() {
                                 className="flex-1 border rounded-l-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                 placeholder="Type your message..."
                                 required
-                                disabled={processing || !chat}
+                                disabled={processing || loading}
                             />
                             <button
                                 type="submit"
                                 className="bg-indigo-600 text-white px-3 py-2 rounded-r-lg hover:bg-indigo-700 disabled:opacity-50"
-                                disabled={processing || !chat}
+                                disabled={processing || loading}
                             >
                                 <Send className="w-5 h-5" />
                             </button>
