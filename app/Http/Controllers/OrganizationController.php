@@ -32,11 +32,11 @@ class OrganizationController extends Controller
         return inertia('Organizations/Dashboard', [
             'projectsCount' => $projects->count(),
             'projectStatusCount' => [
-                'approved' => $projects->where('status', 'Approved')->count(),
-                'pending' => $projects->where('status', 'Pending')->count(),
-                'rejected' => $projects->where('status', 'Rejected')->count(),
-                'completed' => $projects->where('status', 'Completed')->count(),
-                'cancelled' => $projects->where('status', 'Cancelled')->count(),
+                'approved' => $projects->where('booking_status', 'Approved')->count(),
+                'pending' => $projects->where('booking_status', 'Pending')->count(),
+                'rejected' => $projects->where('booking_status', 'Rejected')->count(),
+                'completed' => $projects->where('booking_status', 'Completed')->count(),
+                'cancelled' => $projects->where('booking_status', 'Cancelled')->count(),
             ],
         ]);
     }
@@ -68,7 +68,7 @@ class OrganizationController extends Controller
                     'start_date' => $booking->start_date,
                     'end_date' => $booking->end_date,
                     'number_of_travellers' => $booking->number_of_travellers,
-                    'status' => $booking->booking_status,
+                    'booking_status' => $booking->booking_status,
                     'message' => $booking->message,
                     'created_at' => $booking->created_at->format('M d, Y'),
 
@@ -94,13 +94,14 @@ class OrganizationController extends Controller
     public function updateBookingStatus(VolunteerBooking $booking, Request $request)
     {
         $validated = $request->validate([
-            'booking_status' => 'required|in:Pending,Approved,Rejected,Cancelled,Completed'
+            'booking_status' => 'required|string|in:Pending,Approved,Rejected,Cancelled,Completed'
         ]);
 
         $booking->update(['booking_status' => $validated['booking_status']]);
 
-        return back()->with('message', 'Booking status updated successfully');
+        return back()->with('success', 'Booking status updated successfully');
     }
+
 
     public function profile()
     {

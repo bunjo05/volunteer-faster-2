@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Head, Link, usePage, useForm } from "@inertiajs/react";
+import { Head, Link, usePage, useForm, router } from "@inertiajs/react";
 import OrganizationLayout from "@/Layouts/OrganizationLayout";
 import {
     CalendarDays,
@@ -18,10 +18,92 @@ import {
     ArrowBigRight,
 } from "lucide-react";
 
-export default function Bookings({ bookings }) {
+import { Dialog } from "@headlessui/react";
+
+export default function Bookings({ bookings: initialBookings }) {
+    const [bookings, setBookings] = useState(initialBookings);
     const [activeBooking, setActiveBooking] = useState(bookings[0] || null);
     const { flash } = usePage().props;
-    const { post, processing } = useForm();
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [statusChanges, setStatusChanges] = useState({});
+
+    const [selectedStatus, setSelectedStatus] = useState(null);
+    const [selectedBookingId, setSelectedBookingId] = useState(null);
+
+    const openConfirmationDialog = (bookingId, newStatus) => {
+        setSelectedBookingId(bookingId);
+        setSelectedStatus(newStatus);
+        setIsDialogOpen(true);
+    };
+
+    const closeDialog = () => {
+        setIsDialogOpen(false);
+        setSelectedStatus(null);
+        setSelectedBookingId(null);
+    };
+
+    const confirmStatusUpdate = () => {
+        if (!selectedBookingId || !selectedStatus) return;
+
+        router.put(
+            `/organization/bookings/${selectedBookingId}/update-status`,
+            {
+                booking_status: selectedStatus,
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    // Update local state
+                    const updatedBookings = bookings.map((booking) =>
+                        booking.id === selectedBookingId
+                            ? { ...booking, booking_status: selectedStatus }
+                            : booking
+                    );
+                    setBookings(updatedBookings);
+
+                    if (activeBooking?.id === selectedBookingId) {
+                        setActiveBooking((prev) => ({
+                            ...prev,
+                            booking_status: selectedStatus,
+                        }));
+                    }
+
+                    closeDialog();
+                },
+                onError: (errors) => {
+                    console.error("Error updating status:", errors);
+                    closeDialog();
+                },
+            }
+        );
+    };
+
+    const handleUpdateStatus = (bookingId, newStatus) => {
+        openConfirmationDialog(bookingId, newStatus);
+    };
+
+    // const updateStatus = (booking_status) => {
+    //     if (!activeBooking) return;
+
+    //     post(route("bookings.update-status", activeBooking.id), {
+    //         booking_status, // Send the status directly in the request body
+    //         preserveScroll: true,
+    //         onSuccess: () => {
+    //             // Update local state
+    //             const updatedBookings = bookings.map((booking) =>
+    //                 booking.id === activeBooking.id
+    //                     ? { ...booking, booking_status }
+    //                     : booking
+    //             );
+    //             setBookings(updatedBookings);
+    //             setActiveBooking((prev) => ({ ...prev, booking_status }));
+    //         },
+    //         onError: (errors) => {
+    //             console.error("Error updating status:", errors);
+    //         },
+    //     });
+    // };
+
     const statusColors = {
         Pending: "bg-amber-100 text-amber-800",
         Approved: "bg-emerald-100 text-emerald-800",
@@ -42,29 +124,53 @@ export default function Bookings({ bookings }) {
         return duration * fees * travellers;
     };
 
-    const updateStatus = (booking_status) => {
-        if (!activeBooking) return;
-
-        post(
-            route("bookings.update-status", activeBooking.id),
-            {
-                booking_status,
-            },
-            {
-                onError: (errors) => {
-                    console.error("Error updating status:", errors);
-                },
-                onSuccess: () => {
-                    // Optionally refresh the data or show a success message
-                },
-            }
-        );
-    };
-
     return (
         <OrganizationLayout>
             <section className="bg-[#fff] min-h-screen rounded-lg shadow-sm">
                 <Head title="Volunteer Bookings" />
+
+                {/* Confirmation Dialog */}
+                <Dialog
+                    open={isDialogOpen}
+                    onClose={closeDialog}
+                    className="relative z-50"
+                >
+                    <div
+                        className="fixed inset-0 bg-black/30"
+                        aria-hidden="true"
+                    />
+                    <div className="fixed inset-0 flex items-center justify-center p-4">
+                        <Dialog.Panel className="w-full max-w-md rounded-xl bg-white p-6">
+                            <Dialog.Title className="text-lg font-medium text-gray-900">
+                                Confirm Status Update
+                            </Dialog.Title>
+                            <Dialog.Description className="mt-2 text-sm text-gray-600">
+                                Are you sure you want to change the booking
+                                status to{" "}
+                                <span className="font-semibold">
+                                    {selectedStatus}
+                                </span>
+                                ?
+                            </Dialog.Description>
+
+                            <div className="mt-4 flex justify-end space-x-3">
+                                <button
+                                    onClick={closeDialog}
+                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmStatusUpdate}
+                                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                >
+                                    Confirm
+                                </button>
+                            </div>
+                        </Dialog.Panel>
+                    </div>
+                </Dialog>
+
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                     <div className="mb-8">
                         <h1 className="text-3xl font-bold text-gray-900">
@@ -336,13 +442,13 @@ export default function Bookings({ bookings }) {
                                                                         className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                                                                             statusColors[
                                                                                 activeBooking
-                                                                                    .status
+                                                                                    .booking_status
                                                                             ] ||
                                                                             "bg-gray-100 text-gray-800"
                                                                         }`}
                                                                     >
                                                                         {
-                                                                            activeBooking.status
+                                                                            activeBooking.booking_status
                                                                         }
                                                                     </span>
                                                                 </div>
@@ -351,172 +457,127 @@ export default function Bookings({ bookings }) {
                                                     </div>
                                                 </div>
 
-                                                {/* Project Details */}
-                                                {/* <div className="space-y-6">
-                                                    <div className="bg-gray-50 p-5 rounded-xl border border-gray-100">
-                                                        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4 flex items-center">
-                                                            <MapPin className="w-4 h-4 mr-2" />
-                                                            Project Information
-                                                        </h3>
-                                                        <div className="space-y-4">
-                                                            <div className="flex items-start gap-4">
-                                                                <div className="flex items-center justify-center h-11 w-11 rounded-xl bg-blue-100 text-blue-600 flex-shrink-0">
-                                                                    <Badge className="w-5 h-5" />
-                                                                </div>
-                                                                <div>
-                                                                    <h4 className="font-medium text-gray-700 mb-1">
-                                                                        Project
-                                                                        Title
-                                                                    </h4>
-                                                                    <Link
-                                                                        href={`/projects/${activeBooking.project.slug}`}
-                                                                        className="text-blue-600 hover:text-blue-800"
-                                                                    >
-                                                                        {
-                                                                            activeBooking
-                                                                                .project
-                                                                                .title
-                                                                        }
-                                                                    </Link>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="flex items-start gap-4">
-                                                                <div className="flex items-center justify-center h-11 w-11 rounded-xl bg-blue-100 text-blue-600 flex-shrink-0">
-                                                                    <MapPin className="w-5 h-5" />
-                                                                </div>
-                                                                <div>
-                                                                    <h4 className="font-medium text-gray-700 mb-1">
-                                                                        Location
-                                                                    </h4>
-                                                                    <p className="text-gray-600">
-                                                                        {
-                                                                            activeBooking
-                                                                                .project
-                                                                                .location
-                                                                        }
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-
-                                                            {activeBooking.message && (
-                                                                <div className="flex items-start gap-4">
-                                                                    <div className="flex items-center justify-center h-11 w-11 rounded-xl bg-blue-100 text-blue-600 flex-shrink-0">
-                                                                        <Mail className="w-5 h-5" />
-                                                                    </div>
-                                                                    <div>
-                                                                        <h4 className="font-medium text-gray-700 mb-1">
-                                                                            Volunteer's
-                                                                            Message
-                                                                        </h4>
-                                                                        <p className="text-gray-600 whitespace-pre-line bg-white p-3 rounded-lg border border-gray-200">
-                                                                            {
-                                                                                activeBooking.message
-                                                                            }
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div> */}
                                                 {activeBooking && (
                                                     <div className="bg-gray-50 p-5 rounded-xl border border-gray-100">
-                                                        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-                                                            Update Booking
-                                                            Status
-                                                        </h3>
                                                         <div className="flex flex-wrap gap-3">
-                                                            {activeBooking.booking_status !==
-                                                                "Approved" && (
-                                                                <button
-                                                                    onClick={() =>
-                                                                        updateStatus(
-                                                                            "Approved"
-                                                                        )
-                                                                    }
-                                                                    disabled={
-                                                                        processing
-                                                                    }
-                                                                    className="inline-flex items-center px-2 py-2 bg-emerald-600 border border-transparent rounded-md font-semibold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors disabled:opacity-50"
-                                                                >
-                                                                    <Check className="w-4 h-4 mr-2" />
-                                                                    Approve
-                                                                </button>
-                                                            )}
+                                                            {activeBooking && (
+                                                                <div className="bg-gray-50 p-5 rounded-xl border border-gray-100">
+                                                                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
+                                                                        Update
+                                                                        Booking
+                                                                        Status
+                                                                    </h3>
+                                                                    <div className="w-64">
+                                                                        <select
+                                                                            value={
+                                                                                statusChanges[
+                                                                                    activeBooking
+                                                                                        .id
+                                                                                ] ||
+                                                                                activeBooking.booking_status ||
+                                                                                "Pending"
+                                                                            }
+                                                                            onChange={(
+                                                                                e
+                                                                            ) =>
+                                                                                handleUpdateStatus(
+                                                                                    activeBooking.id,
+                                                                                    e
+                                                                                        .target
+                                                                                        .value
+                                                                                )
+                                                                            }
+                                                                            className="w-full p-2 border border-gray-300 rounded-md text-sm focus"
+                                                                        >
+                                                                            {/* <option value="">
+                                                                                Select
+                                                                                Status
+                                                                            </option> */}
+                                                                            <option value="Approved">
+                                                                                Approved
+                                                                            </option>
+                                                                            <option value="Cancelled">
+                                                                                Cancelled
+                                                                            </option>
+                                                                            <option value="Completed">
+                                                                                Completed
+                                                                            </option>
+                                                                            <option value="Rejected">
+                                                                                Rejected
+                                                                            </option>
+                                                                            <option value="Pending">
+                                                                                Pending
+                                                                            </option>
+                                                                        </select>
 
-                                                            {activeBooking.booking_status !==
-                                                                "Rejected" && (
-                                                                <button
-                                                                    onClick={() =>
-                                                                        updateStatus(
-                                                                            "Rejected"
-                                                                        )
-                                                                    }
-                                                                    disabled={
-                                                                        processing
-                                                                    }
-                                                                    className="inline-flex items-center px-2 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors disabled:opacity-50"
-                                                                >
-                                                                    <X className="w-4 h-4 mr-2" />
-                                                                    Reject
-                                                                </button>
-                                                            )}
-
-                                                            {activeBooking.booking_status !==
-                                                                "Cancelled" && (
-                                                                <button
-                                                                    onClick={() =>
-                                                                        updateStatus(
-                                                                            "Cancelled"
-                                                                        )
-                                                                    }
-                                                                    disabled={
-                                                                        processing
-                                                                    }
-                                                                    className="inline-flex items-center px-2 py-2 bg-rose-600 border border-transparent rounded-md font-semibold text-white hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500 transition-colors disabled:opacity-50"
-                                                                >
-                                                                    <Ban className="w-4 h-4 mr-2" />
-                                                                    Cancel
-                                                                </button>
-                                                            )}
-
-                                                            {activeBooking.booking_status !==
-                                                                "Completed" && (
-                                                                <button
-                                                                    onClick={() =>
-                                                                        updateStatus(
-                                                                            "Completed"
-                                                                        )
-                                                                    }
-                                                                    disabled={
-                                                                        processing
-                                                                    }
-                                                                    className="inline-flex items-center px-2 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:opacity-50"
-                                                                >
-                                                                    <Check className="w-4 h-4 mr-2" />
-                                                                    Mark as
-                                                                    Completed
-                                                                </button>
-                                                            )}
-
-                                                            {activeBooking.booking_status !==
-                                                                "Pending" && (
-                                                                <button
-                                                                    onClick={() =>
-                                                                        updateStatus(
-                                                                            "Pending"
-                                                                        )
-                                                                    }
-                                                                    disabled={
-                                                                        processing
-                                                                    }
-                                                                    className="inline-flex items-center px-4 py-2 bg-amber-600 border border-transparent rounded-md font-semibold text-white hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors disabled:opacity-50"
-                                                                >
-                                                                    <RotateCcw className="w-4 h-4 mr-2" />
-                                                                    Reset to
-                                                                    Pending
-                                                                </button>
+                                                                        {/* <select
+                                                                            className="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500"
+                                                                            value={
+                                                                                activeBooking.booking_status
+                                                                            }
+                                                                            disabled={
+                                                                                processing
+                                                                            }
+                                                                            onChange={(
+                                                                                e
+                                                                            ) => {
+                                                                                if (
+                                                                                    e
+                                                                                        .target
+                                                                                        .value
+                                                                                ) {
+                                                                                    updateStatus(
+                                                                                        e
+                                                                                            .target
+                                                                                            .value
+                                                                                    );
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            <option
+                                                                                value=""
+                                                                                disabled
+                                                                            >
+                                                                                Select
+                                                                                a
+                                                                                new
+                                                                                status
+                                                                            </option>
+                                                                            {[
+                                                                                "Approved",
+                                                                                "Rejected",
+                                                                                "Cancelled",
+                                                                                "Completed",
+                                                                                "Pending",
+                                                                            ]
+                                                                                .filter(
+                                                                                    (
+                                                                                        status
+                                                                                    ) =>
+                                                                                        status !==
+                                                                                        activeBooking.booking_status
+                                                                                )
+                                                                                .map(
+                                                                                    (
+                                                                                        status
+                                                                                    ) => (
+                                                                                        <option
+                                                                                            key={
+                                                                                                status
+                                                                                            }
+                                                                                            value={
+                                                                                                status
+                                                                                            }
+                                                                                        >
+                                                                                            {
+                                                                                                status
+                                                                                            }
+                                                                                        </option>
+                                                                                    )
+                                                                                )}
+                                                                        </select> */}
+                                                                    </div>
+                                                                </div>
                                                             )}
                                                         </div>
                                                     </div>

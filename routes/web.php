@@ -9,6 +9,7 @@ use App\Http\Controllers\ChatController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\AdminsController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\VolunteerController;
 use App\Http\Controllers\SocialAuthController;
@@ -31,7 +32,6 @@ Route::get('/volunteer-programs/{slug}', [HomeController::class, 'viewProject'])
 Route::get('/volunteer-programs/{slug}/volunteer', [BookingController::class, 'index'])->name('project.volunteer.booking');
 
 Route::post('/volunteer-programs/report', [VolunteerController::class, 'storeProjectReport'])->name('project.report.store');
-
 
 Route::post('/send-verification-code', [BookingController::class, 'volunteerEmailSend'])->name('volunteer.email.send');
 Route::post('/check-email-exists', [BookingController::class, 'checkEmailExists'])->name('volunteer.email.exists');
@@ -134,6 +134,9 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     });
 });
 
+Route::post('/create-payment-intent', [PaymentController::class, 'createPaymentIntent']);
+Route::post('/process-payment', [PaymentController::class, 'processPayment'])->middleware(['auth']);
+
 
 Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
     Route::get('/dashboard', [VolunteerController::class, 'index'])->name('volunteer.dashboard');
@@ -164,7 +167,7 @@ Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->
     Route::get('/projects/{slug}/edit', [OrganizationController::class, 'editProject'])->name('organization.projects.edit');
     Route::post('/projects/{slug}', [OrganizationController::class, 'updateProject'])->name('organization.projects.update');
     Route::get('/bookings', [OrganizationController::class, 'volunteerBookings'])->name('organization.bookings');
-    Route::post('/bookings/{booking}/update-status', [OrganizationController::class, 'updateBookingStatus'])
+    Route::put('/bookings/{booking}/update-status', [OrganizationController::class, 'updateBookingStatus'])
         ->name('bookings.update-status');
 });
 

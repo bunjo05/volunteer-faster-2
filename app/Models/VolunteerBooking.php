@@ -12,7 +12,7 @@ class VolunteerBooking extends Model
         'start_date',
         'end_date',
         'number_of_travellers',
-        'status'
+        'booking_status'
     ];
     public function user()
     {
