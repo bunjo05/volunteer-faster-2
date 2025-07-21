@@ -16,4 +16,9 @@ export default defineConfig({
             "@": path.resolve(__dirname, "resources/js"),
         },
     },
+    define: {
+        "process.env.VITE_STRIPE_KEY": JSON.stringify(
+            process.env.VITE_STRIPE_KEY
+        ),
+    },
 });

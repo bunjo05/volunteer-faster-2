@@ -15,6 +15,26 @@ router.on("error", (error) => {
     }
 });
 
+// Add this to your main application setup (e.g., app.js)
+axios.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (
+            error.message.includes("Network Error") ||
+            error.message.includes("ERR_NETWORK_CHANGED")
+        ) {
+            // Handle network errors globally
+            console.log("Network error detected, retrying...");
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    resolve(axios.request(error.config));
+                }, 1000);
+            });
+        }
+        return Promise.reject(error);
+    }
+);
+
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
     resolve: (name) =>

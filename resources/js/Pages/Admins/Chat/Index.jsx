@@ -15,6 +15,7 @@ import {
 export default function AdminChatIndex({
     chats: initialChats,
     requests: initialRequests,
+    endedChats: initialEndedChats,
 }) {
     const { auth } = usePage().props;
     const [showConversations, setShowConversations] = useState(false);
@@ -25,7 +26,8 @@ export default function AdminChatIndex({
     const [searchQuery, setSearchQuery] = useState("");
     const [chats, setChats] = useState(initialChats || []);
     const [requests, setRequests] = useState(initialRequests || []);
-    const [activeTab, setActiveTab] = useState("chats"); // 'chats' or 'requests'
+    const [endedChats, setEndedChats] = useState(initialEndedChats || []);
+    const [activeTab, setActiveTab] = useState("chats"); // 'chats', 'requests', or 'ended'
     const messagesEndRef = useRef(null);
     const messageRefs = useRef({});
 
@@ -37,14 +39,6 @@ export default function AdminChatIndex({
     }, [selectedChat]);
 
     useEffect(() => {
-        const allConversations = [...chats, ...requests];
-        if (allConversations.length > 0 && !selectedChat) {
-            setSelectedChat({
-                ...allConversations[0],
-                messages: allConversations[0].messages || [],
-            });
-        }
-
         if (window.Echo) {
             const allConversations = [...chats, ...requests];
             const listeners = allConversations.map((chat) => {
@@ -90,11 +84,7 @@ export default function AdminChatIndex({
                 });
             };
         }
-    }, [chats, requests, selectedChat]);
-
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [selectedChat?.messages]);
+    }, [chats, requests, endedChats, selectedChat]);
 
     const filteredChats = chats.filter(
         (chat) =>
@@ -116,9 +106,28 @@ export default function AdminChatIndex({
                 .includes(searchQuery.toLowerCase())
     );
 
+    const filteredEndedChats = endedChats.filter(
+        (chat) =>
+            chat.user?.name
+                ?.toLowerCase()
+                .includes(searchQuery.toLowerCase()) ||
+            chat.latestMessage?.message
+                ?.toLowerCase()
+                .includes(searchQuery.toLowerCase())
+    );
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [selectedChat?.messages]);
+
     const handleSendMessage = async (e) => {
         e.preventDefault();
-        if (!newMessage.trim() || !selectedChat) return;
+        if (
+            !newMessage.trim() ||
+            !selectedChat ||
+            selectedChat.status === "ended"
+        )
+            return;
 
         try {
             const tempId = Date.now();
@@ -261,7 +270,6 @@ export default function AdminChatIndex({
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
-
                             <div className="p-3 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -278,7 +286,6 @@ export default function AdminChatIndex({
                                     />
                                 </div>
                             </div>
-
                             {/* Tabs */}
                             <div className="flex border-b border-gray-200">
                                 <button
@@ -306,8 +313,17 @@ export default function AdminChatIndex({
                                         </span>
                                     )}
                                 </button>
+                                <button
+                                    className={`flex-1 py-3 px-4 text-center text-sm font-medium ${
+                                        activeTab === "ended"
+                                            ? "text-blue-600 border-b-2 border-blue-500"
+                                            : "text-gray-500 hover:text-gray-700"
+                                    }`}
+                                    onClick={() => setActiveTab("ended")}
+                                >
+                                    Ended Chats
+                                </button>
                             </div>
-
                             {/* Chat List */}
                             <div className="flex-1 overflow-y-auto">
                                 {activeTab === "chats" ? (
@@ -360,6 +376,21 @@ export default function AdminChatIndex({
                                                                         previewText
                                                                     }
                                                                 </p>
+                                                                <span
+                                                                    className={`text-xs ${
+                                                                        chat.status ===
+                                                                        "ended"
+                                                                            ? "text-red-500"
+                                                                            : chat.status ===
+                                                                              "active"
+                                                                            ? "text-green-500"
+                                                                            : "text-yellow-500"
+                                                                    }`}
+                                                                >
+                                                                    {
+                                                                        chat.status
+                                                                    }
+                                                                </span>
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center">
@@ -389,82 +420,164 @@ export default function AdminChatIndex({
                                             </p>
                                         </div>
                                     )
-                                ) : filteredRequests?.length > 0 ? (
-                                    filteredRequests.map((request) => {
-                                        const previewText = request
-                                            .latestMessage?.message
-                                            ? request.latestMessage.message
-                                                  .length > 30
-                                                ? `${request.latestMessage.message.substring(
-                                                      0,
-                                                      30
-                                                  )}...`
-                                                : request.latestMessage.message
-                                            : "No messages yet";
+                                ) : activeTab === "requests" ? (
+                                    filteredRequests?.length > 0 ? (
+                                        filteredRequests.map((request) => {
+                                            const previewText = request
+                                                .latestMessage?.message
+                                                ? request.latestMessage.message
+                                                      .length > 30
+                                                    ? `${request.latestMessage.message.substring(
+                                                          0,
+                                                          30
+                                                      )}...`
+                                                    : request.latestMessage
+                                                          .message
+                                                : "No messages yet";
 
-                                        return (
-                                            <div
-                                                key={request.id}
-                                                className={`py-3 px-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                                                    selectedChat?.id ===
-                                                    request.id
-                                                        ? "bg-blue-50 border-l-4 border-blue-500"
-                                                        : ""
-                                                }`}
-                                                onClick={() =>
-                                                    setSelectedChat({
-                                                        ...request,
-                                                        messages:
-                                                            request.messages ||
-                                                            [],
-                                                    })
-                                                }
-                                            >
-                                                <div className="flex justify-between items-center">
-                                                    <div className="flex items-center min-w-0">
-                                                        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-r from-blue-100 to-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
-                                                            {request.user?.name?.charAt(
-                                                                0
-                                                            ) || "V"}
+                                            return (
+                                                <div
+                                                    key={request.id}
+                                                    className={`py-3 px-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+                                                        selectedChat?.id ===
+                                                        request.id
+                                                            ? "bg-blue-50 border-l-4 border-blue-500"
+                                                            : ""
+                                                    }`}
+                                                    onClick={() =>
+                                                        setSelectedChat({
+                                                            ...request,
+                                                            messages:
+                                                                request.messages ||
+                                                                [],
+                                                        })
+                                                    }
+                                                >
+                                                    <div className="flex justify-between items-center">
+                                                        <div className="flex items-center min-w-0">
+                                                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-r from-blue-100 to-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
+                                                                {request.user?.name?.charAt(
+                                                                    0
+                                                                ) || "V"}
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="text-sm font-medium text-gray-900 truncate">
+                                                                    {request
+                                                                        .user
+                                                                        ?.name ||
+                                                                        "Unknown Volunteer"}
+                                                                </p>
+                                                                <p className="text-xs text-gray-500 truncate">
+                                                                    {
+                                                                        previewText
+                                                                    }
+                                                                </p>
+                                                            </div>
                                                         </div>
-                                                        <div className="min-w-0">
-                                                            <p className="text-sm font-medium text-gray-900 truncate">
-                                                                {request.user
-                                                                    ?.name ||
-                                                                    "Unknown Volunteer"}
-                                                            </p>
-                                                            <p className="text-xs text-gray-500 truncate">
-                                                                {previewText}
-                                                            </p>
+                                                        <div className="flex items-center">
+                                                            <button
+                                                                onClick={(
+                                                                    e
+                                                                ) => {
+                                                                    e.stopPropagation();
+                                                                    acceptRequest(
+                                                                        request.id
+                                                                    );
+                                                                }}
+                                                                className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
+                                                            >
+                                                                Accept
+                                                            </button>
                                                         </div>
-                                                    </div>
-                                                    <div className="flex items-center">
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                acceptRequest(
-                                                                    request.id
-                                                                );
-                                                            }}
-                                                            className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
-                                                        >
-                                                            Accept
-                                                        </button>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        );
-                                    })
-                                ) : (
-                                    <div className="py-4 px-4 text-center">
-                                        <MessageSquare className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                                        <p className="text-gray-500 text-sm">
-                                            {searchQuery
-                                                ? "No matching requests found"
-                                                : "No pending requests"}
-                                        </p>
-                                    </div>
-                                )}
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="py-4 px-4 text-center">
+                                            <MessageSquare className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                                            <p className="text-gray-500 text-sm">
+                                                {searchQuery
+                                                    ? "No matching requests found"
+                                                    : "No pending requests"}
+                                            </p>
+                                        </div>
+                                    )
+                                ) : activeTab === "ended" ? (
+                                    filteredEndedChats?.length > 0 ? (
+                                        filteredEndedChats.map((chat) => {
+                                            const previewText = chat
+                                                .latestMessage?.message
+                                                ? chat.latestMessage.message
+                                                      .length > 30
+                                                    ? `${chat.latestMessage.message.substring(
+                                                          0,
+                                                          30
+                                                      )}...`
+                                                    : chat.latestMessage.message
+                                                : "No messages yet";
+
+                                            return (
+                                                <div
+                                                    key={chat.id}
+                                                    className={`py-3 px-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+                                                        selectedChat?.id ===
+                                                        chat.id
+                                                            ? "bg-blue-50 border-l-4 border-blue-500"
+                                                            : ""
+                                                    }`}
+                                                    onClick={() =>
+                                                        setSelectedChat({
+                                                            ...chat,
+                                                            messages:
+                                                                chat.messages ||
+                                                                [],
+                                                        })
+                                                    }
+                                                >
+                                                    <div className="flex justify-between items-center">
+                                                        <div className="flex items-center min-w-0">
+                                                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-r from-blue-100 to-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
+                                                                {chat.user?.name?.charAt(
+                                                                    0
+                                                                ) || "V"}
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="text-sm font-medium text-gray-900 truncate">
+                                                                    {chat.user
+                                                                        ?.name ||
+                                                                        "Unknown Volunteer"}
+                                                                </p>
+                                                                <p className="text-xs text-gray-500 truncate">
+                                                                    {
+                                                                        previewText
+                                                                    }
+                                                                </p>
+                                                                <span className="text-xs text-red-500">
+                                                                    Ended
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center">
+                                                            <button className="text-gray-400 hover:text-gray-600">
+                                                                <MoreVertical className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="py-4 px-4 text-center">
+                                            <MessageSquare className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                                            <p className="text-gray-500 text-sm">
+                                                {searchQuery
+                                                    ? "No matching ended chats found"
+                                                    : "No ended chats"}
+                                            </p>
+                                        </div>
+                                    )
+                                ) : null}
                             </div>
                         </div>
                     </div>
@@ -500,6 +613,70 @@ export default function AdminChatIndex({
                                         </div>
                                     </div>
                                     <div className="flex space-x-2">
+                                        <button
+                                            onClick={async () => {
+                                                if (
+                                                    confirm(
+                                                        "Are you sure you want to end this chat?"
+                                                    )
+                                                ) {
+                                                    try {
+                                                        await router.post(
+                                                            route(
+                                                                "admin.chats.end",
+                                                                selectedChat.id
+                                                            )
+                                                        );
+                                                        // Update local state
+                                                        setSelectedChat(
+                                                            (prev) => ({
+                                                                ...prev,
+                                                                status: "ended",
+                                                            })
+                                                        );
+                                                        setChats(
+                                                            chats.map((c) =>
+                                                                c.id ===
+                                                                selectedChat.id
+                                                                    ? {
+                                                                          ...c,
+                                                                          status: "ended",
+                                                                      }
+                                                                    : c
+                                                            )
+                                                        );
+                                                        // Add to ended chats
+                                                        setEndedChats([
+                                                            ...endedChats,
+                                                            {
+                                                                ...selectedChat,
+                                                                status: "ended",
+                                                            },
+                                                        ]);
+                                                    } catch (error) {
+                                                        console.error(
+                                                            "Error ending chat:",
+                                                            error
+                                                        );
+                                                        alert(
+                                                            "Failed to end chat"
+                                                        );
+                                                    }
+                                                }
+                                            }}
+                                            disabled={
+                                                selectedChat.status === "ended"
+                                            }
+                                            className={`px-3 py-1 rounded-lg text-sm ${
+                                                selectedChat.status === "ended"
+                                                    ? "bg-gray-400 cursor-not-allowed"
+                                                    : "bg-red-500 hover:bg-red-600 text-white"
+                                            }`}
+                                        >
+                                            {selectedChat.status === "ended"
+                                                ? "Chat Ended"
+                                                : "End Chat"}
+                                        </button>
                                         <button className="p-2 rounded-full hover:bg-gray-200 text-gray-600">
                                             <svg
                                                 className="w-5 h-5"
@@ -726,62 +903,82 @@ export default function AdminChatIndex({
                                 </div>
 
                                 <div className="p-3 border-t border-gray-200 bg-white">
-                                    {isReplying && (
-                                        <div className="mb-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
-                                            <div className="flex justify-between items-center">
-                                                <p className="text-sm text-blue-800 font-medium">
-                                                    Replying to:{" "}
-                                                    {replyToMessage.sender_id ===
-                                                    auth.user.id
-                                                        ? "your message"
-                                                        : selectedChat.user
-                                                              ?.name}
-                                                </p>
-                                                <button
-                                                    onClick={() => {
-                                                        setIsReplying(false);
-                                                        setReplyToMessage(null);
-                                                    }}
-                                                    className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                                                >
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                            <p className="text-xs text-gray-600 truncate">
-                                                {replyToMessage.message}
+                                    {selectedChat.status === "ended" && (
+                                        <div className="p-4 text-center bg-gray-50 border-t border-gray-200">
+                                            <p className="text-gray-500">
+                                                This chat has been ended. No
+                                                further messages can be sent.
                                             </p>
                                         </div>
                                     )}
-                                    <form
-                                        onSubmit={handleSendMessage}
-                                        className="flex gap-2"
-                                    >
-                                        <input
-                                            type="text"
-                                            value={newMessage}
-                                            onChange={(e) =>
-                                                setNewMessage(e.target.value)
-                                            }
-                                            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                                            placeholder={
-                                                isReplying
-                                                    ? `Reply to ${
-                                                          replyToMessage.sender_id ===
-                                                          auth.user.id
-                                                              ? "your message"
-                                                              : selectedChat
-                                                                    .user?.name
-                                                      }...`
-                                                    : "Type your message..."
-                                            }
-                                        />
-                                        <button
-                                            type="submit"
-                                            className="px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-md flex items-center justify-center"
-                                        >
-                                            <Send className="w-5 h-5" />
-                                        </button>
-                                    </form>
+                                    {selectedChat.status !== "ended" && (
+                                        <div className="p-3 border-t border-gray-200 bg-white">
+                                            {isReplying && (
+                                                <div className="mb-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                                                    <div className="flex justify-between items-center">
+                                                        <p className="text-sm text-blue-800 font-medium">
+                                                            Replying to:{" "}
+                                                            {replyToMessage.sender_id ===
+                                                            auth.user.id
+                                                                ? "your message"
+                                                                : selectedChat
+                                                                      .user
+                                                                      ?.name}
+                                                        </p>
+                                                        <button
+                                                            onClick={() => {
+                                                                setIsReplying(
+                                                                    false
+                                                                );
+                                                                setReplyToMessage(
+                                                                    null
+                                                                );
+                                                            }}
+                                                            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                    <p className="text-xs text-gray-600 truncate">
+                                                        {replyToMessage.message}
+                                                    </p>
+                                                </div>
+                                            )}
+                                            <form
+                                                onSubmit={handleSendMessage}
+                                                className="flex gap-2"
+                                            >
+                                                <input
+                                                    type="text"
+                                                    value={newMessage}
+                                                    onChange={(e) =>
+                                                        setNewMessage(
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+                                                    placeholder={
+                                                        isReplying
+                                                            ? `Reply to ${
+                                                                  replyToMessage.sender_id ===
+                                                                  auth.user.id
+                                                                      ? "your message"
+                                                                      : selectedChat
+                                                                            .user
+                                                                            ?.name
+                                                              }...`
+                                                            : "Type your message..."
+                                                    }
+                                                />
+                                                <button
+                                                    type="submit"
+                                                    className="px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-md flex items-center justify-center"
+                                                >
+                                                    <Send className="w-5 h-5" />
+                                                </button>
+                                            </form>
+                                        </div>
+                                    )}
                                 </div>
                             </>
                         ) : (

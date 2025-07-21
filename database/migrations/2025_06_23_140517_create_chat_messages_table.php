@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('chat_id')->constrained()->cascadeOnDelete();
             $table->morphs('sender'); // Can be either user or admin
             $table->text('content');
+            $table->string('status')->default('Sent'); // Add this line
             $table->timestamp('read_at')->nullable();
             $table->timestamps();
         });

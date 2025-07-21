@@ -11,7 +11,7 @@ class Chat extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['title'];
+    protected $fillable = ['title', 'status'];
 
     public function participants(): HasMany
     {

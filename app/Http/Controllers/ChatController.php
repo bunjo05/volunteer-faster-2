@@ -131,6 +131,32 @@ class ChatController extends Controller
         return back();
         // return response()->json(['success' => true]);
     }
+
+    public function endChat(Request $request, Chat $chat)
+    {
+        $admin = auth('admin')->user();
+
+        // Verify admin has access to this chat
+        if (!$chat->participants()->where('admin_id', $admin->id)->exists()) {
+            abort(403);
+        }
+
+        // Update chat status
+        $chat->update(['status' => 'ended']);
+
+        // Create system message
+        $message = $chat->chatMessages()->create([
+            'content' => 'Admin ' . $admin->name . ' has ended the chat',
+            'sender_id' => $admin->id,
+            'sender_type' => get_class($admin),
+            'is_system' => true
+        ]);
+
+        // Broadcast the chat ended message
+        broadcast(new NewChatMessage($message, $chat->id))->toOthers();
+
+        return response()->json(['success' => true]);
+    }
     public function markAsRead(Chat $chat)
     {
         $chat->chatMessages()
@@ -151,6 +177,7 @@ class ChatController extends Controller
         $assignedChats = Chat::whereHas('participants', function ($query) use ($admin) {
             $query->where('admin_id', $admin->id);
         })
+            ->where('status', 'active')
             ->with(['participants.user', 'latestMessage'])
             ->orderByDesc(
                 ChatMessage::select('created_at')
@@ -185,7 +212,8 @@ class ChatController extends Controller
                     'unreadCount' => $chat->messages()
                         ->where('sender_type', User::class)
                         ->whereNull('read_at')
-                        ->count()
+                        ->count(),
+                    'status' => $chat->status
                 ];
             });
 
@@ -196,6 +224,7 @@ class ChatController extends Controller
             ->whereDoesntHave('participants', function ($query) {
                 $query->whereNotNull('admin_id');
             })
+            ->where('status', 'pending')
             ->with(['participants.user', 'latestMessage'])
             ->orderByDesc('created_at')
             ->get()
@@ -225,14 +254,51 @@ class ChatController extends Controller
                     'unreadCount' => $chat->messages()
                         ->where('sender_type', User::class)
                         ->whereNull('read_at')
-                        ->count()
+                        ->count(),
+                    'status' => $chat->status
                 ];
             });
-        // event(new NewChatMessage($chatId = $chat->id, 'Admin dashboard loaded'));
+
+        // Get ended chats
+        $endedChats = Chat::whereHas('participants', function ($query) use ($admin) {
+            $query->where('admin_id', $admin->id);
+        })
+            ->where('status', 'ended')
+            ->with(['participants.user', 'latestMessage'])
+            ->orderByDesc('updated_at')
+            ->get()
+            ->map(function ($chat) {
+                return [
+                    'id' => $chat->id,
+                    'user' => $chat->participants->firstWhere('admin_id', null)?->user,
+                    'messages' => $chat->messages()
+                        ->with('sender')
+                        ->orderBy('created_at', 'asc')
+                        ->get()
+                        ->map(function ($message) {
+                            return [
+                                'id' => $message->id,
+                                'message' => $message->content,
+                                'sender_id' => $message->sender_id,
+                                'sender_type' => $message->sender_type,
+                                'created_at' => $message->created_at,
+                                'status' => $message->read_at ? 'Read' : 'Sent',
+                                'sender' => $message->sender,
+                            ];
+                        }),
+                    'latestMessage' => $chat->latestMessage ? [
+                        'message' => $chat->latestMessage->content,
+                        'created_at' => $chat->latestMessage->created_at,
+                    ] : null,
+                    'unreadCount' => 0,
+                    'status' => $chat->status
+                ];
+            });
 
         return Inertia::render('Admins/Chat/Index', [
             'chats' => $assignedChats,
-            'requests' => $unassignedChats
+            'requests' => $unassignedChats,
+            'endedChats' => $endedChats
         ]);
     }
 

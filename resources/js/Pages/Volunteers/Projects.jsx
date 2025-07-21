@@ -14,10 +14,64 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
+import { loadStripe } from "@stripe/stripe-js";
+import { router } from "@inertiajs/react";
+
 export default function Projects({ auth }) {
     const { bookings = [], flash } = usePage().props;
     const [activeBooking, setActiveBooking] = useState(bookings[0] || null);
     const [showSuccess, setShowSuccess] = useState(false);
+    // Inside your component
+    const [stripePromise, setStripePromise] = useState(null);
+
+    // const stripePromise = loadStripe(process.env.VITE_STRIPE_KEY);
+    // const stripePromise = loadStripe(process.env.VITE_STRIPE_KEY).catch(
+    //     (error) => {
+    //         console.error("Failed to load Stripe:", error);
+    //         return null;
+    //     }
+    // );
+
+    useEffect(() => {
+        const initializeStripe = async () => {
+            try {
+                const stripe = await loadStripe(
+                    import.meta.env.VITE_STRIPE_KEY
+                );
+                setStripePromise(stripe);
+            } catch (error) {
+                console.error("Failed to load Stripe:", error);
+            }
+        };
+
+        initializeStripe();
+    }, []);
+
+    // Inside your component, add a payment handler function:
+    const handlePayment = async (booking) => {
+        if (!stripePromise) {
+            console.error("Stripe not initialized");
+            return;
+        }
+
+        try {
+            const response = await axios.post(
+                route("payment.checkout"),
+                { booking_id: booking.id },
+                { headers: { "Content-Type": "application/json" } }
+            );
+
+            const result = await stripePromise.redirectToCheckout({
+                sessionId: response.data.sessionId,
+            });
+
+            if (result.error) {
+                console.error(result.error.message);
+            }
+        } catch (error) {
+            console.error("Payment error:", error);
+        }
+    };
 
     useEffect(() => {
         if (flash?.success) {
@@ -297,6 +351,19 @@ export default function Projects({ auth }) {
                                                                 </p>
                                                             </div>
                                                         </div>
+                                                        {activeBooking.payment_status !==
+                                                            "paid" && (
+                                                            <button
+                                                                onClick={() =>
+                                                                    handlePayment(
+                                                                        activeBooking
+                                                                    )
+                                                                }
+                                                                className="mt-4 w-full lg:w-auto inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-black bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                                                            >
+                                                                Pay Now
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>

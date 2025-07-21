@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
+use App\Models\VolunteerBooking;
+
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
@@ -83,5 +85,9 @@ class User extends Authenticatable
     public function chats()
     {
         return $this->belongsToMany(Chat::class, 'chat_participants', 'user_id', 'chat_id');
+    }
+    public function bookings()
+    {
+        return $this->hasMany(VolunteerBooking::class);
     }
 }

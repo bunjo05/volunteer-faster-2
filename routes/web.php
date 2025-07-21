@@ -14,6 +14,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\VolunteerController;
 use App\Http\Controllers\SocialAuthController;
 use App\Http\Controllers\OrganizationController;
+use App\Http\Controllers\StripePaymentController;
 use App\Http\Controllers\Admin\Auth\LoginController;
 use App\Http\Controllers\Auth\OtpVerificationController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
@@ -87,6 +88,9 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     Route::get('/projects', [AdminsController::class, 'projects'])->name('admin.projects');
     Route::get('/projects/{slug}', [AdminsController::class, 'viewProject'])->name('admin.projects.view');
     Route::get('/messages', [AdminsController::class, 'messages'])->name('admin.messages');
+
+    Route::post('/chats/{chat}/end', [ChatController::class, 'endChat'])->name('admin.chats.end');
+
     Route::get('/categories', [AdminsController::class, 'categories'])->name('admin.categories');
     Route::post('/categories', [AdminsController::class, 'storeCategory'])->name('admin.categories.store');
     Route::get('/subcategories', [AdminsController::class, 'subcategories'])->name('admin.subcategories');
@@ -134,10 +138,6 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     });
 });
 
-Route::post('/create-payment-intent', [PaymentController::class, 'createPaymentIntent']);
-Route::post('/process-payment', [PaymentController::class, 'processPayment'])->middleware(['auth']);
-
-
 Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
     Route::get('/dashboard', [VolunteerController::class, 'index'])->name('volunteer.dashboard');
     Route::get('/messages', [VolunteerController::class, 'messages'])->name('volunteer.messages');
@@ -148,6 +148,11 @@ Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(
     Route::get('/project', [VolunteerController::class, 'projects'])->name('volunteer.projects');
     Route::post('/send-reminder/{bookingId}', [VolunteerController::class, 'sendReminder'])
         ->name('volunteer.send-reminder');
+
+    Route::get('/chat/list', [VolunteerController::class, 'listChats'])->name('volunteer.chat.list');
+    Route::post('/chat/new', [VolunteerController::class, 'startNewChat'])->name('volunteer.chat.new');
+    Route::get('/chat/{chat}/messages', [VolunteerController::class, 'getMessages'])->name('volunteer.chat.messages');
+    Route::post('/chat/{chat}/read', [VolunteerController::class, 'markAsRead'])->name('volunteer.chat.read');
 });
 
 Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->group(function () {
@@ -178,6 +183,15 @@ Route::middleware('volunteer')->middleware(['check.role:Volunteer', 'auth'])->gr
         Route::post('/', [ChatController::class, 'store'])->name('volunteer.chat.store');
         Route::post('/{chat}/read', [ChatController::class, 'markAsRead']);
     });
+    Route::post('/payment/checkout', [StripePaymentController::class, 'checkout'])->name('payment.checkout');
+    Route::get('/payment/success', [StripePaymentController::class, 'success'])->name('payment.success');
+    Route::get('/payment/cancel', [StripePaymentController::class, 'cancel'])->name('payment.cancel');
 });
+
+// Route::middleware(['auth', 'volunteer'])->group(function () {
+//     Route::post('/payment/checkout', [StripePaymentController::class, 'checkout'])->name('payment.checkout');
+//     Route::get('/payment/success', [StripePaymentController::class, 'success'])->name('payment.success');
+//     Route::get('/payment/cancel', [StripePaymentController::class, 'cancel'])->name('payment.cancel');
+// });
 
 require __DIR__ . '/auth.php';

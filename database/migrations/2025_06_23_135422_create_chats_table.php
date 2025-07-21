@@ -13,7 +13,8 @@ return new class extends Migration
     {
         Schema::create('chats', function (Blueprint $table) {
             $table->id();
-            $table->string('title')->nullable();
+            // $table->string('title')->nullable();
+            $table->enum('status', ['pending', 'active', 'ended'])->default('pending');
             $table->timestamps();
         });
     }
