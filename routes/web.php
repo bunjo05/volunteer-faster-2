@@ -186,6 +186,9 @@ Route::middleware('volunteer')->middleware(['check.role:Volunteer', 'auth'])->gr
     Route::post('/payment/checkout', [StripePaymentController::class, 'checkout'])->name('payment.checkout');
     Route::get('/payment/success', [StripePaymentController::class, 'success'])->name('payment.success');
     Route::get('/payment/cancel', [StripePaymentController::class, 'cancel'])->name('payment.cancel');
+
+    Route::post('/stripe/webhook', [StripeWebhookController::class, 'handleWebhook'])
+        ->name('stripe.webhook');
 });
 
 // Route::middleware(['auth', 'volunteer'])->group(function () {

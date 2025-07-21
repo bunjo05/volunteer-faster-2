@@ -58,7 +58,14 @@ export default function Projects({ auth }) {
             const response = await axios.post(
                 route("payment.checkout"),
                 { booking_id: booking.id },
-                { headers: { "Content-Type": "application/json" } }
+                {
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRF-TOKEN": document.querySelector(
+                            'meta[name="csrf-token"]'
+                        ).content,
+                    },
+                }
             );
 
             const result = await stripePromise.redirectToCheckout({
@@ -70,6 +77,11 @@ export default function Projects({ auth }) {
             }
         } catch (error) {
             console.error("Payment error:", error);
+            // Add more detailed error handling here
+            if (error.response) {
+                console.error("Response data:", error.response.data);
+                console.error("Response status:", error.response.status);
+            }
         }
     };
 
@@ -289,7 +301,6 @@ export default function Projects({ auth }) {
                                                                 </p>
                                                             </div>
                                                         </div>
-
                                                         <div className="flex items-start gap-3">
                                                             <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
                                                                 <Users className="w-5 h-5" />
@@ -310,7 +321,6 @@ export default function Projects({ auth }) {
                                                                 </p>
                                                             </div>
                                                         </div>
-
                                                         <div className="flex items-start gap-3">
                                                             <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
                                                                 <Clock className="w-5 h-5" />
@@ -328,7 +338,6 @@ export default function Projects({ auth }) {
                                                                 </p>
                                                             </div>
                                                         </div>
-
                                                         <div className="flex items-start gap-3">
                                                             <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
                                                                 <DollarSign className="w-5 h-5" />
@@ -348,6 +357,46 @@ export default function Projects({ auth }) {
                                                                             0,
                                                                         activeBooking.number_of_travellers
                                                                     ).toLocaleString()}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex items-start gap-3">
+                                                            <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
+                                                                <DollarSign className="w-5 h-5" />
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="font-medium text-gray-700">
+                                                                    Payment Due
+                                                                    (10%
+                                                                    Deposit)
+                                                                </h4>
+                                                                <p className="text-gray-600">
+                                                                    $
+                                                                    {(
+                                                                        calculateTotalAmount(
+                                                                            activeBooking.start_date,
+                                                                            activeBooking.end_date,
+                                                                            activeBooking
+                                                                                .project
+                                                                                ?.fees ||
+                                                                                0,
+                                                                            activeBooking.number_of_travellers
+                                                                        ) * 0.1
+                                                                    ).toLocaleString()}
+                                                                    <span className="text-xs text-gray-500 ml-1">
+                                                                        (of $
+                                                                        {calculateTotalAmount(
+                                                                            activeBooking.start_date,
+                                                                            activeBooking.end_date,
+                                                                            activeBooking
+                                                                                .project
+                                                                                ?.fees ||
+                                                                                0,
+                                                                            activeBooking.number_of_travellers
+                                                                        ).toLocaleString()}
+                                                                        )
+                                                                    </span>
                                                                 </p>
                                                             </div>
                                                         </div>

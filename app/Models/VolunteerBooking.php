@@ -28,4 +28,9 @@ class VolunteerBooking extends Model
     {
         return $this->hasMany(Reminder::class, 'booking_id');
     }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
 }
