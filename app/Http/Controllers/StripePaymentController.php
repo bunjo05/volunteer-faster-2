@@ -285,19 +285,43 @@ class StripePaymentController extends Controller
     protected function sendPaymentNotifications($booking, $payment)
     {
         try {
-            // Send to paying user
-            $booking->user->sendNow(new PaymentSuccessfulNotification($booking, $payment, 'user'));
+            Log::info('Sending payment notifications', [
+                'booking_id' => $booking->id,
+                'user_email' => $booking->user->email,
+                'project_owner_email' => $booking->project->user->email ?? null
+            ]);
 
-            // Send to project owner (now accessed via project.user instead of project.owner)
+            // Send to paying user
+            $booking->user->notifyNow(new PaymentSuccessfulNotification($booking, $payment, 'user'));
+
+            // Send to project owner
             if ($booking->project->user) {
-                $booking->project->user->sendNow(new PaymentSuccessfulNotification($booking, $payment, 'owner'));
+                $booking->project->user->notifyNow(
+                    new PaymentSuccessfulNotification($booking, $payment, 'owner')
+                );
             }
 
-            // Send to all admins
+            // Send to ALL admins without any filters
             $admins = Admin::all();
-            Notification::send($admins, new PaymentSuccessfulNotification($booking, $payment, 'admin'));
+
+            if ($admins->isEmpty()) {
+                Log::warning('No admins found in database to send notification to');
+                return;
+            }
+
+            foreach ($admins as $admin) {
+                try {
+                    $admin->notifyNow(
+                        new PaymentSuccessfulNotification($booking, $payment, 'admin')
+                    );
+                    Log::info('Sent payment notification to admin: ' . $admin->email);
+                } catch (\Exception $e) {
+                    Log::error('Failed to send notification to admin ' . $admin->email . ': ' . $e->getMessage());
+                }
+            }
         } catch (\Exception $e) {
             Log::error('Failed to send payment notifications: ' . $e->getMessage());
+            throw $e;
         }
     }
 

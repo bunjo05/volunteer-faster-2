@@ -191,6 +191,25 @@ Route::middleware('volunteer')->middleware(['check.role:Volunteer', 'auth'])->gr
         ->name('stripe.webhook');
 });
 
+
+Route::get('/mail-preview/user', function () {
+    $booking = \App\Models\VolunteerBooking::with(['user', 'project.user'])->first();
+    $payment = \App\Models\Payment::first();
+    return new \App\Mail\PaymentSuccessfulUser($booking, $payment);
+});
+
+Route::get('/mail-preview/owner', function () {
+    $booking = \App\Models\VolunteerBooking::with(['user', 'project.user'])->first();
+    $payment = \App\Models\Payment::first();
+    return new \App\Mail\PaymentSuccessfulOwner($booking, $payment);
+});
+
+Route::get('/mail-preview/admin', function () {
+    $booking = \App\Models\VolunteerBooking::with(['user', 'project.user'])->first();
+    $payment = \App\Models\Payment::first();
+    return new \App\Mail\PaymentSuccessfulAdmin($booking, $payment);
+});
+
 // Route::middleware(['auth', 'volunteer'])->group(function () {
 //     Route::post('/payment/checkout', [StripePaymentController::class, 'checkout'])->name('payment.checkout');
 //     Route::get('/payment/success', [StripePaymentController::class, 'success'])->name('payment.success');
