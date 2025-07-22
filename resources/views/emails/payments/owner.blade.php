@@ -3,51 +3,53 @@
 @section('content')
 <div class="receipt">
     <div class="receipt-header">
-        <h2 class="receipt-title">Payment Receipt</h2>
+        <h2 class="receipt-title">Payment Received for Your Project</h2>
         <div class="receipt-meta">Transaction #{{ $payment->stripe_payment_id }}</div>
     </div>
 
-    <div class="receipt-row">
-        <span class="receipt-label">Project:</span>
-        <span class="receipt-value">{{ $booking->project->title }}</span>
-    </div>
+    <div class="receipt-content">
+        <div class="receipt-row">
+            <span class="receipt-label">Your Project:</span>
+            <span class="receipt-value">{{ $booking->project->title }}</span>
+        </div>
 
-    <div class="receipt-row">
-        <span class="receipt-label">Volunteer:</span>
-        <span class="receipt-value">{{ $booking->user->name }}</span>
-    </div>
+        <div class="receipt-row">
+            <span class="receipt-label">Volunteer:</span>
+            <span class="receipt-value">{{ $booking->user->name }}</span>
+        </div>
 
-    <div class="receipt-row">
-        <span class="receipt-label">Payment Date:</span>
-        <span class="receipt-value">{{ $payment->created_at->format('M j, Y g:i A') }}</span>
-    </div>
+        <div class="receipt-row">
+            <span class="receipt-label">Payment Date:</span>
+            <span class="receipt-value">{{ $payment->created_at->format('M j, Y \a\t g:i A') }}</span>
+        </div>
 
-    <div class="receipt-row">
-        <span class="receipt-label">Deposit Received:</span>
-        <span class="receipt-value">${{ number_format($payment->amount, 2) }}</span>
-    </div>
+        <div class="receipt-row">
+            <span class="receipt-label">Amount Received:</span>
+            <span class="receipt-value" style="font-weight: 700; color: #667eea;">${{ number_format($payment->amount, 2) }}</span>
+        </div>
 
-    <div class="receipt-row">
-        <span class="receipt-label">Total Project Value:</span>
-        <span class="receipt-value">${{ number_format($payment->full_amount, 2) }}</span>
-    </div>
+        <div class="receipt-row">
+            <span class="receipt-label">Next Steps:</span>
+            <span class="receipt-value">Prepare for volunteer arrival</span>
+        </div>
 
-    <div class="receipt-row">
-        <span class="receipt-label">Balance Due:</span>
-        <span class="receipt-value">${{ number_format($payment->full_amount - $payment->amount, 2) }}</span>
-    </div>
-
-    <div class="receipt-row receipt-total">
-        <span class="receipt-label">Payment Status:</span>
-        <span class="receipt-value" style="color: #38a169;">{{ ucfirst(str_replace('_', ' ', $payment->status)) }}</span>
+        <div class="receipt-total">
+            <div class="receipt-row">
+                <span class="receipt-label">Payment Status:</span>
+                <span class="receipt-value">
+                    <span class="status-badge status-paid">{{ ucfirst(str_replace('_', ' ', $payment->status)) }}</span>
+                </span>
+            </div>
+        </div>
     </div>
 </div>
 
-<div style="text-align: center; margin: 25px 0;">
-    <a href="{{ url('/projects/' . $booking->project->slug) }}" class="button">View Project Details</a>
+<div class="message-box owner">
+    <p><strong>{{ $booking->project->organizationProfile->name }}:</strong> A deposit payment for your "<strong>{{ $booking->project->title }}</strong>" has been successfully processed. The volunteer has been notified and you should prepare for their participation.</p>
 </div>
 
-<p style="text-align: center;">
-    Thank you for using {{ config('app.name') }}! Funds will be deposited to your account within 3-5 business days.
-</p>
+{{-- <div class="button-container">
+    <a href="{{ url('/projects/' . $booking->project->id) }}" class="button">View Project Details</a>
+    <a href="{{ url('/bookings/' . $booking->id) }}" class="button button-secondary">View Booking</a>
+</div> --}}
 @endsection

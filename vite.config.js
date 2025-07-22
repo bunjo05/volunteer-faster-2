@@ -14,6 +14,7 @@ export default defineConfig({
     resolve: {
         alias: {
             "@": path.resolve(__dirname, "resources/js"),
+            "@Helpers": "/resources/js/Helpers",
         },
     },
     define: {

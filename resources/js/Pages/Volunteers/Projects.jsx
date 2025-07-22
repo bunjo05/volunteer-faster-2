@@ -17,7 +17,7 @@ import { useState, useEffect } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { router } from "@inertiajs/react";
 
-export default function Projects({ auth }) {
+export default function Projects({ auth, payments }) {
     const { bookings = [], flash } = usePage().props;
     const [activeBooking, setActiveBooking] = useState(bookings[0] || null);
     const [showSuccess, setShowSuccess] = useState(false);
@@ -31,6 +31,12 @@ export default function Projects({ auth }) {
     //         return null;
     //     }
     // );
+
+    // Add this function to find payments for the active booking
+    const getPaymentsForActiveBooking = () => {
+        if (!activeBooking || !activeBooking.payments) return [];
+        return activeBooking.payments;
+    };
 
     useEffect(() => {
         const initializeStripe = async () => {
@@ -94,6 +100,52 @@ export default function Projects({ auth }) {
             return () => clearTimeout(timer);
         }
     }, [flash]);
+
+    // Calculate total amount paid for the active booking
+    const calculateTotalPaid = () => {
+        if (!activeBooking?.payments) return 0;
+        return activeBooking.payments.reduce((total, payment) => {
+            return total + parseFloat(payment.amount);
+        }, 0);
+    };
+
+    // Calculate remaining balance
+    const calculateRemainingBalance = () => {
+        const totalAmount = calculateTotalAmount(
+            activeBooking.start_date,
+            activeBooking.end_date,
+            activeBooking.project?.fees || 0,
+            activeBooking.number_of_travellers
+        );
+        return totalAmount - calculateTotalPaid();
+    };
+
+    const hasDepositPaid = () => {
+        if (!activeBooking?.payments) return false;
+        return activeBooking.payments.some(
+            (payment) => payment.status === "deposit_paid"
+        );
+    };
+
+    const shouldHidePayButton = () => {
+        if (!activeBooking) return true;
+
+        // Hide if booking status is not "Approved"
+        if (activeBooking.booking_status !== "Approved") {
+            return true;
+        }
+
+        // Hide if any payment has status 'deposit_paid'
+        if (
+            activeBooking.payments?.some(
+                (payment) => payment.status === "deposit_paid"
+            )
+        ) {
+            return true;
+        }
+
+        return false;
+    };
 
     const { post } = useForm();
 
@@ -238,7 +290,7 @@ export default function Projects({ auth }) {
                                         <div className=" gap-8">
                                             <div className="space-y-6">
                                                 <div className="bg-gray-50 p-4 rounded-lg">
-                                                    <div className="space-x-2 space-y-2 grid grid-cols-3">
+                                                    <div className="space-x-2 space-y-2 grid grid-cols-2">
                                                         <div className="flex items-start gap-3">
                                                             <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
                                                                 <MapPin className="w-5 h-5" />
@@ -338,10 +390,11 @@ export default function Projects({ auth }) {
                                                                 </p>
                                                             </div>
                                                         </div>
-                                                        <div className="flex items-start gap-3">
+                                                        {/* <div className="flex items-start gap-3">
                                                             <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
                                                                 <DollarSign className="w-5 h-5" />
                                                             </div>
+
                                                             <div>
                                                                 <h4 className="font-medium text-gray-700">
                                                                     Amount
@@ -359,33 +412,50 @@ export default function Projects({ auth }) {
                                                                     ).toLocaleString()}
                                                                 </p>
                                                             </div>
-                                                        </div>
+                                                        </div> */}
+                                                        {/* The Pay Button */}
+                                                        {activeBooking?.payments &&
+                                                            activeBooking
+                                                                .payments
+                                                                .length > 0 && (
+                                                                <div className="flex items-start gap-3">
+                                                                    <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
+                                                                        <DollarSign className="w-5 h-5" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <h4 className="font-medium text-gray-700">
+                                                                            Payment
+                                                                            Details
+                                                                        </h4>
+                                                                        <div className="text-gray-600 text-sm">
+                                                                            <p>
+                                                                                Amount
+                                                                                Paid:
+                                                                                $
+                                                                                {calculateTotalPaid().toLocaleString()}
+                                                                            </p>
+                                                                            <p>
+                                                                                Remaining
+                                                                                Balance:
+                                                                                $
+                                                                                {calculateRemainingBalance().toLocaleString()}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            )}
 
-                                                        <div className="flex items-start gap-3">
-                                                            <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
-                                                                <DollarSign className="w-5 h-5" />
-                                                            </div>
-                                                            <div>
-                                                                <h4 className="font-medium text-gray-700">
-                                                                    Payment Due
-                                                                    (10%
-                                                                    Deposit)
-                                                                </h4>
-                                                                <p className="text-gray-600">
-                                                                    $
-                                                                    {(
-                                                                        calculateTotalAmount(
-                                                                            activeBooking.start_date,
-                                                                            activeBooking.end_date,
-                                                                            activeBooking
-                                                                                .project
-                                                                                ?.fees ||
-                                                                                0,
-                                                                            activeBooking.number_of_travellers
-                                                                        ) * 0.1
-                                                                    ).toLocaleString()}
-                                                                    <span className="text-xs text-gray-500 ml-1">
-                                                                        (of $
+                                                        <div className="flex justify-between gap-3">
+                                                            <div className="flex items-start gap-3">
+                                                                <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
+                                                                    <DollarSign className="w-5 h-5" />
+                                                                </div>
+                                                                <div>
+                                                                    <h4 className="font-medium text-gray-700">
+                                                                        Amount
+                                                                    </h4>
+                                                                    <p className="text-gray-600">
+                                                                        $
                                                                         {calculateTotalAmount(
                                                                             activeBooking.start_date,
                                                                             activeBooking.end_date,
@@ -395,24 +465,33 @@ export default function Projects({ auth }) {
                                                                                 0,
                                                                             activeBooking.number_of_travellers
                                                                         ).toLocaleString()}
-                                                                        )
-                                                                    </span>
-                                                                </p>
+                                                                    </p>
+                                                                </div>
                                                             </div>
+                                                            {!shouldHidePayButton() &&
+                                                                calculateRemainingBalance() >
+                                                                    0 && (
+                                                                    <button
+                                                                        onClick={() =>
+                                                                            handlePayment(
+                                                                                activeBooking
+                                                                            )
+                                                                        }
+                                                                        className="mt-4 w-full lg:w-auto inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-black bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                                                                    >
+                                                                        Pay Now
+                                                                    </button>
+                                                                )}
+
+                                                            {shouldHidePayButton() && (
+                                                                <div className="mt-4 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                                                                    {activeBooking?.booking_status !==
+                                                                    "Approved"
+                                                                        ? "Booking not approved yet"
+                                                                        : "Deposit already paid"}
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                        {activeBooking.payment_status !==
-                                                            "paid" && (
-                                                            <button
-                                                                onClick={() =>
-                                                                    handlePayment(
-                                                                        activeBooking
-                                                                    )
-                                                                }
-                                                                className="mt-4 w-full lg:w-auto inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-black bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
-                                                            >
-                                                                Pay Now
-                                                            </button>
-                                                        )}
                                                     </div>
                                                 </div>
                                             </div>

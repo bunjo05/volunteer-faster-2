@@ -136,6 +136,8 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
 
         Route::post('/{chat}/accept', [ChatController::class, 'AdminAcceptChat'])->name('admin.chat.accept');
     });
+
+    Route::get('/payments', [AdminsController::class, 'payments'])->name('admin.payments');
 });
 
 Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {

@@ -81,15 +81,16 @@ class StripePaymentController extends Controller
             if ($session->payment_status === 'paid') {
                 $bookingId = $session->metadata->booking_id ?? null;
                 $userId = $session->metadata->user_id ?? null;
-                $fullAmount = $session->metadata->full_amount ?? null;
-                $depositAmount = $session->metadata->deposit_amount ?? null;
+                $fullAmount = isset($session->metadata->full_amount) ? (float) $session->metadata->full_amount : null;
+                $depositAmount = isset($session->metadata->deposit_amount) ? (float) $session->metadata->deposit_amount : null;
 
                 if (!$bookingId || !$userId) {
                     Log::error('Stripe webhook: Missing metadata in session', ['session_id' => $session->id]);
                     return;
                 }
 
-                $booking = VolunteerBooking::with(['user', 'project.user'])
+                // $booking = VolunteerBooking::with(['user', 'project.user'])
+                $booking = VolunteerBooking::with(['user', 'project.organizationProfile', 'project.user'])
                     ->where('id', $bookingId)
                     ->where('user_id', $userId)
                     ->first();
@@ -110,7 +111,7 @@ class StripePaymentController extends Controller
                     return;
                 }
 
-                // Create payment record with deposit information
+                // Create payment record with explicit type casting
                 $payment = Payment::create([
                     'user_id' => $userId,
                     'booking_id' => $bookingId,
@@ -119,11 +120,11 @@ class StripePaymentController extends Controller
                     'full_amount' => $fullAmount,
                     'stripe_payment_id' => $session->payment_intent,
                     'status' => 'deposit_paid',
-                    'payment_method' => $session->payment_method_types[0] ?? 'card',
+                    // 'payment_method' => $session->payment_method_types[0] ?? 'card',
                     'payment_type' => 'deposit',
                 ]);
 
-                // Update booking status
+                // Update booking status with explicit amounts
                 $booking->update([
                     'payment_status' => 'deposit_paid',
                     'stripe_session_id' => $session->id,
@@ -189,19 +190,19 @@ class StripePaymentController extends Controller
             ]);
 
             $booking = $request->user()->bookings()
-                ->with(['project.user']) // Load project with its user
+                ->with(['project.user'])
                 ->findOrFail($request->booking_id);
 
             if (!$booking->project) {
                 throw new \Exception('Project not found for this booking');
             }
 
-            // Calculate full amount
+            // Calculate full amount with proper type casting
             $fullAmount = $this->calculateTotalAmount(
                 $booking->start_date,
                 $booking->end_date,
-                $booking->project->fees,
-                $booking->number_of_travellers
+                (float)$booking->project->fees,
+                (int)$booking->number_of_travellers
             );
 
             // Calculate 10% deposit
@@ -228,9 +229,15 @@ class StripePaymentController extends Controller
                 'metadata' => [
                     'booking_id' => $booking->id,
                     'user_id' => $request->user()->id,
-                    'full_amount' => $fullAmount,
-                    'deposit_amount' => $depositAmount,
+                    'full_amount' => (float)$fullAmount,
+                    'deposit_amount' => (float)$depositAmount,
                 ],
+            ]);
+
+            // Immediately update the booking with the calculated amounts
+            $booking->update([
+                'total_amount' => $fullAmount,
+                'amount_paid' => $depositAmount
             ]);
 
             return response()->json(['sessionId' => $session->id]);
@@ -239,7 +246,6 @@ class StripePaymentController extends Controller
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
-
 
     public function success(Request $request)
     {
@@ -250,15 +256,18 @@ class StripePaymentController extends Controller
 
         if ($session->payment_status === 'paid') {
             $booking = $request->user()->bookings()
-                ->with(['project.user']) // Load project with its user
+                ->with(['project.organizationProfile', 'project.user'])
                 ->findOrFail($session->metadata->booking_id);
+
+            $fullAmount = (float)($session->metadata->full_amount ?? 0);
+            $depositAmount = (float)($session->metadata->deposit_amount ?? 0);
 
             $payment = Payment::create([
                 'user_id' => $request->user()->id,
                 'booking_id' => $booking->id,
                 'project_id' => $booking->project_id,
-                'amount' => $session->metadata->deposit_amount,
-                'full_amount' => $session->metadata->full_amount,
+                'amount' => $depositAmount,
+                'full_amount' => $fullAmount,
                 'stripe_payment_id' => $session->payment_intent,
                 'status' => 'deposit_paid',
                 'payment_type' => 'deposit'
@@ -268,8 +277,8 @@ class StripePaymentController extends Controller
                 'payment_status' => 'deposit_paid',
                 'stripe_session_id' => $sessionId,
                 'paid_at' => now(),
-                'amount_paid' => $session->metadata->deposit_amount,
-                'total_amount' => $session->metadata->full_amount,
+                'amount_paid' => $depositAmount,
+                'total_amount' => $fullAmount,
             ]);
 
             // Send notifications
@@ -285,6 +294,8 @@ class StripePaymentController extends Controller
     protected function sendPaymentNotifications($booking, $payment)
     {
         try {
+            $booking = $booking->fresh(['project.organizationProfile', 'project.user', 'user']);
+
             Log::info('Sending payment notifications', [
                 'booking_id' => $booking->id,
                 'user_email' => $booking->user->email,
@@ -331,12 +342,26 @@ class StripePaymentController extends Controller
             ->with('error', 'Payment was cancelled.');
     }
 
+    // protected function calculateTotalAmount($startDate, $endDate, $fees, $travellers)
+    // {
+    //     $start = new \DateTime($startDate);
+    //     $end = new \DateTime($endDate);
+    //     $diff = $start->diff($end);
+    //     $duration = $diff->days + 1;
+
+    //     return $duration * $fees * $travellers;
+    // }
+
     protected function calculateTotalAmount($startDate, $endDate, $fees, $travellers)
     {
         $start = new \DateTime($startDate);
         $end = new \DateTime($endDate);
         $diff = $start->diff($end);
-        $duration = $diff->days + 1;
+        $duration = $diff->days + 1; // +1 to include both start and end dates
+
+        // Ensure all values are numeric
+        $fees = (float)$fees;
+        $travellers = (int)$travellers;
 
         return $duration * $fees * $travellers;
     }

@@ -15,14 +15,19 @@ class Payment extends Model
         'status'
     ];
 
+
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
+    // public function booking()
+    // {
+    //     return $this->belongsTo(VolunteerBooking::class);
+    // }
     public function booking()
     {
-        return $this->belongsTo(VolunteerBooking::class);
+        return $this->belongsTo(VolunteerBooking::class, 'booking_id'); // Explicitly set the foreign key
     }
 
     public function project()

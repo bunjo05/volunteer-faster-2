@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use App\Models\ReportProject;
 use App\Models\VolunteerBooking;
 use App\Mail\OrganizationReminder;
+use App\Models\Payment;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 
@@ -186,10 +187,9 @@ class VolunteerController extends Controller
     {
         return inertia('Volunteers/Dashboard');
     }
-
     public function projects()
     {
-        $bookings = VolunteerBooking::with(['project', 'reminders'])
+        $bookings = VolunteerBooking::with(['project', 'reminders', 'payments'])
             ->where('user_id', Auth::id())
             ->get()
             ->map(function ($booking) {
@@ -219,7 +219,7 @@ class VolunteerController extends Controller
             });
 
         return inertia('Volunteers/Projects', [
-            'bookings' => $bookings
+            'bookings' => $bookings,
         ]);
     }
 

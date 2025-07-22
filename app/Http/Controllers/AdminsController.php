@@ -4,17 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Inertia\Inertia;
+use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Category;
-use App\Models\Subcategory;
 
+use App\Models\Subcategory;
 use Illuminate\Http\Request;
 use App\Models\ProjectRemark;
+use App\Models\ReportProject;
 use App\Models\ReportCategory;
 use App\Mail\UserStatusChanged;
 use App\Models\ReportSubcategory;
 use App\Models\OrganizationProfile;
-use App\Models\ReportProject;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use SebastianBergmann\CodeCoverage\Report\Xml\Report;
@@ -335,5 +336,38 @@ class AdminsController extends Controller
         return redirect()->back()
             ->with('message', 'Subcategory deleted successfully')
             ->with('type', 'success');
+    }
+
+    public function payments(Request $request)
+    {
+        $payments = Payment::query()
+            ->with(['user', 'booking.project.organizationProfile'])
+            ->when($request->search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('stripe_payment_id', 'like', "%{$search}%")
+                        ->orWhereHas('user', function ($q) use ($search) {
+                            $q->where('name', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('booking.project', function ($q) use ($search) {
+                            $q->where('title', 'like', "%{$search}%");
+                        });
+                });
+            })
+            ->when($request->status, fn($q, $status) => $q->where('status', $status))
+            ->when($request->payment_type, fn($q, $type) => $q->where('payment_type', $type))
+            ->when($request->date_from, fn($q, $date) => $q->whereDate('created_at', '>=', $date))
+            ->when($request->date_to, fn($q, $date) => $q->whereDate('created_at', '<=', $date))
+            ->orderBy($request->sort ?? 'created_at', $request->direction ?? 'desc')
+            ->paginate(15);
+
+        // Admins/Reports/Subcategories/Form
+
+        return Inertia::render('Admins/Payments/Index', [
+            'payments' => $payments,
+            'filters' => $request->only(['search', 'status', 'payment_type', 'date_from', 'date_to']),
+            'sort' => $request->sort ?? 'created_at',
+            'direction' => $request->direction ?? 'desc',
+        ]);
     }
 }

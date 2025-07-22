@@ -200,6 +200,14 @@ export default function AdminLayout({ children }) {
                     </Link>
 
                     <Link
+                        href={route("admin.payments")}
+                        className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
+                    >
+                        <MessageSquare size={18} />
+                        Payments
+                    </Link>
+
+                    <Link
                         href={route("chat.index")}
                         className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
                     >
