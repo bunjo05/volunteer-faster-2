@@ -18,19 +18,17 @@ import { loadStripe } from "@stripe/stripe-js";
 import { router } from "@inertiajs/react";
 
 export default function Projects({ auth, payments }) {
+    const [messageContent, setMessageContent] = useState("");
+    const { post } = useForm();
+
     const { bookings = [], flash } = usePage().props;
     const [activeBooking, setActiveBooking] = useState(bookings[0] || null);
     const [showSuccess, setShowSuccess] = useState(false);
     // Inside your component
     const [stripePromise, setStripePromise] = useState(null);
 
-    // const stripePromise = loadStripe(process.env.VITE_STRIPE_KEY);
-    // const stripePromise = loadStripe(process.env.VITE_STRIPE_KEY).catch(
-    //     (error) => {
-    //         console.error("Failed to load Stripe:", error);
-    //         return null;
-    //     }
-    // );
+    const [showMessageModal, setShowMessageModal] = useState(false);
+    // const [messageContent, setMessageContent] = useState("");
 
     // Add this function to find payments for the active booking
     const getPaymentsForActiveBooking = () => {
@@ -147,16 +145,64 @@ export default function Projects({ auth, payments }) {
         return false;
     };
 
-    const { post } = useForm();
+    const handleSendMessage = (e) => {
+        e.preventDefault();
+
+        if (!messageContent.trim()) {
+            alert("Message cannot be empty");
+            return;
+        }
+
+        // Check if we have all required data
+        if (
+            !activeBooking ||
+            !activeBooking.project ||
+            !activeBooking.project.user
+        ) {
+            console.error("Missing booking or project information");
+            alert("Cannot send message - project information is incomplete");
+            return;
+        }
+
+        // Verify the receiver is not the current user
+        if (activeBooking.project.user.id === auth.user.id) {
+            console.error("Cannot send message to yourself");
+            alert("Cannot send message to yourself");
+            return;
+        }
+
+        post(
+            route("volunteer.panel.messages.store"),
+            {
+                message: messageContent,
+                sender_id: auth.user.id,
+                receiver_id: activeBooking.project.user.id,
+                project_id: activeBooking.project.id,
+            },
+            {
+                onSuccess: () => {
+                    setShowMessageModal(false);
+                    setMessageContent("");
+                    // Show success message
+                    flash.success = "Message sent successfully!";
+                    setShowSuccess(true);
+                },
+                onError: (errors) => {
+                    console.error("Error sending message:", errors);
+                    alert("Failed to send message. Please try again.");
+                },
+            }
+        );
+    };
 
     return (
         <VolunteerLayout auth={auth}>
             {showSuccess && (
                 <div className="fixed top-4 right-4 z-50">
-                    <div className="bg-green-500 text-white px-4 py-2 rounded-md shadow-lg flex items-center animate-fade-in-up">
+                    <div className="bg-green-500 text-white px-3 py-1.5 rounded-md shadow flex items-center text-sm animate-fade-in-up">
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5 mr-2"
+                            className="h-4 w-4 mr-1.5"
                             viewBox="0 0 20 20"
                             fill="currentColor"
                         >
@@ -170,42 +216,41 @@ export default function Projects({ auth, payments }) {
                     </div>
                 </div>
             )}
-            <div className="mx-auto bg-white max-w-7xl p-6 lg:p-4 rounded-xl shadow-sm border border-gray-200">
-                <div className="text-center mb-5">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
+
+            <div className="mx-auto bg-white max-w-7xl p-4 sm:p-6 rounded-lg shadow-sm border border-gray-100">
+                <div className="text-center mb-6">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
                         My Volunteer Projects
                     </h1>
                     <p className="text-gray-600 max-w-2xl mx-auto">
-                        Manage your upcoming volunteer commitments and view
-                        important details
+                        Manage your upcoming volunteer commitments
                     </p>
                 </div>
 
                 {Array.isArray(bookings) && bookings.length === 0 ? (
-                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 text-center max-w-2xl mx-auto">
-                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 mb-4">
-                            <CalendarDays className="h-6 w-6 text-blue-600" />
+                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-6 text-center max-w-2xl mx-auto">
+                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 mb-3">
+                            <CalendarDays className="h-5 w-5 text-blue-600" />
                         </div>
                         <h3 className="text-lg font-medium text-gray-900 mb-2">
                             No projects booked yet
                         </h3>
                         <p className="text-gray-600 mb-4">
-                            You haven't booked any volunteer projects. Explore
-                            available opportunities to get started.
+                            You haven't booked any volunteer projects.
                         </p>
                         <Link
                             href="/projects"
-                            className="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                            className="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 text-sm"
                         >
                             Browse Projects
                         </Link>
                     </div>
                 ) : (
-                    <div className="flex flex-col lg:flex-row gap-6">
+                    <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
                         {/* Left sidebar - Projects list */}
-                        <div className="w-full lg:w-1/4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="p-4 border-b border-gray-200 bg-gray-50">
-                                <h3 className="font-semibold text-lg text-gray-800">
+                        <div className="w-full lg:w-1/3 bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+                            <div className="p-3 sm:p-4 border-b border-gray-100 bg-gray-50">
+                                <h3 className="font-semibold text-gray-800">
                                     My Projects ({bookings.length})
                                 </h3>
                             </div>
@@ -213,9 +258,9 @@ export default function Projects({ auth, payments }) {
                                 {bookings.map((booking) => (
                                     <div
                                         key={booking.id}
-                                        className={`p-4 border-b border-gray-100 cursor-pointer transition-colors group ${
+                                        className={`p-3 sm:p-4 border-b border-gray-100 cursor-pointer transition-colors group ${
                                             activeBooking?.id === booking.id
-                                                ? "bg-blue-50 border-l-4 border-blue-500"
+                                                ? "bg-blue-50 border-l-2 border-blue-500"
                                                 : "hover:bg-gray-50"
                                         }`}
                                         onClick={() =>
@@ -224,11 +269,11 @@ export default function Projects({ auth, payments }) {
                                     >
                                         <div className="flex justify-between items-start">
                                             <div>
-                                                <h4 className="font-medium text-gray-900 group-hover:text-blue-600">
+                                                <h4 className="font-medium text-gray-900 group-hover:text-blue-600 text-sm sm:text-base">
                                                     {booking.project?.title}
                                                 </h4>
-                                                <div className="flex items-center mt-1 text-sm text-gray-500">
-                                                    <CalendarDays className="w-4 h-4 mr-1.5" />
+                                                <div className="flex items-center mt-1 text-xs sm:text-sm text-gray-500">
+                                                    <CalendarDays className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5" />
                                                     <span>
                                                         {new Date(
                                                             booking.start_date
@@ -239,15 +284,23 @@ export default function Projects({ auth, payments }) {
                                                         ).toLocaleDateString()}
                                                     </span>
                                                 </div>
+                                                <div className="mt-1">
+                                                    <span
+                                                        className={`px-2 py-0.5 text-xs rounded-full ${
+                                                            booking.booking_status ===
+                                                            "Approved"
+                                                                ? "bg-green-100 text-green-800"
+                                                                : booking.booking_status ===
+                                                                  "Pending"
+                                                                ? "bg-yellow-100 text-yellow-800"
+                                                                : "bg-red-100 text-red-800"
+                                                        }`}
+                                                    >
+                                                        {booking.booking_status}
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <ChevronRight
-                                                className={`w-5 h-5 text-gray-400 group-hover:text-blue-500 ${
-                                                    activeBooking?.id ===
-                                                    booking.id
-                                                        ? "text-blue-500"
-                                                        : ""
-                                                }`}
-                                            />
+                                            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 group-hover:text-blue-500" />
                                         </div>
                                     </div>
                                 ))}
@@ -255,259 +308,284 @@ export default function Projects({ auth, payments }) {
                         </div>
 
                         {/* Right side - Project details */}
-                        <div className="w-full lg:w-3/4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="w-full lg:w-2/3 bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
                             {activeBooking ? (
                                 <div>
-                                    {/* Header with image placeholder */}
-                                    <div className="h-25 flex items-center bg-gradient-to-r from-blue-500 to-blue-600  p-6">
+                                    {/* Header */}
+                                    <div className="h-24 sm:h-28 flex items-center bg-gradient-to-r from-blue-600 to-blue-700 p-4 sm:p-6">
                                         <div>
-                                            <div className="flex items-center gap-3 mb-2">
-                                                <h2 className="text-2xl font-bold text-white">
+                                            <div className="flex items-center gap-2 sm:gap-3">
+                                                <h2 className="text-xl sm:text-2xl font-bold text-white">
                                                     {
                                                         activeBooking.project
                                                             ?.title
                                                     }
                                                 </h2>
-                                                <span className="px-3 py-1 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded-full">
+                                                <span
+                                                    className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
+                                                        activeBooking.booking_status ===
+                                                        "Approved"
+                                                            ? "bg-green-100/20 text-green-100"
+                                                            : activeBooking.booking_status ===
+                                                              "Pending"
+                                                            ? "bg-yellow-100/20 text-yellow-100"
+                                                            : "bg-red-100/20 text-red-100"
+                                                    }`}
+                                                >
                                                     {
                                                         activeBooking.booking_status
                                                     }
                                                 </span>
                                             </div>
-                                            {/* <p className="text-blue-100">
-                                                Organized by{" "}
-                                                <span className="font-medium">
-                                                    {
-                                                        activeBooking.project
-                                                            ?.organization?.name
-                                                    }
-                                                </span>
-                                            </p> */}
                                         </div>
                                     </div>
 
-                                    <div className="p-6">
-                                        <div className=" gap-8">
-                                            <div className="space-y-6">
-                                                <div className="bg-gray-50 p-4 rounded-lg">
-                                                    <div className="space-x-2 space-y-2 grid grid-cols-2">
-                                                        <div className="flex items-start gap-3">
-                                                            <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
-                                                                <MapPin className="w-5 h-5" />
-                                                            </div>
-                                                            <div>
-                                                                <h4 className="font-medium text-gray-700">
-                                                                    Project
-                                                                    Location
-                                                                </h4>
-                                                                <p className="text-gray-600">
-                                                                    {activeBooking
-                                                                        .project
-                                                                        ?.location ||
-                                                                        "Location not specified"}
-                                                                </p>
+                                    <div className="p-4 sm:p-6">
+                                        <div className="space-y-4 sm:space-y-6">
+                                            {/* Project Overview */}
+                                            <div className="bg-gray-50 p-4 rounded-lg">
+                                                <h3 className="font-semibold text-gray-800 mb-3">
+                                                    Project Overview
+                                                </h3>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    {/* Location */}
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
+                                                            <MapPin className="w-4 h-4" />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-medium text-gray-700">
+                                                                Location
+                                                            </h4>
+                                                            <p className="text-gray-600 text-sm">
                                                                 {activeBooking
                                                                     .project
-                                                                    ?.location && (
-                                                                    <Link
-                                                                        href="#"
-                                                                        className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mt-1"
-                                                                    >
-                                                                        View on
-                                                                        map{" "}
-                                                                        <ArrowUpRight className="w-4 h-4 ml-1" />
-                                                                    </Link>
-                                                                )}
-                                                            </div>
+                                                                    ?.location ||
+                                                                    "Location not specified"}
+                                                            </p>
                                                         </div>
-                                                        <div className="flex items-start gap-3">
-                                                            <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
-                                                                <CalendarDays className="w-5 h-5" />
-                                                            </div>
-                                                            <div>
-                                                                <h4 className="font-medium text-gray-700">
-                                                                    Dates
-                                                                </h4>
-                                                                <p className="text-gray-600">
-                                                                    {new Date(
-                                                                        activeBooking.start_date
-                                                                    ).toLocaleDateString(
-                                                                        "en-US",
-                                                                        {
-                                                                            year: "numeric",
-                                                                            month: "long",
-                                                                            day: "numeric",
-                                                                        }
-                                                                    )}{" "}
-                                                                    to{" "}
-                                                                    {new Date(
-                                                                        activeBooking.end_date
-                                                                    ).toLocaleDateString(
-                                                                        "en-US",
-                                                                        {
-                                                                            year: "numeric",
-                                                                            month: "long",
-                                                                            day: "numeric",
-                                                                        }
-                                                                    )}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-start gap-3">
-                                                            <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
-                                                                <Users className="w-5 h-5" />
-                                                            </div>
-                                                            <div>
-                                                                <h4 className="font-medium text-gray-700">
-                                                                    Group Size
-                                                                </h4>
-                                                                <p className="text-gray-600">
-                                                                    {
-                                                                        activeBooking.number_of_travellers
-                                                                    }{" "}
-                                                                    volunteer
-                                                                    {activeBooking.number_of_travellers !==
-                                                                    1
-                                                                        ? "s"
-                                                                        : ""}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-start gap-3">
-                                                            <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
-                                                                <Clock className="w-5 h-5" />
-                                                            </div>
-                                                            <div>
-                                                                <h4 className="font-medium text-gray-700">
-                                                                    Duration
-                                                                </h4>
-                                                                <p className="text-gray-600">
-                                                                    {calculateDuration(
-                                                                        activeBooking.start_date,
-                                                                        activeBooking.end_date
-                                                                    )}{" "}
-                                                                    days
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        {/* <div className="flex items-start gap-3">
-                                                            <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
-                                                                <DollarSign className="w-5 h-5" />
-                                                            </div>
+                                                    </div>
 
-                                                            <div>
-                                                                <h4 className="font-medium text-gray-700">
-                                                                    Amount
-                                                                </h4>
-                                                                <p className="text-gray-600">
-                                                                    $
-                                                                    {calculateTotalAmount(
-                                                                        activeBooking.start_date,
-                                                                        activeBooking.end_date,
-                                                                        activeBooking
-                                                                            .project
-                                                                            ?.fees ||
-                                                                            0,
-                                                                        activeBooking.number_of_travellers
-                                                                    ).toLocaleString()}
-                                                                </p>
-                                                            </div>
-                                                        </div> */}
-                                                        {/* The Pay Button */}
-                                                        {activeBooking?.payments &&
-                                                            activeBooking
-                                                                .payments
-                                                                .length > 0 && (
-                                                                <div className="flex items-start gap-3">
-                                                                    <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
-                                                                        <DollarSign className="w-5 h-5" />
-                                                                    </div>
-                                                                    <div>
-                                                                        <h4 className="font-medium text-gray-700">
-                                                                            Payment
-                                                                            Details
-                                                                        </h4>
-                                                                        <div className="text-gray-600 text-sm">
-                                                                            <p>
-                                                                                Amount
-                                                                                Paid:
-                                                                                $
-                                                                                {calculateTotalPaid().toLocaleString()}
-                                                                            </p>
-                                                                            <p>
-                                                                                Remaining
-                                                                                Balance:
-                                                                                $
-                                                                                {calculateRemainingBalance().toLocaleString()}
-                                                                            </p>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            )}
+                                                    {/* Dates */}
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
+                                                            <CalendarDays className="w-4 h-4" />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-medium text-gray-700">
+                                                                Dates
+                                                            </h4>
+                                                            <p className="text-gray-600 text-sm">
+                                                                {new Date(
+                                                                    activeBooking.start_date
+                                                                ).toLocaleDateString()}{" "}
+                                                                to{" "}
+                                                                {new Date(
+                                                                    activeBooking.end_date
+                                                                ).toLocaleDateString()}
+                                                            </p>
+                                                        </div>
+                                                    </div>
 
-                                                        <div className="flex justify-between gap-3">
-                                                            <div className="flex items-start gap-3">
-                                                                <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
-                                                                    <DollarSign className="w-5 h-5" />
-                                                                </div>
-                                                                <div>
-                                                                    <h4 className="font-medium text-gray-700">
-                                                                        Amount
-                                                                    </h4>
-                                                                    <p className="text-gray-600">
-                                                                        $
-                                                                        {calculateTotalAmount(
-                                                                            activeBooking.start_date,
-                                                                            activeBooking.end_date,
-                                                                            activeBooking
-                                                                                .project
-                                                                                ?.fees ||
-                                                                                0,
-                                                                            activeBooking.number_of_travellers
-                                                                        ).toLocaleString()}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                            {!shouldHidePayButton() &&
-                                                                calculateRemainingBalance() >
-                                                                    0 && (
-                                                                    <button
-                                                                        onClick={() =>
-                                                                            handlePayment(
-                                                                                activeBooking
-                                                                            )
-                                                                        }
-                                                                        className="mt-4 w-full lg:w-auto inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-black bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
-                                                                    >
-                                                                        Pay Now
-                                                                    </button>
-                                                                )}
+                                                    {/* Group Size */}
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
+                                                            <Users className="w-4 h-4" />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-medium text-gray-700">
+                                                                Group Size
+                                                            </h4>
+                                                            <p className="text-gray-600 text-sm">
+                                                                {
+                                                                    activeBooking.number_of_travellers
+                                                                }{" "}
+                                                                volunteer
+                                                                {activeBooking.number_of_travellers !==
+                                                                1
+                                                                    ? "s"
+                                                                    : ""}
+                                                            </p>
+                                                        </div>
+                                                    </div>
 
-                                                            {shouldHidePayButton() && (
-                                                                <div className="mt-4 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
-                                                                    {activeBooking?.booking_status !==
-                                                                    "Approved"
-                                                                        ? "Booking not approved yet"
-                                                                        : "Deposit already paid"}
-                                                                </div>
-                                                            )}
+                                                    {/* Duration */}
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
+                                                            <Clock className="w-4 h-4" />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-medium text-gray-700">
+                                                                Duration
+                                                            </h4>
+                                                            <p className="text-gray-600 text-sm">
+                                                                {calculateDuration(
+                                                                    activeBooking.start_date,
+                                                                    activeBooking.end_date
+                                                                )}{" "}
+                                                                days
+                                                            </p>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div className="bg-gray-50 p-4 rounded-lg mt-4">
-                                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                                                Project Information
-                                            </h3>
-                                            <p className="text-gray-600 mb-4">
-                                                {activeBooking.project
-                                                    ?.short_description ||
-                                                    "No additional description available."}
-                                            </p>
-                                            <div className="flex justify-between">
-                                                {activeBooking.can_send_reminder && (
-                                                    <div className="flex items-center gap-2">
+
+                                            {/* Payment Information */}
+                                            <div className="bg-gray-50 p-4 rounded-lg">
+                                                <h3 className="font-semibold text-gray-800 mb-3">
+                                                    Payment Information
+                                                </h3>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                                                    {/* Total Amount */}
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
+                                                            <DollarSign className="w-4 h-4" />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-medium text-gray-700">
+                                                                Total Amount
+                                                            </h4>
+                                                            <p className="text-gray-600 font-semibold">
+                                                                $
+                                                                {calculateTotalAmount(
+                                                                    activeBooking.start_date,
+                                                                    activeBooking.end_date,
+                                                                    activeBooking
+                                                                        .project
+                                                                        ?.fees ||
+                                                                        0,
+                                                                    activeBooking.number_of_travellers
+                                                                ).toLocaleString()}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Amount Paid */}
+                                                    {activeBooking?.payments
+                                                        ?.length > 0 && (
+                                                        <div className="flex items-start gap-3">
+                                                            <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
+                                                                <DollarSign className="w-4 h-4" />
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="font-medium text-gray-700">
+                                                                    Amount Paid
+                                                                </h4>
+                                                                <p className="text-gray-600 font-semibold">
+                                                                    $
+                                                                    {calculateTotalPaid().toLocaleString()}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Payment History */}
+                                                {activeBooking?.payments
+                                                    ?.length > 0 && (
+                                                    <div className="mb-4">
+                                                        <h4 className="font-medium text-gray-700 mb-2">
+                                                            Payment History
+                                                        </h4>
+                                                        <div className="space-y-2">
+                                                            {activeBooking.payments.map(
+                                                                (payment) => (
+                                                                    <div
+                                                                        key={
+                                                                            payment.id
+                                                                        }
+                                                                        className="bg-white p-3 rounded border border-gray-200 text-sm"
+                                                                    >
+                                                                        <div className="flex justify-between items-center">
+                                                                            <div>
+                                                                                <p className="font-medium">
+                                                                                    $
+                                                                                    {
+                                                                                        payment.amount
+                                                                                    }
+                                                                                </p>
+                                                                                {/* {payment.stripe_payment_id && (
+                                                                                    <p className="text-gray-500 text-xs">
+                                                                                        ID:{" "}
+                                                                                        {
+                                                                                            payment.stripe_payment_id
+                                                                                        }
+                                                                                    </p>
+                                                                                )} */}
+                                                                            </div>
+                                                                            <span
+                                                                                className={`px-2 py-0.5 rounded-full text-xs ${
+                                                                                    payment.status ===
+                                                                                    "succeeded"
+                                                                                        ? "bg-green-100 text-green-800"
+                                                                                        : payment.status ===
+                                                                                          "pending"
+                                                                                        ? "bg-yellow-100 text-yellow-800"
+                                                                                        : payment.status ===
+                                                                                          "deposit_paid"
+                                                                                        ? "bg-blue-100 text-blue-800"
+                                                                                        : "bg-red-100 text-red-800"
+                                                                                }`}
+                                                                            >
+                                                                                Deposit
+                                                                                Payment
+                                                                                Made
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                )
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Pay Now Button */}
+                                                <div>
+                                                    {!shouldHidePayButton() &&
+                                                    calculateRemainingBalance() >
+                                                        0 ? (
+                                                        <button
+                                                            onClick={() =>
+                                                                handlePayment(
+                                                                    activeBooking
+                                                                )
+                                                            }
+                                                            className="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                                        >
+                                                            Pay Now ($
+                                                            {calculateRemainingBalance().toLocaleString()}
+                                                            )
+                                                        </button>
+                                                    ) : (
+                                                        <div
+                                                            className={`p-3 rounded ${
+                                                                activeBooking?.booking_status !==
+                                                                "Approved"
+                                                                    ? "bg-yellow-50 text-yellow-800"
+                                                                    : "bg-blue-50 text-blue-800"
+                                                            } text-sm`}
+                                                        >
+                                                            {activeBooking?.booking_status !==
+                                                            "Approved"
+                                                                ? "Your booking is pending approval"
+                                                                : "Deposit payment already completed"}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Project Information */}
+                                            <div className="bg-gray-50 p-4 rounded-lg">
+                                                <h3 className="font-semibold text-gray-800 mb-3">
+                                                    Project Information
+                                                </h3>
+                                                <p className="text-gray-600 mb-4 text-sm">
+                                                    {activeBooking.project
+                                                        ?.short_description ||
+                                                        "No additional description available."}
+                                                </p>
+                                                <div className="flex flex-col sm:flex-row justify-between gap-3">
+                                                    {activeBooking.can_send_reminder && (
                                                         <button
                                                             onClick={() =>
                                                                 post(
@@ -520,51 +598,108 @@ export default function Projects({ auth, payments }) {
                                                                     )
                                                                 )
                                                             }
-                                                            className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 mt-1 group relative"
+                                                            className="inline-flex items-center px-3 py-1.5 bg-white border border-gray-300 rounded text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                                                         >
                                                             Send{" "}
                                                             {
                                                                 activeBooking.reminder_stage
                                                             }{" "}
-                                                            Reminder{" "}
-                                                            <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-0.5 transition-transform" />
-                                                            {/* Tooltip remains the same */}
+                                                            Reminder
+                                                            <ArrowRight className="w-3 h-3 ml-1.5" />
                                                         </button>
-                                                        <span className="text-xs text-gray-500">
-                                                            {activeBooking.reminder_stage ===
-                                                                "first" &&
-                                                                "7+ days pending"}
-                                                            {activeBooking.reminder_stage ===
-                                                                "second" &&
-                                                                "14+ days pending"}
-                                                            {activeBooking.reminder_stage ===
-                                                                "final" &&
-                                                                "30+ days pending"}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                <Link
-                                                    href={`/volunteer-programs/${activeBooking.project?.slug}`}
-                                                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                                                >
-                                                    View Full Project Details
-                                                </Link>
+                                                    )}
+                                                    <Link
+                                                        href={`/volunteer-programs/${activeBooking.project?.slug}`}
+                                                        className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                                    >
+                                                        View Full Details
+                                                    </Link>
+
+                                                    {/* Message Modal */}
+                                                    {showMessageModal &&
+                                                        activeBooking && (
+                                                            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                                                                <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
+                                                                    <div className="p-6">
+                                                                        <h3 className="text-lg font-medium text-gray-900 mb-4">
+                                                                            Message
+                                                                            Project
+                                                                            Owner
+                                                                        </h3>
+
+                                                                        <form
+                                                                            onSubmit={
+                                                                                handleSendMessage
+                                                                            }
+                                                                        >
+                                                                            <textarea
+                                                                                className="w-full h-32 p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                                                                placeholder="Type your message here..."
+                                                                                value={
+                                                                                    messageContent
+                                                                                }
+                                                                                onChange={(
+                                                                                    e
+                                                                                ) =>
+                                                                                    setMessageContent(
+                                                                                        e
+                                                                                            .target
+                                                                                            .value
+                                                                                    )
+                                                                                }
+                                                                            />
+                                                                            <div className="mt-4 flex justify-end space-x-3">
+                                                                                <button
+                                                                                    onClick={() =>
+                                                                                        setShowMessageModal(
+                                                                                            false
+                                                                                        )
+                                                                                    }
+                                                                                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                                                                                >
+                                                                                    Cancel
+                                                                                </button>
+                                                                                <button
+                                                                                    type="submit"
+                                                                                    className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700"
+                                                                                >
+                                                                                    Send
+                                                                                    Message
+                                                                                </button>
+                                                                            </div>
+                                                                        </form>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                    <button
+                                                        onClick={() =>
+                                                            setShowMessageModal(
+                                                                true
+                                                            )
+                                                        }
+                                                        className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                                    >
+                                                        <MessageCircle className="w-4 h-4 mr-2" />
+                                                        Message Project Owner
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             ) : (
-                                <div className="h-full flex items-center justify-center p-12">
+                                <div className="h-full flex items-center justify-center p-8">
                                     <div className="text-center">
-                                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400 mb-4">
-                                            <CalendarDays className="h-6 w-6" />
+                                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400 mb-3">
+                                            <CalendarDays className="h-5 w-5" />
                                         </div>
                                         <h3 className="text-lg font-medium text-gray-900 mb-1">
                                             Select a project
                                         </h3>
-                                        <p className="text-gray-500">
-                                            Choose a project from the list to
-                                            view details
+                                        <p className="text-gray-500 text-sm">
+                                            Choose a project from the list
                                         </p>
                                     </div>
                                 </div>

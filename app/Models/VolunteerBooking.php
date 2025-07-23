@@ -19,22 +19,18 @@ class VolunteerBooking extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function project()
-    {
-        return $this->belongsTo(Project::class);
-    }
-
     public function reminders()
     {
         return $this->hasMany(Reminder::class, 'booking_id');
     }
 
-    // public function payments()
-    // {
-    //     return $this->hasMany(Payment::class);
-    // }
     public function payments()
     {
         return $this->hasMany(Payment::class, 'booking_id'); // Explicitly set the foreign key
+    }
+
+    public function project()
+    {
+        return $this->belongsTo(Project::class)->with('user'); // Add with('user') to always load the user
     }
 }

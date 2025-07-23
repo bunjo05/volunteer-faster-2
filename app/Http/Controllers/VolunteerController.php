@@ -341,7 +341,6 @@ class VolunteerController extends Controller
             }
         }
 
-
         $user = Auth::user();
 
         // Create the new message
@@ -353,12 +352,61 @@ class VolunteerController extends Controller
             'reply_to' => $request->reply_to,
         ]);
 
+        dd('Hello World');
+
         // Load the sender relationship for the response
         $message->load('sender');
         return back()->with([
             'success' => 'Message sent successfully.',
             'hasRestrictedContent' => $hasRestrictedContent
         ]);
+    }
+
+
+    // public function panelStoreMessage(Request $request)
+    // {
+    //     $request->validate([
+    //         'message' => 'required|string|max:1000',
+    //         'receiver_id' => 'required|exists:users,id',
+    //         'sender_id' => 'required|exists:users,id',
+    //         'project_id' => 'nullable|exists:projects,id',
+    //     ]);
+
+    //     $message = Message::create([
+    //         'sender_id' => $request->sender_id,
+    //         'receiver_id' => $request->receiver_id,
+    //         'message' => $request->message,
+    //         'project_id' => $request->project_id,
+    //         'status' => 'Unread',
+    //     ]);
+
+    //     dd('Hello World');
+    //     return response()->json(['success' => true]);
+    // }
+
+    public function panelStoreMessage(Request $request)
+    {
+        $request->validate([
+            'message' => 'required|string|max:1000',
+            //     'receiver_id' => 'required|exists:users,id',
+            //     'sender_id' => 'required|exists:users,id',
+            'project_id' => 'nullable|exists:projects,id',
+        ]);
+
+        $message = Message::create([
+            //     'sender_id' => $request->sender_id,
+            //     'receiver_id' => $request->receiver_id,
+            'message' => $request->message,
+            'project_id' => $request->project_id,
+            //     'status' => 'Unread',
+        ]);
+
+        dd($message);
+
+        // Load the sender relationship for the response
+        // $message->load('sender');
+
+        return response()->json(['success' => true, 'message' => $message]);
     }
 
     public function storeProjectReport(Request $request)

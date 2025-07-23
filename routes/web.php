@@ -145,8 +145,15 @@ Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(
     Route::get('/messages', [VolunteerController::class, 'messages'])->name('volunteer.messages');
     Route::patch('/messages/mark-all-read/{senderId}', [VolunteerController::class, 'markAllRead'])
         ->name('volunteer.messages.mark-all-read');
+
     Route::post('/messages', [VolunteerController::class, 'storeMessage'])
         ->name('volunteer.messages.store');
+
+    Route::post('/panel/messages', [VolunteerController::class, 'panelStoreMessage'])
+        ->name('volunteer.panel.messages.store');
+    // Route::post('/messages', [VolunteerController::class, 'panelStoreMessage'])
+    //     ->name('volunteer.panel.messages.store');
+
     Route::get('/project', [VolunteerController::class, 'projects'])->name('volunteer.projects');
     Route::post('/send-reminder/{bookingId}', [VolunteerController::class, 'sendReminder'])
         ->name('volunteer.send-reminder');
@@ -189,8 +196,8 @@ Route::middleware('volunteer')->middleware(['check.role:Volunteer', 'auth'])->gr
     Route::get('/payment/success', [StripePaymentController::class, 'success'])->name('payment.success');
     Route::get('/payment/cancel', [StripePaymentController::class, 'cancel'])->name('payment.cancel');
 
-    Route::post('/stripe/webhook', [StripeWebhookController::class, 'handleWebhook'])
-        ->name('stripe.webhook');
+    // Route::post('/stripe/webhook', [StripeWebhookController::class, 'handleWebhook'])
+    //     ->name('stripe.webhook');
 });
 
 

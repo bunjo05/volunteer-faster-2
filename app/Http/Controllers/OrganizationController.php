@@ -10,6 +10,7 @@ use App\Models\Category;
 use Illuminate\Support\Str;
 use App\Models\GalleryImage;
 use Illuminate\Http\Request;
+use App\Mail\BookingCompleted;
 use App\Models\VolunteerBooking;
 use App\Models\OrganizationProfile;
 use App\Mail\ProjectReviewRequested;
@@ -51,7 +52,7 @@ class OrganizationController extends Controller
                 $query->where('user_id', $user->id);
             },
             'user',
-            // 'user.volunteerProfile' // If you need profile information
+            'payments',
         ])
             ->whereHas('project', function ($query) use ($user) {
                 $query->where('user_id', $user->id);
@@ -71,11 +72,17 @@ class OrganizationController extends Controller
                     'booking_status' => $booking->booking_status,
                     'message' => $booking->message,
                     'created_at' => $booking->created_at->format('M d, Y'),
-
+                    'payments' => $booking->payments->map(function ($payment) {
+                        return [
+                            'id' => $payment->id,
+                            'amount' => $payment->amount,
+                            'status' => $payment->status,
+                            'created_at' => $payment->created_at->format('M d, Y'),
+                        ];
+                    }),
                     'volunteer' => [
                         'name' => $booking->user->name,
                         'email' => $booking->user->email,
-                        // Add more volunteer details as needed
                     ],
                     'project' => [
                         'title' => $booking->project->title,
@@ -84,7 +91,6 @@ class OrganizationController extends Controller
                         'start_date' => $booking->project->start_date,
                         'end_date' => $booking->project->end_date,
                         'fees' => $booking->project->fees,
-
                     ],
                 ];
             }),
@@ -94,10 +100,21 @@ class OrganizationController extends Controller
     public function updateBookingStatus(VolunteerBooking $booking, Request $request)
     {
         $validated = $request->validate([
-            'booking_status' => 'required|string|in:Pending,Approved,Rejected,Cancelled,Completed'
+            'booking_status' => 'required|string|in:Pending,Approved,Rejected,Cancelled,Completed',
+            'send_completion_email' => 'sometimes|boolean'
         ]);
 
         $booking->update(['booking_status' => $validated['booking_status']]);
+
+        // Send completion email if status is Completed and flag is set
+        if (
+            $validated['booking_status'] === 'Completed' &&
+            ($request->send_completion_email ?? false)
+        ) {
+            Mail::to($booking->user->email)
+                ->send(new BookingCompleted($booking));
+        }
+
 
         return back()->with('success', 'Booking status updated successfully');
     }
