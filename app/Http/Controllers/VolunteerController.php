@@ -4,12 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Chat;
 use App\Models\Message;
+use App\Models\Payment;
 use App\Models\Reminder;
 use Illuminate\Http\Request;
 use App\Models\ReportProject;
+use App\Models\VolunteerPoint;
 use App\Models\VolunteerBooking;
 use App\Mail\OrganizationReminder;
-use App\Models\Payment;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 
@@ -183,9 +184,58 @@ class VolunteerController extends Controller
             'temp_id' => $request->temp_id,
         ]);
     }
+
+    // Add this method to your controller
+    protected function getTotalPoints()
+    {
+        return VolunteerPoint::where('user_id', Auth::id())->sum('points_earned');
+    }
     public function index()
     {
-        return inertia('Volunteers/Dashboard');
+        $user = Auth::user();
+
+        // Get total points
+        $totalPoints = $this->getTotalPoints();
+
+        // Get booking counts by status
+        $bookingCounts = VolunteerBooking::where('user_id', $user->id)
+            ->selectRaw('count(*) as total')
+            ->selectRaw('sum(case when booking_status = "Pending" then 1 else 0 end) as pending')
+            ->selectRaw('sum(case when booking_status = "Approved" then 1 else 0 end) as approved')
+            ->selectRaw('sum(case when booking_status = "Rejected" then 1 else 0 end) as rejected')
+            ->selectRaw('sum(case when booking_status = "Completed" then 1 else 0 end) as completed')
+            ->first();
+
+        // Get recent activities (last 5 points earned)
+        $recentActivities = VolunteerPoint::with(['booking.project'])
+            ->where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function ($point) {
+                return [
+                    'points' => $point->points_earned,
+                    'project' => $point->booking->project->title,
+                    'date' => $point->created_at->format('M d, Y'),
+                ];
+            });
+
+        return inertia('Volunteers/Dashboard', [
+            'auth' => [
+                'user' => $user->toArray() + ['points' => $totalPoints],
+            ],
+            'stats' => [
+                'total_points' => $totalPoints,
+                'bookings' => [
+                    'total' => $bookingCounts->total,
+                    'pending' => $bookingCounts->pending,
+                    'approved' => $bookingCounts->approved,
+                    'rejected' => $bookingCounts->rejected,
+                    'completed' => $bookingCounts->completed,
+                ],
+            ],
+            'recent_activities' => $recentActivities,
+        ]);
     }
     public function projects()
     {
@@ -215,11 +265,17 @@ class VolunteerController extends Controller
                     $booking->can_send_reminder = false;
                 }
 
+                // Calculate days spent if booking is completed
+                $booking->days_spent = $booking->booking_status === 'Completed'
+                    ? $booking->calculateDaysSpent()
+                    : null;
+
                 return $booking;
             });
 
         return inertia('Volunteers/Projects', [
             'bookings' => $bookings,
+            'points' => $this->getTotalPoints(),
         ]);
     }
 
@@ -290,6 +346,7 @@ class VolunteerController extends Controller
 
         return inertia('Volunteers/Messages', [
             'messages' => $conversations->values()->all(),
+            'points' => $this->getTotalPoints(),
         ]);
     }
 
@@ -362,27 +419,6 @@ class VolunteerController extends Controller
         ]);
     }
 
-
-    // public function panelStoreMessage(Request $request)
-    // {
-    //     $request->validate([
-    //         'message' => 'required|string|max:1000',
-    //         'receiver_id' => 'required|exists:users,id',
-    //         'sender_id' => 'required|exists:users,id',
-    //         'project_id' => 'nullable|exists:projects,id',
-    //     ]);
-
-    //     $message = Message::create([
-    //         'sender_id' => $request->sender_id,
-    //         'receiver_id' => $request->receiver_id,
-    //         'message' => $request->message,
-    //         'project_id' => $request->project_id,
-    //         'status' => 'Unread',
-    //     ]);
-
-    //     dd('Hello World');
-    //     return response()->json(['success' => true]);
-    // }
 
     public function panelStoreMessage(Request $request)
     {
@@ -481,6 +517,37 @@ class VolunteerController extends Controller
     }
     public function profile()
     {
-        return inertia('Volunteers/Profile');
+        return inertia(
+            'Volunteers/Profile',
+            ['points' => $this->getTotalPoints()],
+        );
+    }
+
+    public function points()
+    {
+        $points = VolunteerPoint::with(['booking.project'])
+            ->where('user_id', Auth::id())
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return inertia('Volunteers/Points', [
+            'points' => [
+                'total' => $points->sum('points_earned'),
+                'history' => $points->map(function ($point) {
+                    return [
+                        'id' => $point->id,
+                        'points_earned' => $point->points_earned,
+                        'created_at' => $point->created_at,
+                        'booking' => [
+                            'start_date' => $point->booking->start_date,
+                            'end_date' => $point->booking->end_date,
+                            'project' => [
+                                'title' => $point->booking->project->title,
+                            ]
+                        ]
+                    ];
+                })
+            ]
+        ]);
     }
 }

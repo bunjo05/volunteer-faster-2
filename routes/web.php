@@ -163,6 +163,8 @@ Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(
     Route::post('/chat/new', [VolunteerController::class, 'startNewChat'])->name('volunteer.chat.new');
     Route::get('/chat/{chat}/messages', [VolunteerController::class, 'getMessages'])->name('volunteer.chat.messages');
     Route::post('/chat/{chat}/read', [VolunteerController::class, 'markAsRead'])->name('volunteer.chat.read');
+
+    Route::get('/points', [VolunteerController::class, 'points'])->name('volunteer.points');
 });
 
 Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->group(function () {

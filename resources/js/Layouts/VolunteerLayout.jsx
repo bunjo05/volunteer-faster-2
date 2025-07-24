@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "@inertiajs/react";
 import SidebarLink from "@/Components/SidebarLink";
 import FloatingChat from "@/Components/FloatingChat";
+import TotalPoints from "@/Components/TotalPoints";
 import {
     Home,
     FolderKanban,
@@ -10,10 +11,17 @@ import {
     LogOut,
     Menu,
     X,
+    StarIcon,
 } from "lucide-react";
+import classNames from "classnames";
 
-export default function VolunteerLayout({ children, auth }) {
+export default function VolunteerLayout({ children, auth, points }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [showPoints, setShowPoints] = useState(true); // State to control points display
+
+    const totalPoints = auth?.user?.points || points || 0;
+    // Sample points data - replace with actual data from your backend
+    // const totalPoints = 42; // This should come from props or API call
 
     return (
         <div className="flex h-screen bg-gray-100 overflow-hidden">
@@ -57,9 +65,10 @@ export default function VolunteerLayout({ children, auth }) {
                         Messages
                     </SidebarLink>
                     <SidebarLink
-                    //  href={route("volunteer.profile")} icon={User}
+                        href={route("volunteer.points")}
+                        icon={StarIcon}
                     >
-                        Profile
+                        My Points
                     </SidebarLink>
                 </nav>
                 <div className="border-t p-4">
@@ -99,6 +108,8 @@ export default function VolunteerLayout({ children, auth }) {
                     <div className="w-6" /> {/* placeholder to center title */}
                 </div>
                 <main className="p-6">{children}</main>
+                {/* Floating Points Button */}
+                {/* {auth?.user && <TotalPoints points={totalPoints} />} */}
                 <FloatingChat auth={auth} /> {/* Pass auth prop directly */}
             </div>
         </div>

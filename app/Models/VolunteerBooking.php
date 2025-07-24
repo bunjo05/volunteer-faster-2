@@ -33,4 +33,12 @@ class VolunteerBooking extends Model
     {
         return $this->belongsTo(Project::class)->with('user'); // Add with('user') to always load the user
     }
+
+    public function calculateDaysSpent()
+    {
+        $start = new \DateTime($this->start_date);
+        $end = new \DateTime($this->end_date);
+        $interval = $start->diff($end);
+        return $interval->days + 1; // +1 to include both start and end days
+    }
 }

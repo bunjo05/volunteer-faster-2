@@ -28,6 +28,7 @@
         "@shrutibalasa/tailwind-grid-auto-fit": "^1.1.0",
         "@stripe/stripe-js": "^7.5.0",
         "bcryptjs": "^3.0.2",
+        "classnames": "^2.5.1",
         "clsx": "^2.1.1",
         "date-fns": "^4.1.0",
         "lucide-react": "^0.506.0",

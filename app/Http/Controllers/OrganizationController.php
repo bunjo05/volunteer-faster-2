@@ -17,6 +17,7 @@ use App\Mail\ProjectReviewRequested;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use App\Services\VolunteerPointsService;
 
 class OrganizationController extends Controller
 {
@@ -104,21 +105,23 @@ class OrganizationController extends Controller
             'send_completion_email' => 'sometimes|boolean'
         ]);
 
+        $previousStatus = $booking->booking_status;
         $booking->update(['booking_status' => $validated['booking_status']]);
 
+        // Award points if status changed to Completed
+        if ($validated['booking_status'] === 'Completed' && $previousStatus !== 'Completed') {
+            $pointsService = new VolunteerPointsService();
+            $pointsService->awardPointsForCompletedBooking($booking);
+        }
+
         // Send completion email if status is Completed and flag is set
-        if (
-            $validated['booking_status'] === 'Completed' &&
-            ($request->send_completion_email ?? false)
-        ) {
+        if ($validated['booking_status'] === 'Completed' && ($request->send_completion_email ?? false)) {
             Mail::to($booking->user->email)
                 ->send(new BookingCompleted($booking));
         }
 
-
         return back()->with('success', 'Booking status updated successfully');
     }
-
 
     public function profile()
     {

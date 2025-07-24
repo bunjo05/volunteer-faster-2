@@ -90,4 +90,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(VolunteerBooking::class);
     }
+
+    public function volunteerPoints()
+    {
+        return $this->hasMany(VolunteerPoint::class);
+    }
+
+    public function completedBookings()
+    {
+        return $this->hasMany(VolunteerBooking::class)->where('booking_status', 'Completed');
+    }
 }

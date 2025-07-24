@@ -2,7 +2,6 @@ import "../css/app.css";
 import "./bootstrap";
 
 import { router } from "@inertiajs/react";
-
 import { createInertiaApp } from "@inertiajs/react";
 import { resolvePageComponent } from "laravel-vite-plugin/inertia-helpers";
 import { createRoot } from "react-dom/client";
@@ -45,7 +44,23 @@ createInertiaApp({
     setup({ el, App, props }) {
         const root = createRoot(el);
 
-        root.render(<App {...props} />);
+        // Calculate points if user is authenticated
+        const userPoints = props.initialPage.props.auth?.user
+            ? props.initialPage.props.auth.user.points || 0
+            : 0;
+
+        root.render(
+            <App
+                {...props}
+                initialPage={{
+                    ...props.initialPage,
+                    props: {
+                        ...props.initialPage.props,
+                        points: userPoints,
+                    },
+                }}
+            />
+        );
     },
     progress: {
         color: "#4B5563",
