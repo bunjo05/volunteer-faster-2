@@ -1,11 +1,12 @@
 <?php
 
 use Inertia\Inertia;
+use App\Models\VolunteerBooking;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Application;
-use App\Http\Controllers\ChatController;
 
+use App\Http\Controllers\ChatController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\AdminsController;
 use App\Http\Controllers\BookingController;
@@ -218,6 +219,24 @@ Route::get('/mail-preview/admin', function () {
     $payment = \App\Models\Payment::first();
     return new \App\Mail\PaymentSuccessfulAdmin($booking, $payment);
 });
+
+Route::get('/certificate/verify/{id}/{hash}', [HomeController::class, 'verifyCertificate'])
+    ->name('certificate.verify');
+
+// Add this near the top of your routes, after the other GET routes
+// Route::get('/certificate/verify/{id}/{hash}', function ($id, $hash) {
+//     $booking = VolunteerBooking::with(['user', 'project'])->findOrFail($id);
+
+//     // Verify hash
+//     if (sha1($booking->id . config('app.key')) !== $hash) {
+//         abort(403, 'Invalid verification link');
+//     }
+
+//     return view('certificates.verification', [
+//         'booking' => $booking,
+//         'valid' => true
+//     ]);
+// })->name('certificate.verify');
 
 // Route::middleware(['auth', 'volunteer'])->group(function () {
 //     Route::post('/payment/checkout', [StripePaymentController::class, 'checkout'])->name('payment.checkout');

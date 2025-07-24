@@ -65,4 +65,16 @@ class HomeController extends Controller
     {
         return inertia('Home/Organization');
     }
+
+    public function verifyCertificate($id, $hash)
+    {
+        $booking = \App\Models\VolunteerBooking::with(['user', 'project'])->findOrFail($id);
+
+        $valid = sha1($booking->id . config('app.key')) === $hash;
+
+        return view('certificates.verification', [
+            'booking' => $booking,
+            'valid' => $valid,
+        ]);
+    }
 }

@@ -10,6 +10,8 @@ We're thrilled to inform you that your volunteer program **{{ $booking->project-
 - **⏳ Duration:** {{ $booking->duration }} days
 - **👥 Participants:** {{ $booking->number_of_travellers }}
 
+Attached to this email, you'll find your **Volunteer Certificate** which includes a unique QR code for verification.
+
 🌟 Thank you for your dedication and hard work. We hope you had a rewarding experience! 🌟
 
 @component('mail::button', ['url' => route('volunteer.projects')])
