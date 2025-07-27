@@ -34,7 +34,7 @@ const statusColors = {
     Cancelled: "text-gray-600 bg-gray-50",
 };
 
-export default function Projects({ auth, payments }) {
+export default function Projects({ auth, payments, points, totalPoints }) {
     const [messageContent, setMessageContent] = useState("");
     const { post } = useForm();
     const { bookings = [], flash } = usePage().props;
@@ -42,6 +42,16 @@ export default function Projects({ auth, payments }) {
     const [showSuccess, setShowSuccess] = useState(false);
     const [stripePromise, setStripePromise] = useState(null);
     const [showMessageModal, setShowMessageModal] = useState(false);
+
+    // Add this state
+    const [pointsPaymentSuccess, setPointsPaymentSuccess] = useState(false);
+
+    // Add this helper function to check if points were used for the booking
+    const hasPointsTransaction = (booking) => {
+        return booking?.has_points_transaction || false;
+    };
+
+    // Add this state
 
     useEffect(() => {
         const initializeStripe = async () => {
@@ -90,7 +100,13 @@ export default function Projects({ auth, payments }) {
     const shouldHidePayButton = () => {
         if (!activeBooking) return true;
         if (activeBooking.booking_status !== "Approved") return true;
-        return activeBooking.payments?.some((p) => p.status === "deposit_paid");
+        return false;
+    };
+
+    const hasPaidDeposit = () => {
+        return activeBooking?.payments?.some(
+            (p) => p.status === "deposit_paid"
+        );
     };
 
     const handlePayment = async (booking) => {
@@ -162,6 +178,94 @@ export default function Projects({ auth, payments }) {
         }
     }, [flash]);
 
+    // Add this state
+    const [showPointsPaymentModal, setShowPointsPaymentModal] = useState(false);
+    // const [userPoints, setUserPoints] = useState(initialPoints || 0);
+    // Simplify points state management
+    const [userPoints, setUserPoints] = useState(points || 0);
+    const [isProcessingPoints, setIsProcessingPoints] = useState(false);
+    const [pointsError, setPointsError] = useState(null);
+
+    const [pointsState, setPointsState] = useState({
+        balance: points || 0, // Changed from initialPoints to points
+        isLoading: false,
+        error: null,
+    });
+
+    // Update points when the points prop changes
+    useEffect(() => {
+        setPointsState((prev) => ({
+            ...prev,
+            balance: points || 0,
+            error: null,
+        }));
+    }, [points]);
+
+    // Clear error after 5 seconds
+    useEffect(() => {
+        if (pointsError) {
+            const timer = setTimeout(() => setPointsError(null), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [pointsError]);
+
+    const handlePayWithPoints = async () => {
+        const pointsNeeded = Math.ceil(calculateRemainingBalance() / 1);
+        if (totalPoints < pointsNeeded) {
+            setPointsState((prev) => ({
+                ...prev,
+                error: "You don't have enough points",
+            }));
+            return;
+        }
+        setPointsState((prev) => ({
+            ...prev,
+            isLoading: true,
+            error: null,
+        }));
+        try {
+            const response = await axios.post(
+                route("volunteer.pay-with-points", {
+                    booking: activeBooking.id,
+                }),
+                {},
+                {
+                    headers: {
+                        "X-CSRF-TOKEN": document.querySelector(
+                            'meta[name="csrf-token"]'
+                        ).content,
+                    },
+                }
+            );
+            if (!response.data.success) {
+                setPointsState((prev) => ({
+                    ...prev,
+                    isLoading: false,
+                    error: response.data.message || "Payment failed",
+                }));
+                return;
+            }
+            setShowPointsPaymentModal(false);
+            setPointsPaymentSuccess(true); // Add this line
+            setShowSuccess(true);
+            // Update points balance optimistically
+            setPointsState((prev) => ({
+                balance: prev.balance - pointsNeeded,
+                isLoading: false,
+                error: null,
+            }));
+        } catch (error) {
+            console.error("Points payment error:", error);
+            setPointsState((prev) => ({
+                ...prev,
+                isLoading: false,
+                error:
+                    error.response?.data?.message ||
+                    "Failed to process points payment",
+            }));
+        }
+    };
+
     return (
         <VolunteerLayout auth={auth}>
             {/* Success Notification */}
@@ -229,9 +333,10 @@ export default function Projects({ auth, payments }) {
                                                     ? "bg-blue-50 border-l-4 border-blue-500"
                                                     : "hover:bg-gray-50"
                                             }`}
-                                            onClick={() =>
-                                                setActiveBooking(booking)
-                                            }
+                                            onClick={() => {
+                                                setActiveBooking(booking);
+                                                setPointsPaymentSuccess(false);
+                                            }}
                                         >
                                             <div className="flex justify-between items-start">
                                                 <div className="flex-1 min-w-0">
@@ -400,6 +505,13 @@ export default function Projects({ auth, payments }) {
                                                     </div>
                                                 </div>
                                             </div>
+                                            {pointsPaymentSuccess && (
+                                                <div className="mt-4 p-3 bg-green-100 text-green-800 rounded-lg">
+                                                    <CheckCircle2 className="inline h-5 w-5 mr-2" />
+                                                    Balance successfully paid
+                                                    with points!
+                                                </div>
+                                            )}
 
                                             {/* Payment Information Card */}
                                             <div className="bg-gray-50 p-5 rounded-xl">
@@ -438,7 +550,6 @@ export default function Projects({ auth, payments }) {
                                                             </div>
                                                         )}
                                                     </div>
-
                                                     {activeBooking?.payments
                                                         ?.length > 0 && (
                                                         <div>
@@ -496,8 +607,7 @@ export default function Projects({ auth, payments }) {
                                                             </div>
                                                         </div>
                                                     )}
-
-                                                    <div className="pt-2">
+                                                    {/* <div className="pt-2">
                                                         {!shouldHidePayButton() &&
                                                         calculateRemainingBalance() >
                                                             0 ? (
@@ -534,7 +644,220 @@ export default function Projects({ auth, payments }) {
                                                                 </p>
                                                             </div>
                                                         )}
-                                                    </div>
+                                                    </div> */}
+                                                    {!shouldHidePayButton() &&
+                                                        calculateRemainingBalance() >
+                                                            0 && (
+                                                            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                                                                {/* Show Pay Deposit Fee button only if deposit hasn't been paid */}
+                                                                {!hasPaidDeposit() && (
+                                                                    <button
+                                                                        onClick={() =>
+                                                                            handlePayment(
+                                                                                activeBooking
+                                                                            )
+                                                                        }
+                                                                        className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
+                                                                    >
+                                                                        Pay
+                                                                        Deposit
+                                                                        Fee ($
+                                                                        {Math.round(
+                                                                            calculateTotalAmount(
+                                                                                activeBooking.start_date,
+                                                                                activeBooking.end_date,
+                                                                                activeBooking
+                                                                                    .project
+                                                                                    ?.fees ||
+                                                                                    0,
+                                                                                activeBooking.number_of_travellers
+                                                                            ) *
+                                                                                0.2
+                                                                        )}
+                                                                        )
+                                                                    </button>
+                                                                )}
+
+                                                                {/* Show Pay with Points button only if:
+                - deposit has been paid
+                - points payment hasn't succeeded
+                - no existing points transaction for this booking */}
+                                                                {hasPaidDeposit() &&
+                                                                    !pointsPaymentSuccess &&
+                                                                    !hasPointsTransaction(
+                                                                        activeBooking
+                                                                    ) && (
+                                                                        <button
+                                                                            onClick={() =>
+                                                                                setShowPointsPaymentModal(
+                                                                                    true
+                                                                                )
+                                                                            }
+                                                                            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors"
+                                                                        >
+                                                                            Pay
+                                                                            Balance
+                                                                            with
+                                                                            Points
+                                                                            ($
+                                                                            {calculateRemainingBalance().toLocaleString()}
+                                                                            )
+                                                                        </button>
+                                                                    )}
+                                                            </div>
+                                                        )}
+                                                    {hasPointsTransaction(
+                                                        activeBooking
+                                                    ) && (
+                                                        <div className="mt-4 p-3 bg-purple-100 text-purple-800 rounded-lg flex items-center">
+                                                            <CheckCircle2 className="h-5 w-5 mr-2 text-purple-600" />
+                                                            <span>
+                                                                This booking has
+                                                                been paid with
+                                                                points exchange
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {/* Success Notification */}
+                                                    {showSuccess &&
+                                                        flash?.success && (
+                                                            <div className="fixed top-4 right-4 z-50 animate-fade-in-up">
+                                                                <div className="flex items-center bg-green-500 text-white px-4 py-2 rounded-md shadow">
+                                                                    <CheckCircle2 className="h-5 w-5 mr-2" />
+                                                                    <span className="text-sm">
+                                                                        {
+                                                                            flash.success
+                                                                        }
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    {/* Points Payment Modal */}
+                                                    {showPointsPaymentModal && (
+                                                        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                                                            <div className="bg-white rounded-xl shadow-lg w-full max-w-md">
+                                                                <div className="p-6">
+                                                                    <h3 className="text-lg font-medium text-gray-900 mb-4">
+                                                                        Pay with
+                                                                        Points
+                                                                    </h3>
+
+                                                                    {/* Error message display */}
+                                                                    {pointsState.error && (
+                                                                        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
+                                                                            {
+                                                                                pointsState.error
+                                                                            }
+                                                                        </div>
+                                                                    )}
+
+                                                                    <div className="mb-4">
+                                                                        <p className="text-gray-700 mb-2">
+                                                                            Remaining
+                                                                            Balance:{" "}
+                                                                            <span className="font-semibold">
+                                                                                $
+                                                                                {calculateRemainingBalance().toLocaleString()}
+                                                                            </span>
+                                                                        </p>
+                                                                        <p className="text-gray-700 mb-2">
+                                                                            Your
+                                                                            Points:{" "}
+                                                                            <span className="font-semibold">
+                                                                                {
+                                                                                    totalPoints
+                                                                                }
+                                                                            </span>
+                                                                        </p>
+                                                                        <p className="text-gray-700">
+                                                                            Points
+                                                                            Needed:{" "}
+                                                                            <span className="font-semibold">
+                                                                                {Math.ceil(
+                                                                                    calculateRemainingBalance() /
+                                                                                        1
+                                                                                )}{" "}
+                                                                                (1
+                                                                                point
+                                                                                =
+                                                                                $1)
+                                                                            </span>
+                                                                        </p>
+                                                                    </div>
+                                                                    <div className="mt-4 flex justify-end space-x-3">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                setShowPointsPaymentModal(
+                                                                                    false
+                                                                                );
+                                                                                setPointsState(
+                                                                                    (
+                                                                                        prev
+                                                                                    ) => ({
+                                                                                        ...prev,
+                                                                                        error: null,
+                                                                                    })
+                                                                                );
+                                                                            }}
+                                                                            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                                                                            disabled={
+                                                                                pointsState.isLoading
+                                                                            }
+                                                                        >
+                                                                            Cancel
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={
+                                                                                handlePayWithPoints
+                                                                            }
+                                                                            className={`px-4 py-2 text-white font-medium rounded-lg flex items-center justify-center ${
+                                                                                pointsState.isLoading
+                                                                                    ? "bg-indigo-400"
+                                                                                    : "bg-indigo-600 hover:bg-indigo-700"
+                                                                            }`}
+                                                                            disabled={
+                                                                                pointsState.isLoading ||
+                                                                                pointsState.balance <
+                                                                                    Math.ceil(
+                                                                                        calculateRemainingBalance() /
+                                                                                            1
+                                                                                    )
+                                                                            }
+                                                                        >
+                                                                            {pointsState.isLoading ? (
+                                                                                <>
+                                                                                    <svg
+                                                                                        className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                                                                                        xmlns="http://www.w3.org/2000/svg"
+                                                                                        fill="none"
+                                                                                        viewBox="0 0 24 24"
+                                                                                    >
+                                                                                        <circle
+                                                                                            className="opacity-25"
+                                                                                            cx="12"
+                                                                                            cy="12"
+                                                                                            r="10"
+                                                                                            stroke="currentColor"
+                                                                                            strokeWidth="4"
+                                                                                        ></circle>
+                                                                                        <path
+                                                                                            className="opacity-75"
+                                                                                            fill="currentColor"
+                                                                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                                                                        ></path>
+                                                                                    </svg>
+                                                                                    Processing...
+                                                                                </>
+                                                                            ) : (
+                                                                                "Confirm Payment"
+                                                                            )}
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
 

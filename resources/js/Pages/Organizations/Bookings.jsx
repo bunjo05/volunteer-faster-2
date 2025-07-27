@@ -228,13 +228,24 @@ export default function Bookings({ bookings: initialBookings }) {
                                                         <User className="h-5 w-5" />
                                                     </div>
                                                     <div>
-                                                        <h4 className="font-medium text-gray-900 group-hover:text-blue-600">
-                                                            {
-                                                                booking
-                                                                    .volunteer
-                                                                    .name
-                                                            }
-                                                        </h4>
+                                                        <div className="flex items-center">
+                                                            <h4 className="font-medium text-gray-900 group-hover:text-blue-600">
+                                                                {
+                                                                    booking
+                                                                        .volunteer
+                                                                        .name
+                                                                }
+                                                            </h4>
+                                                            {booking.has_points_payment && (
+                                                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                                                    <DollarSign className="w-3 h-3 mr-1" />
+                                                                    {
+                                                                        booking.points_amount
+                                                                    }{" "}
+                                                                    Points
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <span className="text-sm text-gray-500">
                                                             {
                                                                 booking.project
@@ -519,6 +530,47 @@ export default function Bookings({ bookings: initialBookings }) {
                                                             </div>
                                                         </div>
                                                     </div>
+                                                    {/* Point Payment Status - Only shown if paid with points */}
+                                                    {activeBooking.has_points_payment && (
+                                                        <div className="bg-gray-50 p-4 rounded-lg">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="flex items-center justify-center h-10 w-10 rounded-full bg-purple-100 text-purple-600 flex-shrink-0">
+                                                                    <DollarSign className="w-4 h-4" />
+                                                                </div>
+                                                                <div>
+                                                                    <h4 className="text-sm font-medium text-gray-500">
+                                                                        Point
+                                                                        Payment
+                                                                    </h4>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                                                            <Check className="w-3 h-3 mr-1" />
+                                                                            Paid
+                                                                            with
+                                                                            Points
+                                                                        </span>
+                                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                            {
+                                                                                activeBooking.points_amount
+                                                                            }{" "}
+                                                                            Points
+                                                                            Earned
+                                                                        </span>
+                                                                    </div>
+                                                                    <p className="mt-1 text-xs text-purple-600">
+                                                                        This
+                                                                        booking
+                                                                        was
+                                                                        fully
+                                                                        paid
+                                                                        using
+                                                                        volunteer
+                                                                        points.
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
 
                                                     {/* Payment History */}
                                                     {activeBooking?.payments

@@ -41,4 +41,10 @@ class VolunteerBooking extends Model
         $interval = $start->diff($end);
         return $interval->days + 1; // +1 to include both start and end days
     }
+
+    // In app/Models/VolunteerBooking.php
+    public function pointTransactions()
+    {
+        return $this->hasMany(PointTransaction::class, 'booking_id'); // Explicitly set the foreign key
+    }
 }

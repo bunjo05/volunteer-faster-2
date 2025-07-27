@@ -62,7 +62,7 @@
         }
 
         .title {
-            font-size: 34pt;
+            font-size: 28pt;
             font-weight: bold;
             font-family: "Times New Roman", serif;
             color: #d4af37;
@@ -79,7 +79,7 @@
         }
 
         .recipient {
-            font-size: 22pt;
+            font-size: 18pt;
             font-weight: bold;
             color: #2c3e50;
             border-top: 1px solid #d4af37;
@@ -103,7 +103,7 @@
             font-size: 14pt;
             font-style: italic;
             color: #d4af37;
-            margin-bottom: 10mm;
+            margin-bottom: 5mm;
             text-transform: uppercase;
             font-weight: bold;
             text-decoration: underline;

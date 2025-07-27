@@ -65,6 +65,12 @@ export default function OrganizationLayout({ children, auth }) {
                         Bookings
                     </SidebarLink>
                     <SidebarLink
+                        href={route("organization.points")}
+                        icon={ClipboardList}
+                    >
+                        Points
+                    </SidebarLink>
+                    <SidebarLink
                         href={route("organization.profile")}
                         icon={User}
                     >

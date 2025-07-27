@@ -165,6 +165,9 @@ Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(
     Route::post('/chat/{chat}/read', [VolunteerController::class, 'markAsRead'])->name('volunteer.chat.read');
 
     Route::get('/points', [VolunteerController::class, 'points'])->name('volunteer.points');
+
+    Route::post('/bookings/{booking}/pay-with-points', [VolunteerController::class, 'payWithPoints'])
+        ->name('volunteer.pay-with-points');
 });
 
 Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->group(function () {
@@ -186,6 +189,8 @@ Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->
     Route::get('/bookings', [OrganizationController::class, 'volunteerBookings'])->name('organization.bookings');
     Route::put('/bookings/{booking}/update-status', [OrganizationController::class, 'updateBookingStatus'])
         ->name('bookings.update-status');
+
+    Route::get('/points', [OrganizationController::class, 'points'])->name('organization.points');
 });
 
 // routes/web.php

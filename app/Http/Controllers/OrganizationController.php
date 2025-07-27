@@ -54,6 +54,10 @@ class OrganizationController extends Controller
             },
             'user',
             'payments',
+            'pointTransactions' => function ($query) use ($user) {
+                $query->where('organization_id', $user->id)
+                    ->where('type', 'credit');
+            }
         ])
             ->whereHas('project', function ($query) use ($user) {
                 $query->where('user_id', $user->id);
@@ -63,8 +67,12 @@ class OrganizationController extends Controller
             ->filter(function ($booking) {
                 return $booking->project !== null; // Ensure project exists
             });
+
         return Inertia::render('Organizations/Bookings', [
             'bookings' => $bookings->map(function ($booking) {
+                $hasPointsPayment = $booking->pointTransactions->isNotEmpty();
+                $pointsAmount = $hasPointsPayment ? $booking->pointTransactions->sum('points') : 0;
+
                 return [
                     'id' => $booking->id,
                     'start_date' => $booking->start_date,
@@ -73,6 +81,8 @@ class OrganizationController extends Controller
                     'booking_status' => $booking->booking_status,
                     'message' => $booking->message,
                     'created_at' => $booking->created_at->format('M d, Y'),
+                    'has_points_payment' => $hasPointsPayment,
+                    'points_amount' => $pointsAmount,
                     'payments' => $booking->payments->map(function ($payment) {
                         return [
                             'id' => $payment->id,
@@ -97,7 +107,6 @@ class OrganizationController extends Controller
             }),
         ]);
     }
-
     public function updateBookingStatus(VolunteerBooking $booking, Request $request)
     {
         $validated = $request->validate([
@@ -550,5 +559,19 @@ class OrganizationController extends Controller
         $galleryImage->delete();
 
         return response()->json(['message' => 'Gallery image deleted successfully.']);
+    }
+
+    public function points()
+    {
+        $user = Auth::user();
+        $pointsService = new VolunteerPointsService();
+
+        return Inertia::render('Organizations/Points', [
+            'auth' => [
+                'user' => $user->toArray(),
+            ],
+            'totalPoints' => $pointsService->getTotalPointsForOrganization($user->id),
+            'pointsHistory' => $pointsService->getPointsHistoryForOrganization($user->id),
+        ]);
     }
 }
