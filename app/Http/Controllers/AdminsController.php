@@ -18,6 +18,8 @@ use App\Models\FeaturedProject;
 use App\Models\ReportSubcategory;
 use App\Models\OrganizationProfile;
 use Illuminate\Support\Facades\Mail;
+use App\Mail\FeaturedProjectApproved;
+use App\Mail\FeaturedProjectRejected;
 use Illuminate\Support\Facades\Validator;
 use SebastianBergmann\CodeCoverage\Report\Xml\Report;
 
@@ -127,7 +129,7 @@ class AdminsController extends Controller
 
         $reportCategories = ReportCategory::with('subcategories')->get();
 
-        return inertia('Projects/ViewProject', [
+        return inertia('Admins/Projects/ViewProject', [
             'project' => $project,
             'reportCategories' => $reportCategories,
             'projectRemarks' => $project->projectRemarks->map(function ($remark) {
@@ -394,7 +396,7 @@ class AdminsController extends Controller
             'rejection_reason' => 'required_if:status,rejected|nullable|string|max:500',
         ]);
 
-        $featuredProject = FeaturedProject::findOrFail($id);
+        $featuredProject = FeaturedProject::with(['project', 'user'])->findOrFail($id);
 
         if ($validated['status'] === 'approved') {
             $featuredProject->status = 'approved';
@@ -420,16 +422,24 @@ class AdminsController extends Controller
             $featuredProject->end_date = $endDate;
             $featuredProject->is_active = true;
             $featuredProject->rejection_reason = null;
+
+            // Send approval email
+            Mail::to($featuredProject->user->email)
+                ->send(new FeaturedProjectApproved($featuredProject));
         } else {
             $featuredProject->status = 'rejected';
             $featuredProject->rejection_reason = $validated['rejection_reason'];
             $featuredProject->is_active = false;
             $featuredProject->start_date = null;
             $featuredProject->end_date = null;
+
+            // Send rejection email
+            Mail::to($featuredProject->user->email)
+                ->send(new FeaturedProjectRejected($featuredProject));
         }
 
         $featuredProject->save();
 
-        return redirect()->back()->with('success', 'Featured project status updated successfully.');
+        return redirect()->back()->with('success', 'Featured project status updated and user notified.');
     }
 }

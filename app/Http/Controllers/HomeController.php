@@ -10,7 +10,20 @@ class HomeController extends Controller
 {
     public function index()
     {
-        return inertia('Home');
+        $featuredProjects = Project::whereHas('featuredProjects', function ($query) {
+            $query->where('status', 'approved')
+                ->where('is_active', 1);
+        })
+            ->with(['category', 'subcategory', 'featuredProjects'])
+            ->latest()
+            ->get();
+
+        return inertia('Home', [
+            'projects' => $featuredProjects,
+            'auth' => auth()->user() ? [
+                'user' => auth()->user()->only('id', 'name', 'email')
+            ] : null,
+        ]);
     }
 
     public function projects()

@@ -2,8 +2,9 @@ import GeneralPages from "@/Layouts/GeneralPages";
 import { Link } from "@inertiajs/react";
 import CountUp from "react-countup";
 import { useInView } from "react-intersection-observer";
+import { useEffect, useRef, useState } from "react";
 
-import { useEffect, useRef } from "react";
+// import { useEffect, useRef } from "react";
 
 export default function Home({ projects, auth }) {
     const testimonials = [
@@ -30,26 +31,82 @@ export default function Home({ projects, auth }) {
     ];
 
     const scrollRef = useRef(null);
+    const featuredProjectsRef = useRef(null);
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [isTransitioning, setIsTransitioning] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
 
+    const featuredProjects =
+        projects?.filter((project) => {
+            return project.featured_projects?.find(
+                (fp) => fp.status === "approved" && fp.is_active === 1
+            );
+        }) || [];
+
+    // Create an extended array for infinite loop effect
+    const extendedProjects = [
+        ...featuredProjects,
+        ...featuredProjects.slice(0, 3),
+    ];
+
+    // Get the current set of 3 projects to display
+    const getVisibleProjects = () => {
+        if (featuredProjects.length <= 3) return featuredProjects;
+
+        const projectsToShow = [];
+        for (let i = 0; i < 3; i++) {
+            const index = (currentIndex + i) % featuredProjects.length;
+            projectsToShow.push(extendedProjects[index]);
+        }
+        return projectsToShow;
+    };
+
+    // Auto-advance to next project
     useEffect(() => {
-        const container = scrollRef.current;
-        const scrollAmount = 320; // Adjust based on card width + gap
-        const interval = setInterval(() => {
-            if (container) {
-                container.scrollBy({ left: scrollAmount, behavior: "smooth" });
+        if (featuredProjects.length <= 3 || isHovered) return;
 
-                // Reset to start if at the end
-                if (
-                    container.scrollLeft + container.offsetWidth >=
-                    container.scrollWidth
-                ) {
-                    container.scrollTo({ left: 0, behavior: "smooth" });
-                }
-            }
-        }, 4000); // every 4 seconds
+        const interval = setInterval(() => {
+            setIsTransitioning(true);
+            setTimeout(() => {
+                setCurrentIndex((prev) => (prev + 1) % featuredProjects.length);
+                setIsTransitioning(false);
+            }, 500);
+        }, 3000);
 
         return () => clearInterval(interval);
-    }, []);
+    }, [featuredProjects.length, currentIndex, isHovered]);
+
+    const handlePrev = () => {
+        if (featuredProjects.length <= 3) return;
+
+        setIsTransitioning(true);
+        setTimeout(() => {
+            setCurrentIndex(
+                (prev) =>
+                    (prev - 1 + featuredProjects.length) %
+                    featuredProjects.length
+            );
+            setIsTransitioning(false);
+        }, 500);
+    };
+
+    const handleNext = () => {
+        if (featuredProjects.length <= 3) return;
+
+        setIsTransitioning(true);
+        setTimeout(() => {
+            setCurrentIndex((prev) => (prev + 1) % featuredProjects.length);
+            setIsTransitioning(false);
+        }, 500);
+    };
+
+    const goToSlide = (index) => {
+        setIsTransitioning(true);
+        setTimeout(() => {
+            setCurrentIndex(index);
+            setIsTransitioning(false);
+        }, 500);
+    };
 
     return (
         <GeneralPages auth={auth}>
@@ -90,7 +147,6 @@ export default function Home({ projects, auth }) {
                     </div>
                 </div>
             </section>
-
             {/* Trusted By */}
             <section className="bg-gray-100 py-8 px-4 text-center">
                 <p className="text-gray-500 text-sm uppercase mb-4 tracking-wide">
@@ -107,7 +163,6 @@ export default function Home({ projects, auth }) {
                     ))}
                 </div>
             </section>
-
             {/* Explore by Cause */}
             <section className="py-20 bg-white px-6">
                 <h2 className="text-4xl font-bold text-center mb-12 text-gray-800">
@@ -135,7 +190,6 @@ export default function Home({ projects, auth }) {
                     ))}
                 </div>
             </section>
-
             {/* Stats Counter */}
             <section className="bg-blue-600 py-20 text-white">
                 <div className="grid md:grid-cols-4 gap-10 text-center container mx-auto px-6">
@@ -175,58 +229,243 @@ export default function Home({ projects, auth }) {
                 </div>
             </section>
 
-            {/* Featured Projects */}
-            <section className="py-20 bg-gray-50 px-6">
+            {/* Featured Volunteer Projects - Infinite Scroll with 3 in a row */}
+            <section className="py-20 bg-gray-50 px-6 relative">
                 <h2 className="text-4xl font-bold text-center mb-12 text-gray-800">
                     Featured Volunteer Projects
                 </h2>
-                <div className="grid md:grid-cols-3 gap-8">
-                    {projects?.length ? (
-                        projects.slice(0, 6).map((project) => (
+
+                {featuredProjects.length > 0 ? (
+                    <div
+                        className="relative"
+                        onMouseEnter={() => setIsHovered(true)}
+                        onMouseLeave={() => setIsHovered(false)}
+                    >
+                        {/* Carousel container */}
+                        <div className="relative h-[420px] overflow-hidden">
                             <div
-                                key={project.id}
-                                className="bg-white rounded-xl shadow hover:shadow-lg transition overflow-hidden"
+                                className={`flex transition-transform duration-500 ease-in-out ${
+                                    isTransitioning
+                                        ? "opacity-90"
+                                        : "opacity-100"
+                                }`}
+                                style={{
+                                    transform: `translateX(calc(-${
+                                        currentIndex * (100 / 3)
+                                    }% - ${currentIndex * 1}rem))`,
+                                }}
+                                ref={featuredProjectsRef}
                             >
-                                <img
-                                    src={
-                                        project.featuredImage ||
-                                        "/images/default-project.jpg"
-                                    }
-                                    alt={project.title}
-                                    className="w-full h-48 object-cover"
-                                />
-                                <div className="p-5">
-                                    <h3 className="text-xl font-semibold mb-2 text-blue-700">
-                                        {project.title}
-                                    </h3>
-                                    <p className="text-gray-600 mb-4 text-sm">
-                                        {project.shortDescription}
-                                    </p>
-                                    <Link
-                                        href={`/projects/${project.slug}`}
-                                        className="text-blue-600 hover:underline text-sm font-medium"
+                                {getVisibleProjects().map((project, index) => (
+                                    <div
+                                        key={`${project.id}-${index}`}
+                                        className="w-1/3 flex-shrink-0 px-4 transition-all duration-300"
                                     >
-                                        View Details →
-                                    </Link>
-                                </div>
+                                        <div className="group bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden relative h-full border border-gray-100 hover:border-blue-100">
+                                            {/* Featured badge with animation */}
+                                            <div className="absolute top-4 left-4 bg-yellow-400 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold z-10 transform group-hover:scale-105 transition-transform">
+                                                Featured
+                                            </div>
+
+                                            {/* Image container with elegant overlay */}
+                                            <div className="relative h-64 w-full overflow-hidden">
+                                                <img
+                                                    src={
+                                                        project.featured_image
+                                                            ? `/storage/${project.featured_image}`
+                                                            : "/images/default-project.jpg"
+                                                    }
+                                                    alt={project.title}
+                                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                                />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent"></div>
+
+                                                {/* Title overlay with smooth animation */}
+                                                <div className="absolute bottom-0 left-0 w-full p-6 transform translate-y-0 group-hover:translate-y-2 transition-transform duration-300">
+                                                    <h3 className="text-2xl font-bold text-white mb-2 drop-shadow-md">
+                                                        {project.title}
+                                                    </h3>
+                                                    <div className="flex items-center gap-2 opacity-90 group-hover:opacity-100 transition-opacity">
+                                                        <span className="text-sm text-white/90 font-medium">
+                                                            {
+                                                                project.category
+                                                                    ?.name
+                                                            }
+                                                        </span>
+                                                        {project.subcategory
+                                                            ?.name && (
+                                                            <>
+                                                                <span className="text-white/50">
+                                                                    •
+                                                                </span>
+                                                                <span className="text-sm text-white/90 font-medium">
+                                                                    {
+                                                                        project
+                                                                            .subcategory
+                                                                            ?.name
+                                                                    }
+                                                                </span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Content with elegant transitions */}
+                                            <div className="p-5">
+                                                <p className="text-gray-600 mb-4 line-clamp-2 group-hover:line-clamp-3 transition-all duration-200">
+                                                    {project.short_description}
+                                                </p>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm text-gray-500">
+                                                        {project.location ||
+                                                            "Multiple locations"}
+                                                    </span>
+                                                    <Link
+                                                        href={`/projects/${project.slug}`}
+                                                        className="text-blue-600 hover:text-blue-800 font-medium text-sm flex items-center gap-1 transition-colors group-hover:gap-2"
+                                                    >
+                                                        View Details
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            className="h-4 w-4 transition-transform group-hover:translate-x-1"
+                                                            fill="none"
+                                                            viewBox="0 0 24 24"
+                                                            stroke="currentColor"
+                                                        >
+                                                            <path
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                                strokeWidth={2}
+                                                                d="M9 5l7 7-7 7"
+                                                            />
+                                                        </svg>
+                                                    </Link>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        ))
-                    ) : (
-                        <p className="text-center col-span-3 text-gray-600">
-                            No projects available at the moment.
+                        </div>
+
+                        {/* Navigation arrows with hover effects */}
+                        {featuredProjects.length > 3 && (
+                            <>
+                                <button
+                                    onClick={handlePrev}
+                                    className="absolute left-0 top-1/2 -translate-y-1/2 bg-white p-3 rounded-full shadow-lg hover:bg-gray-50 transition-all duration-300 z-10 hover:scale-110 ml-2"
+                                    aria-label="Previous slide"
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-6 w-6 text-gray-700 hover:text-blue-600"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M15 19l-7-7 7-7"
+                                        />
+                                    </svg>
+                                </button>
+                                <button
+                                    onClick={handleNext}
+                                    className="absolute right-0 top-1/2 -translate-y-1/2 bg-white p-3 rounded-full shadow-lg hover:bg-gray-50 transition-all duration-300 z-10 hover:scale-110 mr-2"
+                                    aria-label="Next slide"
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-6 w-6 text-gray-700 hover:text-blue-600"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M9 5l7 7-7 7"
+                                        />
+                                    </svg>
+                                </button>
+                            </>
+                        )}
+
+                        {/* Elegant dot indicators */}
+                        {featuredProjects.length > 3 && (
+                            <div className="flex justify-center mt-8 space-x-2">
+                                {featuredProjects.map((_, index) => (
+                                    <button
+                                        key={index}
+                                        onClick={() => goToSlide(index)}
+                                        className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                                            currentIndex %
+                                                featuredProjects.length ===
+                                            index
+                                                ? "bg-blue-600 w-6"
+                                                : "bg-gray-300 hover:bg-gray-400"
+                                        }`}
+                                        aria-label={`Go to slide ${index + 1}`}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="text-center py-12">
+                        <p className="text-gray-600 mb-4">
+                            No featured projects available at the moment.
                         </p>
-                    )}
-                </div>
+                        <Link
+                            href="/projects/create"
+                            className="text-blue-600 hover:text-blue-800 font-medium inline-flex items-center gap-1"
+                        >
+                            Suggest a Project
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M9 5l7 7-7 7"
+                                />
+                            </svg>
+                        </Link>
+                    </div>
+                )}
+
                 <div className="text-center mt-12">
                     <Link
                         href="/projects"
-                        className="text-blue-700 font-semibold text-lg hover:underline"
+                        className="inline-flex items-center text-blue-700 font-semibold text-lg hover:underline group"
                     >
-                        Browse All Projects →
+                        Browse All Projects
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5 ml-1 group-hover:translate-x-1 transition-transform"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 5l7 7-7 7"
+                            />
+                        </svg>
                     </Link>
                 </div>
             </section>
-
             {/* Testimonials */}
             <section className="py-20 bg-white px-6">
                 <h2 className="text-4xl font-bold text-center mb-12 text-gray-800">
@@ -261,7 +500,6 @@ export default function Home({ projects, auth }) {
                     ))}
                 </div>
             </section>
-
             {/* Organizations */}
             <section className="py-20 bg-blue-50 px-6">
                 <h2 className="text-4xl font-bold text-center mb-12 text-gray-800">
@@ -290,7 +528,6 @@ export default function Home({ projects, auth }) {
                     ))}
                 </div>
             </section>
-
             {/* Sticky CTA */}
             <section className="bg-blue-700 text-white py-6 px-4 h-[300px] flex justify-center items-center text-center shadow-xl">
                 <div className="space-y-4 flex flex-col">

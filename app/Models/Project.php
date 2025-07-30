@@ -20,15 +20,20 @@ class Project extends Model
         'address',
         'short_description',
         'detailed_description',
-        'duration',
+        'min_duration',
+        'max_duration',
+        'duration_type',
         'daily_routine',
+        'type_of_project',
         'fees',
         'currency',
+        'category_of_charge',
+        'includes',
+        'excludes',
         'activities',
         'suitable',
         'availability_months',
         'start_date',
-        'end_date',
         'status',
         'user_id',
         'request_for_approval',
@@ -37,7 +42,8 @@ class Project extends Model
     protected $casts = [
         'suitable' => 'array',
         'availability_months' => 'array',
-        'gallery_images' => 'array',
+        'min_duration' => 'integer',
+        'max_duration' => 'integer',
     ];
 
     public function category()

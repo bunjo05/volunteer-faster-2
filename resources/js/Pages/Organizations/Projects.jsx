@@ -1,20 +1,29 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useForm, usePage } from "@inertiajs/react";
-import { Plus } from "lucide-react";
+import { Plus, CheckCircle } from "lucide-react";
 import OrganizationLayout from "@/Layouts/OrganizationLayout";
 import { loadStripe } from "@stripe/stripe-js";
 import axios from "axios";
 
-export default function Projects({ userStatus, projects, stripeKey }) {
+export default function Projects({
+    userStatus,
+    projects,
+    stripeKey,
+    organizationProfile,
+}) {
     const { props } = usePage();
     const isActive = userStatus === "Active";
     const isPending = userStatus === "Pending";
     const isSuspended = userStatus === "Suspended";
+    const hasProfile = !!organizationProfile;
     const [showFeatureModal, setShowFeatureModal] = useState(false);
     const [selectedProject, setSelectedProject] = useState(null);
     const [selectedPlan, setSelectedPlan] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [stripeLoading, setStripeLoading] = useState(true);
+
+    const [showSuccessBadge, setShowSuccessBadge] = useState(false);
+    const [successMessage, setSuccessMessage] = useState("");
 
     // Stripe initialization state
     const stripePromiseRef = useRef(null);
@@ -22,6 +31,18 @@ export default function Projects({ userStatus, projects, stripeKey }) {
     const stripeError = useRef(null);
 
     const { post } = useForm();
+
+    let tooltipMessage = "";
+    if (isPending) {
+        tooltipMessage =
+            "You can't create a project until your account is Approved.";
+    } else if (isSuspended) {
+        tooltipMessage =
+            "You can't create a project because your account is Suspended.";
+    } else if (!hasProfile) {
+        tooltipMessage =
+            "Please complete your organization profile before creating projects.";
+    }
 
     useEffect(() => {
         // console.log("Initializing Stripe with key:", stripeKey);
@@ -69,6 +90,24 @@ export default function Projects({ userStatus, projects, stripeKey }) {
         };
     }, [stripeKey]);
 
+    useEffect(() => {
+        // Safely access flash from props
+        const flash = props?.flash;
+
+        if (flash?.success) {
+            setSuccessMessage(flash.success);
+            setShowSuccessBadge(true);
+
+            // Hide after 10 seconds
+            const timer = setTimeout(() => {
+                setShowSuccessBadge(false);
+                setSuccessMessage("");
+            }, 10000);
+
+            return () => clearTimeout(timer);
+        }
+    }, [props?.flash]); // Optional chaining here as well
+
     const handleFeatureClick = (project) => {
         setSelectedProject(project);
         setShowFeatureModal(true);
@@ -80,13 +119,19 @@ export default function Projects({ userStatus, projects, stripeKey }) {
         setSelectedPlan(null);
     };
 
-    const handleCheckout = async () => {
-        console.log("Checkout initiated", {
-            selectedPlan,
-            selectedProject,
-            stripeInitialized: stripeInitialized.current,
-        });
+    const projectsWithFeaturedStatus = projects.map((project) => {
+        const hasPendingFeature = project.featured_projects?.some(
+            (fp) => fp.status === "pending"
+        );
 
+        return {
+            ...project,
+            is_featured: project.featured_projects?.some((fp) => fp.is_active),
+            has_pending_feature: hasPendingFeature,
+        };
+    });
+
+    const handleCheckout = async () => {
         if (!selectedPlan || !selectedProject) {
             alert("Please select a plan and project");
             return;
@@ -134,11 +179,11 @@ export default function Projects({ userStatus, projects, stripeKey }) {
             });
 
             if (result.error) {
-                console.error("Stripe redirect error:", result.error);
+                // console.error("Stripe redirect error:", result.error);
                 alert("Payment processing failed: " + result.error.message);
             }
         } catch (error) {
-            console.error("Checkout error:", error);
+            // console.error("Checkout error:", error);
             alert(
                 "An error occurred: " +
                     (error.response?.data?.error || error.message)
@@ -199,17 +244,134 @@ export default function Projects({ userStatus, projects, stripeKey }) {
         <OrganizationLayout>
             <div className="min-h-screen py-10 px-4 sm:px-8 bg-gray-100">
                 {/* Header and Search - unchanged from your original code */}
+                {showSuccessBadge && (
+                    <div className="fixed top-4 right-4 z-50">
+                        <div className="flex items-center gap-2 bg-green-500 text-white px-4 py-3 rounded-md shadow-lg animate-fade-in">
+                            <CheckCircle className="w-5 h-5" />
+                            <span>{successMessage}</span>
+                            <button
+                                onClick={() => setShowSuccessBadge(false)}
+                                className="ml-2 p-1 rounded-full hover:bg-green-600 transition-colors"
+                            >
+                                <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M6 18L18 6M6 6l12 12"
+                                    />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                )}
+                {/* Status Notification */}
+                {isPending && (
+                    <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-md shadow-sm">
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                <svg
+                                    className="h-5 w-5 text-yellow-400"
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                >
+                                    <path
+                                        fillRule="evenodd"
+                                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                        clipRule="evenodd"
+                                    />
+                                </svg>
+                            </div>
+                            <div className="ml-3">
+                                <p className="text-sm text-yellow-700">
+                                    Your account is currently being reviewed by
+                                    an admin. You won't be able to create new
+                                    projects until your account is approved.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {isSuspended && (
+                    <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 rounded-md shadow-sm">
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                <svg
+                                    className="h-5 w-5 text-red-400"
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                >
+                                    <path
+                                        fillRule="evenodd"
+                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                        clipRule="evenodd"
+                                    />
+                                </svg>
+                            </div>
+                            <div className="ml-3">
+                                <p className="text-sm text-red-700">
+                                    Your account has been suspended. You can no
+                                    longer create projects. Please contact
+                                    support if you believe this is an error.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {!hasProfile && isActive && (
+                    <div className="mb-6 p-4 bg-blue-50 border-l-4 border-blue-400 rounded-md shadow-sm">
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                <svg
+                                    className="h-5 w-5 text-blue-400"
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                >
+                                    <path
+                                        fillRule="evenodd"
+                                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9z"
+                                        clipRule="evenodd"
+                                    />
+                                </svg>
+                            </div>
+                            <div className="ml-3">
+                                <p className="text-sm text-blue-700">
+                                    Please complete your organization profile
+                                    before creating projects.
+                                </p>
+                                <div className="mt-2">
+                                    <Link
+                                        href={route("organization.profile")}
+                                        className="text-sm font-medium text-blue-700 hover:text-blue-600"
+                                    >
+                                        Go to Profile →
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="max-w-7xl mx-auto">
                     <div className="flex justify-between items-center mb-8">
                         <h1 className="text-3xl font-bold text-gray-800">
                             Projects
                         </h1>
-                        <div title={isActive ? "" : tooltipMessage}>
+                        <div
+                            title={isActive && hasProfile ? "" : tooltipMessage}
+                        >
                             <Link
-                                disabled={!isActive}
+                                disabled={!(isActive && hasProfile)}
                                 href={route("organization.projects.create")}
-                                className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-md shadow transition duration-200 ${
-                                    isActive
+                                className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-md shadow transition duration-200
+                                ${
+                                    isActive && hasProfile
                                         ? "bg-blue-600 hover:bg-blue-700 text-white"
                                         : "bg-gray-300 text-gray-500 cursor-not-allowed"
                                 }`}
@@ -230,10 +392,10 @@ export default function Projects({ userStatus, projects, stripeKey }) {
 
                     {/* Project Cards */}
                     <div className="space-y-6">
-                        {projects.length === 0 ? (
+                        {projectsWithFeaturedStatus.length === 0 ? (
                             <p className="text-gray-500">No projects found.</p>
                         ) : (
-                            projects.map((project) => (
+                            projectsWithFeaturedStatus.map((project) => (
                                 <div
                                     key={project.id}
                                     className="bg-white rounded-lg px-[10px] shadow hover:shadow-md flex items-center transition duration-300 overflow-hidden"
@@ -382,11 +544,21 @@ export default function Projects({ userStatus, projects, stripeKey }) {
                                                                 project
                                                             )
                                                         }
-                                                        className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                                                        disabled={
+                                                            project.has_pending_feature
+                                                        }
+                                                        className={`px-4 py-2 rounded-md ${
+                                                            project.has_pending_feature
+                                                                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                                                : "bg-green-600 hover:bg-green-700 text-white"
+                                                        }`}
                                                     >
-                                                        Feature This Project
+                                                        {project.has_pending_feature
+                                                            ? "Feature Request Pending"
+                                                            : "Feature This Project"}
                                                     </button>
                                                 )}
+
                                             {project.is_featured && (
                                                 <span className="px-4 py-2 bg-purple-100 text-purple-800 rounded-md">
                                                     Featured Project

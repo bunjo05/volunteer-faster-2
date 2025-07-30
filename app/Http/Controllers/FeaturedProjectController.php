@@ -5,45 +5,49 @@ namespace App\Http\Controllers;
 use Stripe\Stripe;
 use Stripe\Webhook;
 use Inertia\Inertia;
+use App\Models\Admin;
 use App\Models\Project;
 use Illuminate\Http\Request;
 use Stripe\Checkout\Session;
 use App\Models\FeaturedProject;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\NewFeatureRequestNotification;
+use App\Mail\ProjectFeatureRequestReceived;
 
 class FeaturedProjectController extends Controller
 {
-    public function showFeatureModal($projectId)
-    {
-        $project = Project::findOrFail($projectId);
+    // public function showFeatureModal($projectId)
+    // {
+    //     $project = Project::findOrFail($projectId);
 
-        return Inertia::render('Projects/FeatureModal', [
-            'project' => $project,
-            'pricingPlans' => [
-                '1_month' => [
-                    'price' => 50.00,
-                    'label' => '1 Month Featured',
-                    'duration_days' => 30,
-                ],
-                '3_months' => [
-                    'price' => 120.00,
-                    'label' => '3 Months Featured',
-                    'duration_days' => 90,
-                ],
-                '6_months' => [
-                    'price' => 200.00,
-                    'label' => '6 Months Featured',
-                    'duration_days' => 180,
-                ],
-                '1_year' => [
-                    'price' => 350.00,
-                    'label' => '1 Year Featured',
-                    'duration_days' => 365,
-                ],
-            ]
-        ]);
-    }
+    //     return Inertia::render('Projects/FeatureModal', [
+    //         'project' => $project,
+    //         'pricingPlans' => [
+    //             '1_month' => [
+    //                 'price' => 50.00,
+    //                 'label' => '1 Month Featured',
+    //                 'duration_days' => 30,
+    //             ],
+    //             '3_months' => [
+    //                 'price' => 120.00,
+    //                 'label' => '3 Months Featured',
+    //                 'duration_days' => 90,
+    //             ],
+    //             '6_months' => [
+    //                 'price' => 200.00,
+    //                 'label' => '6 Months Featured',
+    //                 'duration_days' => 180,
+    //             ],
+    //             '1_year' => [
+    //                 'price' => 350.00,
+    //                 'label' => '1 Year Featured',
+    //                 'duration_days' => 365,
+    //             ],
+    //         ]
+    //     ]);
+    // }
 
     public function checkout(Request $request)
     {
@@ -132,6 +136,8 @@ class FeaturedProjectController extends Controller
             $amount = $session->metadata->amount;
             $durationDays = $session->metadata->duration_days;
 
+            $project = Project::find($projectId);
+
             // Create featured project record (status will be pending until admin approves)
             FeaturedProject::create([
                 'project_id' => $projectId,
@@ -143,7 +149,18 @@ class FeaturedProjectController extends Controller
                 'is_active' => false,
             ]);
 
-            return redirect()->route('projects.home.view', ['slug' => Project::find($projectId)->slug])
+            // Send email to project owner
+            Mail::to($project->user->email)
+                ->send(new ProjectFeatureRequestReceived($project));
+
+            // Send email to all admins
+            $admins = Admin::all();
+            foreach ($admins as $admin) {
+                Mail::to($admin->email)
+                    ->send(new NewFeatureRequestNotification($project));
+            }
+
+            return redirect()->route('organization.projects')
                 ->with('success', 'Payment successful! Your project will be featured after admin approval.');
         }
 
@@ -154,38 +171,6 @@ class FeaturedProjectController extends Controller
     {
         return redirect()->back()->with('error', 'Payment was cancelled.');
     }
-
-    // public function showFeatureModal($projectId)
-    // {
-    //     $project = Project::findOrFail($projectId);
-
-    //     return Inertia::render('Projects/Index', [
-    //         'project' => $project,
-    //         'pricingPlans' => [
-    //             '1_month' => [
-    //                 'price' => 50.00,
-    //                 'label' => '1 Month Featured',
-    //                 'duration_days' => 30,
-    //             ],
-    //             '3_months' => [
-    //                 'price' => 120.00,
-    //                 'label' => '3 Months Featured',
-    //                 'duration_days' => 90,
-    //             ],
-    //             '6_months' => [
-    //                 'price' => 200.00,
-    //                 'label' => '6 Months Featured',
-    //                 'duration_days' => 180,
-    //             ],
-    //             '1_year' => [
-    //                 'price' => 350.00,
-    //                 'label' => '1 Year Featured',
-    //                 'duration_days' => 365,
-    //             ],
-    //         ],
-    //         'stripeKey' => config('services.stripe.key'),
-    //     ]);
-    // }
 
     public function handleWebhook(Request $request)
     {
@@ -223,6 +208,8 @@ class FeaturedProjectController extends Controller
             $amount = $session->metadata->amount;
             $durationDays = $session->metadata->duration_days;
 
+            $project = Project::find($projectId);
+
             // Create featured project record (status will be pending until admin approves)
             FeaturedProject::create([
                 'project_id' => $projectId,
@@ -233,6 +220,16 @@ class FeaturedProjectController extends Controller
                 'status' => 'pending',
                 'is_active' => false,
             ]);
+            // Send email to project owner
+            Mail::to($project->user->email)
+                ->send(new ProjectFeatureRequestReceived($project));
+
+            // Send email to all admins
+            $admins = Admin::all();
+            foreach ($admins as $admin) {
+                Mail::to($admin->email)
+                    ->send(new NewFeatureRequestNotification($project));
+            }
         }
     }
 

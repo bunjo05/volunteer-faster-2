@@ -176,6 +176,12 @@ export default function AdminLayout({ children }) {
                                     All Projects
                                 </Link>
                                 <Link
+                                    href={route("admin.featured.projects")}
+                                    className="block text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
+                                >
+                                    Featured Projects
+                                </Link>
+                                <Link
                                     href={route("admin.categories")}
                                     className="block text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
                                 >
