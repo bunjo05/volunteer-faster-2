@@ -4,29 +4,37 @@ import CountUp from "react-countup";
 import { useInView } from "react-intersection-observer";
 import { useEffect, useRef, useState } from "react";
 
-// import { useEffect, useRef } from "react";
-
 export default function Home({ projects, auth }) {
     const testimonials = [
         {
             name: "Lina K.",
-            quote: "I helped teach kids in Uganda — an unforgettable experience.",
+            role: "Volunteer Teacher",
+            quote: "I helped teach kids in Uganda — an unforgettable experience that changed my perspective on life.",
+            avatar: "/avatar1.jpg",
         },
         {
             name: "Mark R.",
-            quote: "It was easy to sign up and I found a local project in less than a day.",
+            role: "Environmental Volunteer",
+            quote: "It was easy to sign up and I found a local conservation project in less than a day. The impact was immediate!",
+            avatar: "/avatar2.jpg",
         },
         {
             name: "Sarah L.",
-            quote: "I’m planning my second volunteering trip through this site!",
+            role: "Healthcare Volunteer",
+            quote: "I'm planning my second volunteering trip through this site! The connections I made were invaluable.",
+            avatar: "/avatar3.jpg",
         },
         {
             name: "Emily T.",
-            quote: "Volunteering changed my life. The connections I made were priceless.",
+            role: "Community Builder",
+            quote: "Volunteering changed my life. The relationships I built with the local community will last a lifetime.",
+            avatar: "/avatar4.jpg",
         },
         {
             name: "David N.",
-            quote: "From browsing to joining, the process was smooth and super easy.",
+            role: "Disaster Relief",
+            quote: "From browsing to joining, the process was smooth and super easy. The team support was exceptional.",
+            avatar: "/avatar5.jpg",
         },
     ];
 
@@ -43,24 +51,6 @@ export default function Home({ projects, auth }) {
             );
         }) || [];
 
-    // Create an extended array for infinite loop effect
-    const extendedProjects = [
-        ...featuredProjects,
-        ...featuredProjects.slice(0, 3),
-    ];
-
-    // Get the current set of 3 projects to display
-    const getVisibleProjects = () => {
-        if (featuredProjects.length <= 3) return featuredProjects;
-
-        const projectsToShow = [];
-        for (let i = 0; i < 3; i++) {
-            const index = (currentIndex + i) % featuredProjects.length;
-            projectsToShow.push(extendedProjects[index]);
-        }
-        return projectsToShow;
-    };
-
     // Auto-advance to next project
     useEffect(() => {
         if (featuredProjects.length <= 3 || isHovered) return;
@@ -68,34 +58,32 @@ export default function Home({ projects, auth }) {
         const interval = setInterval(() => {
             setIsTransitioning(true);
             setTimeout(() => {
-                setCurrentIndex((prev) => (prev + 1) % featuredProjects.length);
+                setCurrentIndex(
+                    (prev) => (prev + 1) % (featuredProjects.length - 2)
+                );
                 setIsTransitioning(false);
             }, 500);
-        }, 3000);
+        }, 5000);
 
         return () => clearInterval(interval);
     }, [featuredProjects.length, currentIndex, isHovered]);
 
     const handlePrev = () => {
         if (featuredProjects.length <= 3) return;
-
         setIsTransitioning(true);
         setTimeout(() => {
-            setCurrentIndex(
-                (prev) =>
-                    (prev - 1 + featuredProjects.length) %
-                    featuredProjects.length
-            );
+            setCurrentIndex((prev) => Math.max(0, prev - 1));
             setIsTransitioning(false);
         }, 500);
     };
 
     const handleNext = () => {
         if (featuredProjects.length <= 3) return;
-
         setIsTransitioning(true);
         setTimeout(() => {
-            setCurrentIndex((prev) => (prev + 1) % featuredProjects.length);
+            setCurrentIndex((prev) =>
+                Math.min(featuredProjects.length - 3, prev + 1)
+            );
             setIsTransitioning(false);
         }, 500);
     };
@@ -112,434 +100,608 @@ export default function Home({ projects, auth }) {
         <GeneralPages auth={auth}>
             {/* Hero Section */}
             <section
-                className="relative bg-cover bg-center bg-no-repeat h-[90vh] flex items-center justify-center"
-                style={{ backgroundImage: "url('/hero.jpg')" }}
+                className="relative bg-cover bg-center bg-no-repeat h-screen min-h-[700px] flex items-center justify-center bg-fixed"
+                style={{
+                    backgroundImage:
+                        "linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('/hero.jpg')",
+                }}
             >
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-900/70 to-blue-600/60 z-10"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-900/80 via-blue-700/60 to-blue-600/50 z-10"></div>
 
-                <div className="relative z-20 container mx-auto px-6 md:px-12 text-center md:text-left">
-                    <div className="max-w-2xl mx-auto md:mx-0 animate-fade-in-up">
-                        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-tight text-white mb-6 transition-all duration-700 ease-out">
-                            Discover. Connect. <br />
-                            <span className="text-yellow-300 drop-shadow-md">
-                                Volunteer.
+                <div className="relative z-20 container mx-auto px-6 lg:px-16 text-center">
+                    <div className="max-w-3xl mx-auto animate-fade-in-up">
+                        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight text-white mb-6">
+                            <span className="text-yellow-300">Discover</span>{" "}
+                            meaningful volunteer opportunities that{" "}
+                            <span className="text-yellow-300">
+                                change lives
                             </span>
                         </h1>
-                        <p className="text-white text-lg md:text-xl mb-8">
-                            Join a global movement of changemakers. Find
-                            purpose-driven volunteer projects that align with
-                            your passion and skills.
+                        <p className="text-white text-lg md:text-xl lg:text-2xl mb-10 opacity-90 leading-relaxed">
+                            Join a global community of changemakers. Find
+                            purpose-driven projects that match your passion and
+                            create lasting impact.
                         </p>
-                        <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-4">
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
                             <Link
                                 href="/register"
-                                className="bg-yellow-400 text-blue-900 px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-yellow-300 transition hover:scale-105"
+                                className="bg-yellow-400 hover:bg-yellow-300 text-blue-900 px-8 py-4 rounded-full font-bold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 text-lg"
                             >
                                 Join as Volunteer
                             </Link>
                             <Link
                                 href="/register-organization"
-                                className="px-6 py-3 rounded-full border-2 border-white text-white font-semibold hover:bg-white hover:text-blue-900 transition"
+                                className="px-8 py-4 rounded-full border-2 border-white text-white font-bold hover:bg-white/10 transition-all duration-300 hover:scale-105 text-lg"
                             >
                                 Register Organization
                             </Link>
                         </div>
                     </div>
                 </div>
-            </section>
-            {/* Trusted By */}
-            <section className="bg-gray-100 py-8 px-4 text-center">
-                <p className="text-gray-500 text-sm uppercase mb-4 tracking-wide">
-                    Trusted by leading global organizations
-                </p>
-                <div className="flex flex-wrap justify-center items-center gap-10 opacity-80">
-                    {["unicef", "red-cross", "who", "greenpeace"].map((org) => (
-                        <img
-                            key={org}
-                            src={`hero.jpg`}
-                            alt={org}
-                            className="h-10 grayscale rounded-full hover:grayscale-0 transition duration-300"
-                        />
-                    ))}
-                </div>
-            </section>
-            {/* Explore by Cause */}
-            <section className="py-20 bg-white px-6">
-                <h2 className="text-4xl font-bold text-center mb-12 text-gray-800">
-                    Explore Opportunities by Cause
-                </h2>
-                <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-8 text-center">
-                    {[
-                        { name: "Education", icon: "📚" },
-                        { name: "Health", icon: "🏥" },
-                        { name: "Environment", icon: "🌍" },
-                        { name: "Animal Welfare", icon: "🐾" },
-                    ].map((cat, i) => (
-                        <Link
-                            key={i}
-                            href={`/projects?category=${cat.name}`}
-                            className="bg-blue-50 hover:bg-blue-100 transition p-8 rounded-xl shadow group hover:shadow-lg"
-                        >
-                            <div className="text-5xl mb-3 group-hover:scale-110 transition">
-                                {cat.icon}
-                            </div>
-                            <h3 className="text-xl font-semibold text-blue-800">
-                                {cat.name}
-                            </h3>
-                        </Link>
-                    ))}
-                </div>
-            </section>
-            {/* Stats Counter */}
-            <section className="bg-blue-600 py-20 text-white">
-                <div className="grid md:grid-cols-4 gap-10 text-center container mx-auto px-6">
-                    {[
-                        { label: "Volunteers", count: 8423 },
-                        { label: "Projects", count: 320 },
-                        { label: "Organizations", count: 112 },
-                        { label: "Countries", count: 48 },
-                    ].map((stat, i) => {
-                        const { ref, inView } = useInView({
-                            triggerOnce: true,
-                        });
-                        return (
-                            <div key={i} ref={ref}>
-                                <div className="text-5xl font-bold">
-                                    {inView ? (
-                                        <CountUp
-                                            end={stat.count}
-                                            duration={2}
-                                            separator=","
-                                            enableScrollSpy
-                                            scrollSpyOnce
-                                        />
-                                    ) : (
-                                        // <CountUp
-                                        //     end={stat.count}
-                                        //     duration={2}
-                                        //     separator=","
-                                        // />
-                                        "0"
-                                    )}
-                                </div>
-                                <p className="text-lg mt-2">{stat.label}</p>
-                            </div>
-                        );
-                    })}
-                </div>
-            </section>
 
-            {/* Featured Volunteer Projects - Infinite Scroll with 3 in a row */}
-            <section className="py-20 bg-gray-50 px-6 relative">
-                <h2 className="text-4xl font-bold text-center mb-12 text-gray-800">
-                    Featured Volunteer Projects
-                </h2>
-
-                {featuredProjects.length > 0 ? (
-                    <div
-                        className="relative"
-                        onMouseEnter={() => setIsHovered(true)}
-                        onMouseLeave={() => setIsHovered(false)}
+                {/* Scrolling indicator */}
+                <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 z-20 animate-bounce">
+                    <svg
+                        className="w-8 h-8 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
                     >
-                        {/* Carousel container */}
-                        <div className="relative h-[420px] overflow-hidden">
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                        ></path>
+                    </svg>
+                </div>
+            </section>
+
+            {/* Trusted By */}
+            <section className="bg-gray-50 py-12 px-6">
+                <div className="max-w-6xl mx-auto">
+                    <p className="text-gray-500 text-sm uppercase mb-6 tracking-wider text-center font-medium">
+                        Trusted by leading organizations worldwide
+                    </p>
+                    <div className="flex flex-wrap justify-center items-center gap-12 opacity-90">
+                        {[
+                            "unicef",
+                            "red-cross",
+                            "who",
+                            "greenpeace",
+                            "wwf",
+                            "amnesty",
+                        ].map((org) => (
                             <div
-                                className={`flex transition-transform duration-500 ease-in-out ${
-                                    isTransitioning
-                                        ? "opacity-90"
-                                        : "opacity-100"
-                                }`}
-                                style={{
-                                    transform: `translateX(calc(-${
-                                        currentIndex * (100 / 3)
-                                    }% - ${currentIndex * 1}rem))`,
-                                }}
-                                ref={featuredProjectsRef}
+                                key={org}
+                                className="transition-all duration-300 hover:scale-110 hover:opacity-100"
                             >
-                                {getVisibleProjects().map((project, index) => (
-                                    <div
-                                        key={`${project.id}-${index}`}
-                                        className="w-1/3 flex-shrink-0 px-4 transition-all duration-300"
-                                    >
-                                        <div className="group bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden relative h-full border border-gray-100 hover:border-blue-100">
-                                            {/* Featured badge with animation */}
-                                            <div className="absolute top-4 left-4 bg-yellow-400 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold z-10 transform group-hover:scale-105 transition-transform">
-                                                Featured
-                                            </div>
+                                <img
+                                    src={`/logos/${org}.png`}
+                                    alt={org}
+                                    className="h-12 object-contain grayscale hover:grayscale-0 transition duration-500"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
 
-                                            {/* Image container with elegant overlay */}
-                                            <div className="relative h-64 w-full overflow-hidden">
-                                                <img
-                                                    src={
-                                                        project.featured_image
-                                                            ? `/storage/${project.featured_image}`
-                                                            : "/images/default-project.jpg"
-                                                    }
-                                                    alt={project.title}
-                                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                                />
-                                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent"></div>
+            {/* Explore by Cause */}
+            <section className="py-24 bg-white px-6">
+                <div className="max-w-7xl mx-auto">
+                    <div className="text-center mb-16">
+                        <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+                            Find Your Passion
+                        </h2>
+                        <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                            Explore volunteer opportunities across these
+                            impactful categories
+                        </p>
+                    </div>
 
-                                                {/* Title overlay with smooth animation */}
-                                                <div className="absolute bottom-0 left-0 w-full p-6 transform translate-y-0 group-hover:translate-y-2 transition-transform duration-300">
-                                                    <h3 className="text-2xl font-bold text-white mb-2 drop-shadow-md">
-                                                        {project.title}
-                                                    </h3>
-                                                    <div className="flex items-center gap-2 opacity-90 group-hover:opacity-100 transition-opacity">
-                                                        <span className="text-sm text-white/90 font-medium">
-                                                            {
-                                                                project.category
-                                                                    ?.name
-                                                            }
-                                                        </span>
-                                                        {project.subcategory
-                                                            ?.name && (
-                                                            <>
-                                                                <span className="text-white/50">
-                                                                    •
-                                                                </span>
-                                                                <span className="text-sm text-white/90 font-medium">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                        {[
+                            {
+                                name: "Education",
+                                icon: "📚",
+                                description:
+                                    "Empower through knowledge and learning opportunities",
+                            },
+                            {
+                                name: "Health",
+                                icon: "🏥",
+                                description:
+                                    "Support medical care and community wellness",
+                            },
+                            {
+                                name: "Environment",
+                                icon: "🌍",
+                                description:
+                                    "Protect and preserve our natural world",
+                            },
+                            {
+                                name: "Animal Welfare",
+                                icon: "🐾",
+                                description:
+                                    "Care for creatures great and small",
+                            },
+                        ].map((cat, i) => (
+                            <Link
+                                key={i}
+                                href={`/projects?category=${cat.name}`}
+                                className="bg-gradient-to-br from-blue-50 to-white hover:from-blue-100 hover:to-blue-50 transition-all p-8 rounded-2xl shadow-md hover:shadow-xl group border border-gray-100"
+                            >
+                                <div className="text-6xl mb-5 group-hover:scale-110 transition-transform duration-300 text-center">
+                                    {cat.icon}
+                                </div>
+                                <h3 className="text-2xl font-semibold text-blue-800 mb-3 text-center">
+                                    {cat.name}
+                                </h3>
+                                <p className="text-gray-600 text-center">
+                                    {cat.description}
+                                </p>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Stats Counter */}
+            <section className="bg-gradient-to-r from-blue-700 to-blue-900 py-24 text-white">
+                <div className="max-w-7xl mx-auto px-6">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+                        {[
+                            { label: "Volunteers", count: 8423, icon: "👥" },
+                            { label: "Projects", count: 320, icon: "🌱" },
+                            { label: "Organizations", count: 112, icon: "🏛️" },
+                            { label: "Countries", count: 48, icon: "🌎" },
+                        ].map((stat, i) => {
+                            const { ref, inView } = useInView({
+                                triggerOnce: true,
+                            });
+                            return (
+                                <div
+                                    key={i}
+                                    ref={ref}
+                                    className="p-6 rounded-xl bg-white/10 backdrop-blur-sm"
+                                >
+                                    <div className="text-4xl mb-3">
+                                        {stat.icon}
+                                    </div>
+                                    <div className="text-5xl font-bold mb-2">
+                                        {inView ? (
+                                            <CountUp
+                                                end={stat.count}
+                                                duration={2.5}
+                                                separator=","
+                                                enableScrollSpy
+                                                scrollSpyOnce
+                                            />
+                                        ) : (
+                                            "0"
+                                        )}
+                                        <span className="text-yellow-300">
+                                            +
+                                        </span>
+                                    </div>
+                                    <p className="text-xl font-medium text-blue-100">
+                                        {stat.label}
+                                    </p>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </section>
+
+            {/* Featured Volunteer Projects */}
+            <section className="py-24 bg-gray-50 px-6">
+                <div className="max-w-7xl mx-auto">
+                    <div className="text-center mb-16">
+                        <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+                            Featured Volunteer Projects
+                        </h2>
+                        <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                            Handpicked opportunities making real impact around
+                            the world
+                        </p>
+                    </div>
+
+                    {featuredProjects.length > 0 ? (
+                        <div
+                            className="relative"
+                            onMouseEnter={() => setIsHovered(true)}
+                            onMouseLeave={() => setIsHovered(false)}
+                        >
+                            {/* Carousel container */}
+                            <div className="relative overflow-hidden">
+                                <div
+                                    className={`flex transition-transform duration-500 ease-in-out ${
+                                        isTransitioning
+                                            ? "opacity-90"
+                                            : "opacity-100"
+                                    }`}
+                                    style={{
+                                        transform: `translateX(-${
+                                            currentIndex * (100 / 3)
+                                        }%)`,
+                                    }}
+                                >
+                                    {featuredProjects.map((project) => (
+                                        <div
+                                            key={project.id}
+                                            className="w-1/3 flex-shrink-0 px-4"
+                                        >
+                                            <div className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden relative h-full border border-gray-200 hover:border-blue-200">
+                                                {/* Featured badge */}
+                                                <div className="absolute top-5 left-5 bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900 px-4 py-1 rounded-full text-xs font-bold z-10 transform group-hover:scale-105 transition-transform shadow-md">
+                                                    Featured
+                                                </div>
+
+                                                {/* Image */}
+                                                <div className="relative h-72 w-full overflow-hidden">
+                                                    <img
+                                                        src={
+                                                            project.featured_image
+                                                                ? `/storage/${project.featured_image}`
+                                                                : "/images/default-project.jpg"
+                                                        }
+                                                        alt={project.title}
+                                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                                    />
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+                                                    <div className="absolute bottom-0 left-0 w-full p-6">
+                                                        <h3 className="text-2xl font-bold text-white mb-2">
+                                                            {project.title}
+                                                        </h3>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-sm text-white/90 font-medium bg-blue-600/30 px-3 py-1 rounded-full backdrop-blur-sm">
+                                                                {
+                                                                    project
+                                                                        .category
+                                                                        ?.name
+                                                                }
+                                                            </span>
+                                                            {project.subcategory
+                                                                ?.name && (
+                                                                <span className="text-sm text-white/90 font-medium bg-blue-600/30 px-3 py-1 rounded-full backdrop-blur-sm">
                                                                     {
                                                                         project
                                                                             .subcategory
                                                                             ?.name
                                                                     }
                                                                 </span>
-                                                            </>
-                                                        )}
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Content */}
+                                                <div className="p-6">
+                                                    <p className="text-gray-600 mb-5 line-clamp-3 group-hover:line-clamp-none transition-all duration-300">
+                                                        {
+                                                            project.short_description
+                                                        }
+                                                    </p>
+                                                    <div className="flex justify-between items-center">
+                                                        <div className="flex items-center gap-2">
+                                                            <svg
+                                                                className="w-5 h-5 text-gray-400"
+                                                                fill="none"
+                                                                stroke="currentColor"
+                                                                viewBox="0 0 24 24"
+                                                            >
+                                                                <path
+                                                                    strokeLinecap="round"
+                                                                    strokeLinejoin="round"
+                                                                    strokeWidth="2"
+                                                                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                                                                ></path>
+                                                                <path
+                                                                    strokeLinecap="round"
+                                                                    strokeLinejoin="round"
+                                                                    strokeWidth="2"
+                                                                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                                                                ></path>
+                                                            </svg>
+                                                            <span className="text-sm text-gray-500">
+                                                                {project.location ||
+                                                                    "Multiple locations"}
+                                                            </span>
+                                                        </div>
+                                                        <Link
+                                                            href={`/projects/${project.slug}`}
+                                                            className="text-blue-600 hover:text-blue-800 font-medium text-sm flex items-center gap-1 transition-all group-hover:gap-2"
+                                                        >
+                                                            View Details
+                                                            <svg
+                                                                className="w-4 h-4 transition-transform group-hover:translate-x-1"
+                                                                fill="none"
+                                                                stroke="currentColor"
+                                                                viewBox="0 0 24 24"
+                                                            >
+                                                                <path
+                                                                    strokeLinecap="round"
+                                                                    strokeLinejoin="round"
+                                                                    strokeWidth="2"
+                                                                    d="M9 5l7 7-7 7"
+                                                                ></path>
+                                                            </svg>
+                                                        </Link>
                                                     </div>
                                                 </div>
                                             </div>
-
-                                            {/* Content with elegant transitions */}
-                                            <div className="p-5">
-                                                <p className="text-gray-600 mb-4 line-clamp-2 group-hover:line-clamp-3 transition-all duration-200">
-                                                    {project.short_description}
-                                                </p>
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-sm text-gray-500">
-                                                        {project.location ||
-                                                            "Multiple locations"}
-                                                    </span>
-                                                    <Link
-                                                        href={`/projects/${project.slug}`}
-                                                        className="text-blue-600 hover:text-blue-800 font-medium text-sm flex items-center gap-1 transition-colors group-hover:gap-2"
-                                                    >
-                                                        View Details
-                                                        <svg
-                                                            xmlns="http://www.w3.org/2000/svg"
-                                                            className="h-4 w-4 transition-transform group-hover:translate-x-1"
-                                                            fill="none"
-                                                            viewBox="0 0 24 24"
-                                                            stroke="currentColor"
-                                                        >
-                                                            <path
-                                                                strokeLinecap="round"
-                                                                strokeLinejoin="round"
-                                                                strokeWidth={2}
-                                                                d="M9 5l7 7-7 7"
-                                                            />
-                                                        </svg>
-                                                    </Link>
-                                                </div>
-                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
 
-                        {/* Navigation arrows with hover effects */}
-                        {featuredProjects.length > 3 && (
-                            <>
-                                <button
-                                    onClick={handlePrev}
-                                    className="absolute left-0 top-1/2 -translate-y-1/2 bg-white p-3 rounded-full shadow-lg hover:bg-gray-50 transition-all duration-300 z-10 hover:scale-110 ml-2"
-                                    aria-label="Previous slide"
-                                >
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        className="h-6 w-6 text-gray-700 hover:text-blue-600"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M15 19l-7-7 7-7"
-                                        />
-                                    </svg>
-                                </button>
-                                <button
-                                    onClick={handleNext}
-                                    className="absolute right-0 top-1/2 -translate-y-1/2 bg-white p-3 rounded-full shadow-lg hover:bg-gray-50 transition-all duration-300 z-10 hover:scale-110 mr-2"
-                                    aria-label="Next slide"
-                                >
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        className="h-6 w-6 text-gray-700 hover:text-blue-600"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M9 5l7 7-7 7"
-                                        />
-                                    </svg>
-                                </button>
-                            </>
-                        )}
-
-                        {/* Elegant dot indicators */}
-                        {featuredProjects.length > 3 && (
-                            <div className="flex justify-center mt-8 space-x-2">
-                                {featuredProjects.map((_, index) => (
+                            {/* Navigation */}
+                            {featuredProjects.length > 3 && (
+                                <>
                                     <button
-                                        key={index}
-                                        onClick={() => goToSlide(index)}
-                                        className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                                            currentIndex %
-                                                featuredProjects.length ===
-                                            index
-                                                ? "bg-blue-600 w-6"
-                                                : "bg-gray-300 hover:bg-gray-400"
-                                        }`}
-                                        aria-label={`Go to slide ${index + 1}`}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <div className="text-center py-12">
-                        <p className="text-gray-600 mb-4">
-                            No featured projects available at the moment.
-                        </p>
+                                        onClick={handlePrev}
+                                        className="absolute left-0 top-1/2 -translate-y-1/2 bg-white p-4 rounded-full shadow-xl hover:bg-gray-50 transition-all duration-300 z-10 hover:scale-110 -ml-6"
+                                        aria-label="Previous slide"
+                                    >
+                                        <svg
+                                            className="w-6 h-6 text-gray-700 hover:text-blue-600"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth="2"
+                                                d="M15 19l-7-7 7-7"
+                                            ></path>
+                                        </svg>
+                                    </button>
+                                    <button
+                                        onClick={handleNext}
+                                        className="absolute right-0 top-1/2 -translate-y-1/2 bg-white p-4 rounded-full shadow-xl hover:bg-gray-50 transition-all duration-300 z-10 hover:scale-110 -mr-6"
+                                        aria-label="Next slide"
+                                    >
+                                        <svg
+                                            className="w-6 h-6 text-gray-700 hover:text-blue-600"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth="2"
+                                                d="M9 5l7 7-7 7"
+                                            ></path>
+                                        </svg>
+                                    </button>
+                                </>
+                            )}
+
+                            {/* Pagination */}
+                            {featuredProjects.length > 3 && (
+                                <div className="flex justify-center mt-10 space-x-2">
+                                    {Array.from({
+                                        length: Math.ceil(
+                                            featuredProjects.length / 3
+                                        ),
+                                    }).map((_, index) => (
+                                        <button
+                                            key={index}
+                                            onClick={() => goToSlide(index * 3)}
+                                            className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                                                Math.floor(currentIndex / 3) ===
+                                                index
+                                                    ? "bg-blue-600 w-8"
+                                                    : "bg-gray-300 hover:bg-gray-400"
+                                            }`}
+                                            aria-label={`Go to slide ${
+                                                index + 1
+                                            }`}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="text-center py-12 bg-white rounded-2xl shadow-sm max-w-3xl mx-auto">
+                            <p className="text-gray-600 mb-6 text-lg">
+                                Currently no featured projects available. Check
+                                back soon!
+                            </p>
+                            <Link
+                                href="/projects/create"
+                                className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium text-lg group"
+                            >
+                                Suggest a Project
+                                <svg
+                                    className="w-5 h-5 ml-2 transition-transform group-hover:translate-x-1"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M9 5l7 7-7 7"
+                                    ></path>
+                                </svg>
+                            </Link>
+                        </div>
+                    )}
+
+                    <div className="text-center mt-16">
                         <Link
-                            href="/projects/create"
-                            className="text-blue-600 hover:text-blue-800 font-medium inline-flex items-center gap-1"
+                            href="/projects"
+                            className="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full font-bold shadow-lg hover:shadow-xl transition-all duration-300"
                         >
-                            Suggest a Project
+                            Browse All Projects
                             <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 w-4"
+                                className="w-5 h-5 ml-3 transition-transform group-hover:translate-x-1"
                                 fill="none"
-                                viewBox="0 0 24 24"
                                 stroke="currentColor"
+                                viewBox="0 0 24 24"
                             >
                                 <path
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
-                                    strokeWidth={2}
+                                    strokeWidth="2"
                                     d="M9 5l7 7-7 7"
-                                />
+                                ></path>
                             </svg>
                         </Link>
                     </div>
-                )}
-
-                <div className="text-center mt-12">
-                    <Link
-                        href="/projects"
-                        className="inline-flex items-center text-blue-700 font-semibold text-lg hover:underline group"
-                    >
-                        Browse All Projects
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5 ml-1 group-hover:translate-x-1 transition-transform"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9 5l7 7-7 7"
-                            />
-                        </svg>
-                    </Link>
                 </div>
             </section>
+
             {/* Testimonials */}
-            <section className="py-20 bg-white px-6">
-                <h2 className="text-4xl font-bold text-center mb-12 text-gray-800">
-                    Volunteer Experiences
-                </h2>
+            <section className="py-24 bg-white px-6">
+                <div className="max-w-7xl mx-auto">
+                    <div className="text-center mb-16">
+                        <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+                            Volunteer Stories
+                        </h2>
+                        <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                            Hear from people who've transformed lives through
+                            volunteering
+                        </p>
+                    </div>
 
-                <div
-                    ref={scrollRef}
-                    className="flex gap-6 overflow-x-auto px-2 scroll-smooth"
-                    style={{
-                        scrollbarWidth: "none", // Firefox
-                        msOverflowStyle: "none", // IE 10+
-                    }}
-                >
-                    <style jsx>{`
-                        div::-webkit-scrollbar {
-                            display: none;
-                        }
-                    `}</style>
-                    {testimonials.map((t, i) => (
-                        <div
-                            key={i}
-                            className="bg-blue-50 p-6 rounded-xl shadow min-w-[300px] max-w-sm hover:shadow-md transition-transform duration-500 transform hover:scale-105"
-                        >
-                            <p className="italic text-gray-700 mb-4 animate-fade-in">
-                                “{t.quote}”
-                            </p>
-                            <p className="text-blue-800 font-semibold">
-                                — {t.name}
-                            </p>
-                        </div>
-                    ))}
-                </div>
-            </section>
-            {/* Organizations */}
-            <section className="py-20 bg-blue-50 px-6">
-                <h2 className="text-4xl font-bold text-center mb-12 text-gray-800">
-                    Our Impact Partners
-                </h2>
-                <div className="grid md:grid-cols-4 gap-8 text-center">
-                    {[
-                        "Hope Foundation",
-                        "Clean Earth Org",
-                        "Youth4Change",
-                        "Kids First",
-                    ].map((org, i) => (
-                        <div
-                            key={i}
-                            className="bg-white p-6 rounded-xl shadow hover:shadow-md transition"
-                        >
-                            <img
-                                src="hero.jpg"
-                                alt={org}
-                                className="w-20 h-20 mx-auto mb-4 rounded-full object-cover border-4 border-blue-100"
-                            />
-                            <h4 className="font-semibold text-lg text-blue-800">
-                                {org}
-                            </h4>
-                        </div>
-                    ))}
-                </div>
-            </section>
-            {/* Sticky CTA */}
-            <section className="bg-blue-700 text-white py-6 px-4 h-[300px] flex justify-center items-center text-center shadow-xl">
-                <div className="space-y-4 flex flex-col">
-                    <p className="text-lg font-medium mb-2">
-                        Ready to change the world one project at a time?
-                    </p>
-                    <Link
-                        href="/register"
-                        className="bg-white text-blue-700 px-6 py-2 rounded-full font-semibold hover:bg-gray-200 transition"
+                    <div
+                        ref={scrollRef}
+                        className="flex gap-8 overflow-x-auto pb-8 scroll-smooth px-2"
                     >
-                        Sign Up Now →
-                    </Link>
+                        <style jsx>{`
+                            ::-webkit-scrollbar {
+                                display: none;
+                            }
+                        `}</style>
+                        {testimonials.map((t, i) => (
+                            <div key={i} className="flex-shrink-0 w-96">
+                                <div className="bg-gradient-to-br from-blue-50 to-white p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-500 h-full">
+                                    <div className="flex items-center mb-6">
+                                        <img
+                                            src={t.avatar}
+                                            alt={t.name}
+                                            className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-md"
+                                        />
+                                        <div className="ml-4">
+                                            <h4 className="font-bold text-gray-900">
+                                                {t.name}
+                                            </h4>
+                                            <p className="text-sm text-blue-600">
+                                                {t.role}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <p className="italic text-gray-700 text-lg mb-6 leading-relaxed">
+                                        "{t.quote}"
+                                    </p>
+                                    <div className="flex text-yellow-400">
+                                        {[...Array(5)].map((_, i) => (
+                                            <svg
+                                                key={i}
+                                                className="w-5 h-5 fill-current"
+                                                viewBox="0 0 20 20"
+                                            >
+                                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                                            </svg>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Organizations */}
+            <section className="py-24 bg-blue-50 px-6">
+                <div className="max-w-7xl mx-auto">
+                    <div className="text-center mb-16">
+                        <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+                            Our Impact Partners
+                        </h2>
+                        <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                            Collaborating with organizations making a difference
+                            worldwide
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                        {[
+                            {
+                                name: "Hope Foundation",
+                                mission:
+                                    "Education for underprivileged children",
+                                logo: "/hope-foundation.jpg",
+                            },
+                            {
+                                name: "Clean Earth Org",
+                                mission:
+                                    "Environmental conservation and sustainability",
+                                logo: "/clean-earth.jpg",
+                            },
+                            {
+                                name: "Youth4Change",
+                                mission: "Empowering young leaders globally",
+                                logo: "/youth4change.jpg",
+                            },
+                            {
+                                name: "Kids First",
+                                mission: "Child welfare and development",
+                                logo: "/kids-first.jpg",
+                            },
+                        ].map((org, i) => (
+                            <div
+                                key={i}
+                                className="bg-white p-8 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 text-center"
+                            >
+                                <div className="w-24 h-24 mx-auto mb-6 rounded-full overflow-hidden border-4 border-blue-100 shadow-inner">
+                                    <img
+                                        src={org.logo}
+                                        alt={org.name}
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <h4 className="font-bold text-xl text-blue-800 mb-2">
+                                    {org.name}
+                                </h4>
+                                <p className="text-gray-600">{org.mission}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* CTA */}
+            <section className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-20 px-6">
+                <div className="max-w-4xl mx-auto text-center">
+                    <h2 className="text-4xl md:text-5xl font-bold mb-6">
+                        Ready to make a difference?
+                    </h2>
+                    <p className="text-xl mb-10 opacity-90 leading-relaxed">
+                        Join thousands of volunteers creating positive change
+                        around the world. Your journey starts here.
+                    </p>
+                    <div className="flex flex-col sm:flex-row justify-center gap-5">
+                        <Link
+                            href="/register"
+                            className="bg-white text-blue-700 px-8 py-4 rounded-full font-bold shadow-lg hover:shadow-xl transition-all hover:scale-105 text-lg"
+                        >
+                            Sign Up Now
+                        </Link>
+                        <Link
+                            href="/projects"
+                            className="border-2 border-white text-white px-8 py-4 rounded-full font-bold hover:bg-white/10 transition-all hover:scale-105 text-lg"
+                        >
+                            Browse Projects
+                        </Link>
+                    </div>
                 </div>
             </section>
         </GeneralPages>
