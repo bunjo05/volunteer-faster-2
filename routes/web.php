@@ -16,6 +16,7 @@ use App\Http\Controllers\VolunteerController;
 use App\Http\Controllers\SocialAuthController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\StripePaymentController;
+use App\Http\Controllers\FeaturedProjectController;
 use App\Http\Controllers\Admin\Auth\LoginController;
 use App\Http\Controllers\Auth\OtpVerificationController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
@@ -128,7 +129,6 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     Route::get('/project/reports', [AdminsController::class, 'projectReports'])
         ->name('admin.project.reports');
 
-
     Route::prefix('chats')->group(function () {
         Route::get('/', [ChatController::class, 'AdminIndex'])->name('chat.index');
         Route::post('/{chat}/messages', [ChatController::class, 'AdminStore'])->name('admin.chat.store');
@@ -139,6 +139,11 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     });
 
     Route::get('/payments', [AdminsController::class, 'payments'])->name('admin.payments');
+
+    // Featured Projects
+    Route::get('/featured-projects', [AdminsController::class, 'featuredProjects'])->name('admin.featured.projects');
+    Route::put('/featured-projects/{slug}/status', [AdminsController::class, 'updateFeaturedProjectStatus'])
+        ->name('admin.featured-projects.update-status');
 });
 
 Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
@@ -191,6 +196,27 @@ Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->
         ->name('bookings.update-status');
 
     Route::get('/points', [OrganizationController::class, 'points'])->name('organization.points');
+
+    // Featured
+    Route::get('/projects/{project}/feature', [FeaturedProjectController::class, 'showFeatureModal'])
+        ->name('featured.showModal');
+
+    Route::post('/featured/checkout', [FeaturedProjectController::class, 'checkout'])
+        ->name('featured.checkout');
+
+    Route::get('/featured/success', [FeaturedProjectController::class, 'success'])
+        ->name('featured.success');
+
+    Route::get('/featured/cancel', [FeaturedProjectController::class, 'cancel'])
+        ->name('featured.cancel');
+
+    // Route::get('/projects/{project}/feature', [FeaturedProjectController::class, 'showFeatureModal'])
+    //     ->name('featured.showModal')
+    //     ->middleware('auth');
+
+    // Route::post('/featured/checkout', [FeaturedProjectController::class, 'checkout'])
+    //     ->name('featured.checkout')
+    //     ->middleware('auth');
 });
 
 // routes/web.php
@@ -226,6 +252,9 @@ Route::get('/mail-preview/admin', function () {
     $payment = \App\Models\Payment::first();
     return new \App\Mail\PaymentSuccessfulAdmin($booking, $payment);
 });
+
+// Stripe webhook
+Route::post('/stripe/webhook', [FeaturedProjectController::class, 'handleWebhook']);
 
 Route::get('/certificate/verify/{id}/{hash}', [HomeController::class, 'verifyCertificate'])
     ->name('certificate.verify');

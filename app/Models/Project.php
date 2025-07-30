@@ -78,4 +78,23 @@ class Project extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
+    public function featured()
+    {
+        return $this->hasOne(FeaturedProject::class)->where('is_active', true);
+    }
+
+    public function featuredRequests()
+    {
+        return $this->hasMany(FeaturedProject::class);
+    }
+    public function featuredProjects()
+    {
+        return $this->hasMany(FeaturedProject::class);
+    }
+
+    public function getIsFeaturedAttribute()
+    {
+        return $this->featuredProjects()->where('is_active', true)->exists();
+    }
 }

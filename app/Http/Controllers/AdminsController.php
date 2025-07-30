@@ -14,6 +14,7 @@ use App\Models\ProjectRemark;
 use App\Models\ReportProject;
 use App\Models\ReportCategory;
 use App\Mail\UserStatusChanged;
+use App\Models\FeaturedProject;
 use App\Models\ReportSubcategory;
 use App\Models\OrganizationProfile;
 use Illuminate\Support\Facades\Mail;
@@ -124,7 +125,7 @@ class AdminsController extends Controller
             ->where('slug', $slug)
             ->firstOrFail();
 
-        $reportCategories = ReportCategory::with('subcategories')->all();
+        $reportCategories = ReportCategory::with('subcategories')->get();
 
         return inertia('Projects/ViewProject', [
             'project' => $project,
@@ -369,5 +370,66 @@ class AdminsController extends Controller
             'sort' => $request->sort ?? 'created_at',
             'direction' => $request->direction ?? 'desc',
         ]);
+    }
+
+    public function featuredProjects()
+    {
+        $featuredProjects = FeaturedProject::with(['project', 'user'])
+            ->latest()
+            ->get()
+            ->map(function ($project) {
+                // Ensure amount is cast to float
+                $project->amount = (float)$project->amount;
+                return $project;
+            });
+
+        return inertia('Admins/Projects/FeaturedProject', [
+            'featuredProjects' => $featuredProjects,
+        ]);
+    }
+    public function updateFeaturedProjectStatus(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'status' => 'required|in:approved,rejected',
+            'rejection_reason' => 'required_if:status,rejected|nullable|string|max:500',
+        ]);
+
+        $featuredProject = FeaturedProject::findOrFail($id);
+
+        if ($validated['status'] === 'approved') {
+            $featuredProject->status = 'approved';
+            $featuredProject->start_date = now();
+
+            // Calculate end date based on plan type
+            $endDate = now();
+            switch ($featuredProject->plan_type) {
+                case '1_month':
+                    $endDate = $endDate->addMonth();
+                    break;
+                case '3_months':
+                    $endDate = $endDate->addMonths(3);
+                    break;
+                case '6_months':
+                    $endDate = $endDate->addMonths(6);
+                    break;
+                case '1_year':
+                    $endDate = $endDate->addYear();
+                    break;
+            }
+
+            $featuredProject->end_date = $endDate;
+            $featuredProject->is_active = true;
+            $featuredProject->rejection_reason = null;
+        } else {
+            $featuredProject->status = 'rejected';
+            $featuredProject->rejection_reason = $validated['rejection_reason'];
+            $featuredProject->is_active = false;
+            $featuredProject->start_date = null;
+            $featuredProject->end_date = null;
+        }
+
+        $featuredProject->save();
+
+        return redirect()->back()->with('success', 'Featured project status updated successfully.');
     }
 }

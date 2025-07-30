@@ -317,14 +317,22 @@ class OrganizationController extends Controller
     {
         $user = Auth::user();
 
-        $projects = Project::with('category', 'subcategory')
+        $projects = Project::with(['category', 'subcategory', 'featuredProjects' => function ($query) {
+            $query->where('is_active', true);
+        }])
             ->where('user_id', $user->id)
             ->latest()
             ->get();
 
         return inertia('Organizations/Projects', [
             'userStatus' => $user->status,
-            'projects' => $projects,
+            'projects' => $projects->map(function ($project) {
+                return [
+                    ...$project->toArray(),
+                    'is_featured' => $project->featuredProjects->isNotEmpty(),
+                ];
+            }),
+            'stripeKey' => config('services.stripe.key'),
         ]);
     }
 
