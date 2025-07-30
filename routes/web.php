@@ -259,25 +259,24 @@ Route::post('/stripe/webhook', [FeaturedProjectController::class, 'handleWebhook
 Route::get('/certificate/verify/{id}/{hash}', [HomeController::class, 'verifyCertificate'])
     ->name('certificate.verify');
 
-// Add this near the top of your routes, after the other GET routes
-// Route::get('/certificate/verify/{id}/{hash}', function ($id, $hash) {
-//     $booking = VolunteerBooking::with(['user', 'project'])->findOrFail($id);
+Route::get('/terms-and-conditions', function () {
+    return inertia('Terms');
+})->name('terms');
 
-//     // Verify hash
-//     if (sha1($booking->id . config('app.key')) !== $hash) {
-//         abort(403, 'Invalid verification link');
-//     }
+Route::get('/privacy-policy', function () {
+    return inertia('Privacy');
+})->name('privacy.policy');
 
-//     return view('certificates.verification', [
-//         'booking' => $booking,
-//         'valid' => true
-//     ]);
-// })->name('certificate.verify');
+Route::get('/gdpr', function () {
+    return inertia('GDPR');
+})->name('gdpr');
 
-// Route::middleware(['auth', 'volunteer'])->group(function () {
-//     Route::post('/payment/checkout', [StripePaymentController::class, 'checkout'])->name('payment.checkout');
-//     Route::get('/payment/success', [StripePaymentController::class, 'success'])->name('payment.success');
-//     Route::get('/payment/cancel', [StripePaymentController::class, 'cancel'])->name('payment.cancel');
-// });
+Route::get('/cookies', function () {
+    return inertia('Cookies');
+})->name('cookies');
+
+Route::get('/about-us', function () {
+    return inertia('About');
+})->name('about');
 
 require __DIR__ . '/auth.php';

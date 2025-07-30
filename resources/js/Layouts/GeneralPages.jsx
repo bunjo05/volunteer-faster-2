@@ -10,9 +10,8 @@ export default function GeneralPages({ children, auth }) {
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
             {/* Navbar */}
-            <header className="bg-white shadow">
+            <header className="bg-white shadow sticky top-0 z-30">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-                    {/* Logo / Brand */}
                     <Link href="/" className="flex items-center space-x-2">
                         <ApplicationLogo className="h-8 w-8 text-blue-600" />
                         <span className="text-xl font-bold text-gray-800">
@@ -177,18 +176,151 @@ export default function GeneralPages({ children, auth }) {
             </header>
 
             {/* Page Content */}
-            <main className="">
-                {/* <div className="mt-6 w-full max-w-md bg-white px-6 py-8 shadow-lg rounded-lg"> */}
-                {children}
-                {/* </div> */}
-            </main>
-            {/* Footer */}
-            <footer className="bg-white shadow mt-6">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center">
-                    <p className="text-gray-600 text-sm">
-                        &copy; {new Date().getFullYear()} Volunteer Faster. All
-                        rights reserved.
-                    </p>
+            <main className="">{children}</main>
+            <footer className="bg-white border-t mt-6">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-1 md:grid-cols-4 gap-8 text-sm text-gray-700">
+                    <div>
+                        <h4 className="text-base font-semibold text-gray-900 mb-3">
+                            Volunteer Faster
+                        </h4>
+                        <p>
+                            Connecting volunteers with meaningful causes
+                            worldwide.
+                        </p>
+                    </div>
+
+                    <div>
+                        <h4 className="font-semibold text-gray-900 mb-3">
+                            Navigation
+                        </h4>
+                        <ul className="space-y-2">
+                            <li>
+                                <Link
+                                    href={route("home")}
+                                    className="hover:text-blue-600"
+                                >
+                                    Home
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    href={route("projects")}
+                                    className="hover:text-blue-600"
+                                >
+                                    Volunteer Programs
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    href="/guide"
+                                    className="hover:text-blue-600"
+                                >
+                                    Volunteer Guide
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    href="/about"
+                                    className="hover:text-blue-600"
+                                >
+                                    About Us
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    href="/contact"
+                                    className="hover:text-blue-600"
+                                >
+                                    Contact
+                                </Link>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 className="font-semibold text-gray-900 mb-3">
+                            Legal
+                        </h4>
+                        <ul className="space-y-2">
+                            <li>
+                                <Link
+                                    href={route("terms")}
+                                    className="hover:text-blue-600"
+                                >
+                                    Terms & Conditions
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    href={route("privacy.policy")}
+                                    className="hover:text-blue-600"
+                                >
+                                    Privacy Policy
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    href={route("gdpr")}
+                                    className="hover:text-blue-600"
+                                >
+                                    GDPR Compliance
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    href={route("cookies")}
+                                    className="hover:text-blue-600"
+                                >
+                                    Cookie Policy
+                                </Link>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 className="font-semibold text-gray-900 mb-3">
+                            Resources
+                        </h4>
+                        <ul className="space-y-2">
+                            <li>
+                                <Link
+                                    href="/faq"
+                                    className="hover:text-blue-600"
+                                >
+                                    FAQs
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    href="/blog"
+                                    className="hover:text-blue-600"
+                                >
+                                    Blog
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    href="/testimonials"
+                                    className="hover:text-blue-600"
+                                >
+                                    Testimonials
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
+                                    href="/accessibility"
+                                    className="hover:text-blue-600"
+                                >
+                                    Accessibility
+                                </Link>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div className="border-t text-center text-xs py-4 text-gray-500">
+                    &copy; {new Date().getFullYear()} Volunteer Faster. All
+                    rights reserved.
                 </div>
             </footer>
         </div>

@@ -163,17 +163,24 @@ export default function Register() {
                 <p className="mt-4 text-sm text-gray-600">
                     By registering, you agree to our{" "}
                     <Link
-                        // href={route("terms")}
+                        href={route("terms")}
                         className="text-gray-900 underline hover:text-gray-700"
                     >
                         Terms of Service
                     </Link>{" "}
-                    and{" "}
+                    ,{" "}
                     <Link
-                        // href={route("privacy")}
+                        href={route("privacy.policy")}
                         className="text-gray-900 underline hover:text-gray-700"
                     >
                         Privacy Policy
+                    </Link>{" "}
+                    and{" "}
+                    <Link
+                        href={route("gdpr")}
+                        className="text-gray-900 underline hover:text-gray-700"
+                    >
+                        GDPR Compliance
                     </Link>
                 </p>
             </div>
