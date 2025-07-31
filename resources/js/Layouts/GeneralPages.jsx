@@ -34,7 +34,7 @@ export default function GeneralPages({ children, auth }) {
                             Volunteer Programs
                         </Link>
                         <Link
-                            href="/guide"
+                            href={route("guide")}
                             className="text-gray-600 hover:text-blue-600 font-medium"
                         >
                             Volunteer Guide
@@ -128,7 +128,7 @@ export default function GeneralPages({ children, auth }) {
                                 Volunteer Programs
                             </Link>
                             <Link
-                                href="/guide"
+                                href={route("guide")}
                                 className="block text-gray-700 hover:text-blue-600 font-medium"
                             >
                                 Volunteer Guide
@@ -231,14 +231,14 @@ export default function GeneralPages({ children, auth }) {
                                     About Us
                                 </Link>
                             </li>
-                            {/* <li>
+                            <li>
                                 <Link
-                                    href="/contact"
+                                    href={route("contact")}
                                     className="hover:text-blue-600"
                                 >
                                     Contact
                                 </Link>
-                            </li> */}
+                            </li>
                         </ul>
                     </div>
 

@@ -7,10 +7,10 @@ export default function Loader(props) {
                 {/* Spinner */}
                 {/* <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div> */}
 
-                <div className="w-[50px] h-[50px] animate-spin">
+                <div className="w-[70px] h-[80px] animate-spin">
                     <img
                         {...props}
-                        src="/logo.svg" // Path to your logo in the storage folder
+                        src="/logo.png" // Path to your logo in the storage folder
                         alt="Volunteer Faster Logo"
                     />
                 </div>
