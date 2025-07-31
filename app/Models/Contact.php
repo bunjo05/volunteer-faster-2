@@ -18,7 +18,8 @@ class Contact extends Model
         'replied_at',
         'reply_message',
         'reply_subject',
-        'admin_id'
+        'admin_id',
+        'is_suspended' // Added is_active column
     ];
 
     protected $casts = [

@@ -1,7 +1,37 @@
 import AdminLayout from "@/Layouts/AdminLayout";
-import { Head, Link } from "@inertiajs/react";
+import { Head, Link, useForm } from "@inertiajs/react";
 
 export default function ContactMessagesIndex({ messages }) {
+    // const { post } = useForm({
+    //     sus,
+    // });
+    const toggleSuspension = (messageId, currentStatus) => {
+        if (
+            confirm(
+                `Are you sure you want to ${
+                    currentStatus ? "unsuspend" : "suspend"
+                } this message?`
+            )
+        ) {
+            Inertia.post(route("admin.contacts.toggle-suspension", messageId), {
+                preserveScroll: true,
+            });
+        }
+    };
+
+    const suspendUser = (userId) => {
+        if (confirm("Are you sure you want to suspend this user?")) {
+            Inertia.post(route("admin.users.suspend", userId), {
+                preserveScroll: true,
+            });
+        }
+    };
+
+    const handleSuspensionToggle = (e) => {
+        e.preventDefault();
+        post(route("admin.contacts.toggle-suspension", message.id));
+    };
+
     return (
         <AdminLayout>
             <Head title="Contact Messages" />
@@ -25,13 +55,21 @@ export default function ContactMessagesIndex({ messages }) {
                                     <div
                                         key={message.id}
                                         className={`p-4 rounded-lg border ${
-                                            message.is_read
+                                            message.is_suspended
+                                                ? "border-red-200 bg-red-50"
+                                                : message.is_read
                                                 ? "border-gray-200"
                                                 : "border-blue-200 bg-blue-50"
                                         }`}
                                     >
                                         <div className="flex justify-between items-start mb-2">
-                                            <h3 className="font-medium text-gray-900">
+                                            <h3
+                                                className={`font-medium ${
+                                                    message.is_suspended
+                                                        ? "text-gray-500 line-through"
+                                                        : "text-gray-900"
+                                                }`}
+                                            >
                                                 {message.name}
                                             </h3>
                                             <span className="text-xs text-gray-500">
@@ -40,37 +78,84 @@ export default function ContactMessagesIndex({ messages }) {
                                                 ).toLocaleDateString()}
                                             </span>
                                         </div>
-                                        <p className="text-sm text-gray-600 mb-1">
+                                        <p
+                                            className={`text-sm mb-1 ${
+                                                message.is_suspended
+                                                    ? "text-gray-400 line-through"
+                                                    : "text-gray-600"
+                                            }`}
+                                        >
                                             {message.subject}
                                         </p>
-                                        <p className="text-sm text-blue-600 mb-3">
+                                        <p
+                                            className={`text-sm mb-3 ${
+                                                message.is_suspended
+                                                    ? "text-gray-400 line-through"
+                                                    : "text-blue-600"
+                                            }`}
+                                        >
                                             {message.email}
                                         </p>
                                         <div className="flex justify-between items-center">
                                             <span
                                                 className={`px-2 py-1 text-xs rounded-full ${
-                                                    message.is_replied
+                                                    message.is_suspended
+                                                        ? "bg-gray-100 text-gray-800"
+                                                        : message.is_replied
                                                         ? "bg-green-100 text-green-800"
                                                         : message.is_read
                                                         ? "bg-blue-100 text-blue-800"
                                                         : "bg-yellow-100 text-yellow-800"
                                                 }`}
                                             >
-                                                {message.is_replied
+                                                {message.is_suspended
+                                                    ? "Suspended"
+                                                    : message.is_replied
                                                     ? "Replied"
                                                     : message.is_read
                                                     ? "Read"
                                                     : "New"}
                                             </span>
-                                            <Link
-                                                href={route(
-                                                    "admin.contacts.show",
-                                                    message.id
-                                                )}
-                                                className="text-sm text-blue-600 hover:text-blue-800"
-                                            >
-                                                View
-                                            </Link>
+                                            <div className="flex space-x-2">
+                                                <Link
+                                                    href={route(
+                                                        "admin.contacts.show",
+                                                        message.id
+                                                    )}
+                                                    className="text-sm text-blue-600 hover:text-blue-800"
+                                                >
+                                                    View
+                                                </Link>
+                                                {/* <button
+                                                    onClick={() =>
+                                                        toggleSuspension(
+                                                            message.id,
+                                                            message.is_suspended
+                                                        )
+                                                    }
+                                                    className={`text-sm ${
+                                                        message.is_suspended
+                                                            ? "text-green-600 hover:text-green-800"
+                                                            : "text-red-600 hover:text-red-800"
+                                                    }`}
+                                                >
+                                                    {message.is_suspended
+                                                        ? "Unsuspend"
+                                                        : "Suspend"}
+                                                </button> */}
+                                                {/* {message.user_id && (
+                                                    <button
+                                                        onClick={() =>
+                                                            suspendUser(
+                                                                message.user_id
+                                                            )
+                                                        }
+                                                        className="text-sm text-red-600 hover:text-red-800"
+                                                    >
+                                                        Suspend User
+                                                    </button>
+                                                )} */}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -106,22 +191,46 @@ export default function ContactMessagesIndex({ messages }) {
                                             <tr
                                                 key={message.id}
                                                 className={
-                                                    message.is_read
+                                                    message.is_suspended
+                                                        ? "bg-red-50 hover:bg-red-100"
+                                                        : message.is_read
                                                         ? "bg-white hover:bg-gray-50"
                                                         : "bg-blue-50 hover:bg-blue-100"
                                                 }
                                             >
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                <td
+                                                    className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
+                                                        message.is_suspended
+                                                            ? "text-gray-500 line-through"
+                                                            : "text-gray-900"
+                                                    }`}
+                                                >
                                                     {message.name}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                                <td
+                                                    className={`px-6 py-4 whitespace-nowrap text-sm ${
+                                                        message.is_suspended
+                                                            ? "text-gray-500 line-through"
+                                                            : "text-gray-600"
+                                                    }`}
+                                                >
                                                     {message.email}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">
+                                                <td
+                                                    className={`px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate ${
+                                                        message.is_suspended
+                                                            ? "line-through"
+                                                            : ""
+                                                    }`}
+                                                >
                                                     {message.subject}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {message.is_replied ? (
+                                                    {message.is_suspended ? (
+                                                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                                            Suspended
+                                                        </span>
+                                                    ) : message.is_replied ? (
                                                         <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                                                             Replied
                                                         </span>
@@ -135,12 +244,18 @@ export default function ContactMessagesIndex({ messages }) {
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <td
+                                                    className={`px-6 py-4 whitespace-nowrap text-sm text-gray-500 ${
+                                                        message.is_suspended
+                                                            ? "line-through"
+                                                            : ""
+                                                    }`}
+                                                >
                                                     {new Date(
                                                         message.created_at
                                                     ).toLocaleDateString()}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
                                                     <Link
                                                         href={route(
                                                             "admin.contacts.show",
@@ -150,6 +265,35 @@ export default function ContactMessagesIndex({ messages }) {
                                                     >
                                                         View
                                                     </Link>
+                                                    {/* <button
+                                                        onClick={() =>
+                                                            toggleSuspension(
+                                                                message.id,
+                                                                message.is_suspended
+                                                            )
+                                                        }
+                                                        className={`${
+                                                            message.is_suspended
+                                                                ? "text-green-600 hover:text-green-900"
+                                                                : "text-red-600 hover:text-red-900"
+                                                        } transition-colors duration-200`}
+                                                    >
+                                                        {message.is_suspended
+                                                            ? "Unsuspend"
+                                                            : "Suspend"}
+                                                    </button> */}
+                                                    {/* {message.user_id && (
+                                                        <button
+                                                            onClick={() =>
+                                                                suspendUser(
+                                                                    message.user_id
+                                                                )
+                                                            }
+                                                            className="text-red-600 hover:text-red-900 transition-colors duration-200"
+                                                        >
+                                                            Suspend User
+                                                        </button>
+                                                    )} */}
                                                 </td>
                                             </tr>
                                         ))}

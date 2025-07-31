@@ -35,12 +35,14 @@ export default function ContactMessageShow({ message }) {
                                         ).toLocaleString()}
                                     </p>
                                 </div>
-                                <Link
-                                    href={route("admin.contacts.index")}
-                                    className="text-blue-600 hover:text-blue-900"
-                                >
-                                    Back to Messages
-                                </Link>
+                                <div className="flex flex-col items-end space-y-2">
+                                    <Link
+                                        href={route("admin.contacts.index")}
+                                        className="text-blue-600 hover:text-blue-900"
+                                    >
+                                        Back to Messages
+                                    </Link>
+                                </div>
                             </div>
 
                             <div className="mb-8 p-4 bg-gray-50 rounded-lg">

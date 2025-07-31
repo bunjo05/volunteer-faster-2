@@ -488,4 +488,22 @@ class AdminsController extends Controller
         return redirect()->route('admin.contacts.index')
             ->with('success', 'Reply sent successfully!');
     }
+
+    public function toggleContactSuspension(Request $request, Contact $contact)
+    {
+        $validated = $request->validate([
+            'is_suspended' => 'required|boolean',
+        ]);
+
+        $updateData = [
+            'is_suspended' => $validated['is_suspended'],
+        ];
+
+        $contact->update($updateData);
+        // $contact->update([
+        //     'is_suspended' => !$contact->is_suspended,
+        // ]);
+
+        return back()->with('success', 'Message suspension status updated.');
+    }
 }

@@ -23,6 +23,7 @@ return new class extends Migration
             $table->string('reply_message')->nullable();
             $table->string('reply_subject')->nullable();
             $table->foreignId('admin_id')->nullable()->constrained('admins')->onDelete('set null');
+            $table->boolean('is_suspended')->default(false); // Added is_active column
             $table->timestamps();
         });
     }
