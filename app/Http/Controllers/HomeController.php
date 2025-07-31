@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Admin;
+use App\Models\Contact;
 use App\Models\Project;
 use Illuminate\Http\Request;
 use App\Models\ReportCategory;
+use App\Mail\NewContactMessage;
+use Illuminate\Support\Facades\Mail;
 
 class HomeController extends Controller
 {
@@ -54,10 +58,7 @@ class HomeController extends Controller
     {
         return inertia('Home/About');
     }
-    public function contact()
-    {
-        return inertia('Home/Contact');
-    }
+
     public function privacyPolicy()
     {
         return inertia('Home/PrivacyPolicy');
@@ -89,5 +90,30 @@ class HomeController extends Controller
             'booking' => $booking,
             'valid' => $valid,
         ]);
+    }
+
+    public function contactUs()
+    {
+        return inertia('Contact');
+    }
+
+    public function storeContactMessage(Request $request)
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'subject' => 'required|string|max:255',
+            'message' => 'required|string|max:5000',
+        ]);
+
+        $contact = Contact::create($data);
+
+        // Notify all admins
+        $admins = Admin::all();
+        foreach ($admins as $admin) {
+            Mail::to($admin->email)->send(new NewContactMessage($contact));
+        }
+
+        return redirect()->back()->with('success', 'Your message has been sent successfully!');
     }
 }

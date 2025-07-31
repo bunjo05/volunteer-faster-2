@@ -144,6 +144,10 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     Route::get('/featured-projects', [AdminsController::class, 'featuredProjects'])->name('admin.featured.projects');
     Route::put('/featured-projects/{slug}/status', [AdminsController::class, 'updateFeaturedProjectStatus'])
         ->name('admin.featured-projects.update-status');
+
+    Route::get('/contacts', [AdminsController::class, 'adminIndex'])->name('admin.contacts.index');
+    Route::get('/contacts/{contact}', [AdminsController::class, 'adminShow'])->name('admin.contacts.show');
+    Route::post('/contacts/{contact}/reply', [AdminsController::class, 'adminReply'])->name('admin.contacts.reply');
 });
 
 Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
@@ -278,5 +282,16 @@ Route::get('/cookies', function () {
 Route::get('/about-us', function () {
     return inertia('About');
 })->name('about');
+
+Route::get('/volunteer-guide', function () {
+    return inertia('Guide');
+})->name('guide');
+
+Route::get(
+    '/contact-us',
+    [HomeController::class, 'contactUs']
+)->name('contact');
+
+Route::post('/contact-us', [HomeController::class, 'storeContactMessage'])->name('contact.store');
 
 require __DIR__ . '/auth.php';

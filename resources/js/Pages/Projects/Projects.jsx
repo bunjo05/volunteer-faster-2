@@ -24,9 +24,8 @@ export default function Projects({ projects: initialProjects, auth }) {
 
         const matchesPaymentType =
             !filters.type_of_project ||
-            (filters.type_of_project === "Paid"
-                ? project.is_paid
-                : !project.is_paid);
+            project.type_of_project.toLowerCase() ===
+                filters.type_of_project.toLowerCase();
 
         const matchesLocation =
             !filters.location ||
@@ -203,12 +202,13 @@ export default function Projects({ projects: initialProjects, auth }) {
                                     <div className="absolute top-4 right-4">
                                         <span
                                             className={`px-3 py-1 rounded-full text-xs font-bold shadow-sm ${
-                                                project.type_of_project
+                                                project.type_of_project ===
+                                                "Paid"
                                                     ? "bg-purple-100 text-purple-800"
                                                     : "bg-green-100 text-green-800"
                                             }`}
                                         >
-                                            {project.type_of_project
+                                            {project.type_of_project === "Paid"
                                                 ? "Paid"
                                                 : "Free"}
                                         </span>

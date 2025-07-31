@@ -11,9 +11,9 @@ export default function GeneralPages({ children, auth }) {
         <div className="min-h-screen bg-gray-50 flex flex-col">
             {/* Navbar */}
             <header className="bg-white shadow sticky top-0 z-30">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
                     <Link href="/" className="flex items-center space-x-2">
-                        <ApplicationLogo className="h-8 w-8 text-blue-600" />
+                        <ApplicationLogo className="h-[50px] w-[40px] text-blue-600" />
                         <span className="text-xl font-bold text-gray-800">
                             Volunteer Faster
                         </span>
@@ -179,14 +179,19 @@ export default function GeneralPages({ children, auth }) {
             <main className="">{children}</main>
             <footer className="bg-white border-t mt-6">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-1 md:grid-cols-4 gap-8 text-sm text-gray-700">
-                    <div>
-                        <h4 className="text-base font-semibold text-gray-900 mb-3">
-                            Volunteer Faster
-                        </h4>
-                        <p>
-                            Connecting volunteers with meaningful causes
-                            worldwide.
-                        </p>
+                    <div className="">
+                        <div className="flex items-center justify-center space-x-1 mb-4">
+                            <ApplicationLogo className="h-[50px] w-[40px] text-blue-600 mb-2" />
+                        </div>
+                        <div className="text-center">
+                            <h4 className="text-base font-bold text-gray-900 mb-3">
+                                Volunteer Faster
+                            </h4>
+                            <p>
+                                Connecting volunteers with meaningful causes
+                                worldwide.
+                            </p>
+                        </div>
                     </div>
 
                     <div>
@@ -212,7 +217,7 @@ export default function GeneralPages({ children, auth }) {
                             </li>
                             <li>
                                 <Link
-                                    href="/guide"
+                                    href={route("guide")}
                                     className="hover:text-blue-600"
                                 >
                                     Volunteer Guide
@@ -220,20 +225,20 @@ export default function GeneralPages({ children, auth }) {
                             </li>
                             <li>
                                 <Link
-                                    href="/about"
+                                    href={route("about")}
                                     className="hover:text-blue-600"
                                 >
                                     About Us
                                 </Link>
                             </li>
-                            <li>
+                            {/* <li>
                                 <Link
                                     href="/contact"
                                     className="hover:text-blue-600"
                                 >
                                     Contact
                                 </Link>
-                            </li>
+                            </li> */}
                         </ul>
                     </div>
 
@@ -306,14 +311,14 @@ export default function GeneralPages({ children, auth }) {
                                     Testimonials
                                 </Link>
                             </li>
-                            <li>
+                            {/* <li>
                                 <Link
                                     href="/accessibility"
                                     className="hover:text-blue-600"
                                 >
                                     Accessibility
                                 </Link>
-                            </li>
+                            </li> */}
                         </ul>
                     </div>
                 </div>

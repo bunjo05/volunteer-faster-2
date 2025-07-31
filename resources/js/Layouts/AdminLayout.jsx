@@ -269,6 +269,13 @@ export default function AdminLayout({ children }) {
                         <Users size={18} />
                         Manage Users
                     </Link>
+                    <Link
+                        href={route("admin.contacts.index")}
+                        className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
+                    >
+                        <Users size={18} />
+                        User Contacts
+                    </Link>
 
                     <Link
                         href={route("logout")}

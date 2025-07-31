@@ -1,38 +1,32 @@
 import "../css/app.css";
 import "./bootstrap";
-
 import { router } from "@inertiajs/react";
 import { createInertiaApp } from "@inertiajs/react";
 import { resolvePageComponent } from "laravel-vite-plugin/inertia-helpers";
 import { createRoot } from "react-dom/client";
+import Loader from "./Components/Loader";
+import { LoadingProvider, useLoading } from "./Context/LoadingContext"; // Add useLoading import
+import { useEffect } from "react"; // Add useEffect import
 
 const appName = import.meta.env.VITE_APP_NAME || "Laravel";
 
-router.on("error", (error) => {
-    if (error.response?.status === 403) {
-        window.location.href = "/login"; // Full page reload to ensure clean state
-    }
+router.on("start", () => {
+    const { setIsLoading } = window.loadingContext || {};
+    if (setIsLoading) setIsLoading(true);
 });
 
-// Add this to your main application setup (e.g., app.js)
-axios.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        if (
-            error.message.includes("Network Error") ||
-            error.message.includes("ERR_NETWORK_CHANGED")
-        ) {
-            // Handle network errors globally
-            console.log("Network error detected, retrying...");
-            return new Promise((resolve) => {
-                setTimeout(() => {
-                    resolve(axios.request(error.config));
-                }, 1000);
-            });
-        }
-        return Promise.reject(error);
+router.on("finish", () => {
+    const { setIsLoading } = window.loadingContext || {};
+    if (setIsLoading) setIsLoading(false);
+});
+
+router.on("error", (error) => {
+    if (error.response?.status === 403) {
+        window.location.href = "/login";
     }
-);
+    const { setIsLoading } = window.loadingContext || {};
+    if (setIsLoading) setIsLoading(false);
+});
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
@@ -43,13 +37,34 @@ createInertiaApp({
         ),
     setup({ el, App, props }) {
         const root = createRoot(el);
-
-        // Calculate points if user is authenticated
         const userPoints = props.initialPage.props.auth?.user
             ? props.initialPage.props.auth.user.points || 0
             : 0;
 
         root.render(
+            <LoadingProvider>
+                <AppWrapper App={App} props={props} userPoints={userPoints} />
+            </LoadingProvider>
+        );
+    },
+    progress: {
+        color: "#4B5563",
+    },
+});
+
+function AppWrapper({ App, props, userPoints }) {
+    const { isLoading, setIsLoading } = useLoading(); // Now properly imported
+
+    useEffect(() => {
+        window.loadingContext = { setIsLoading };
+        return () => {
+            window.loadingContext = null;
+        };
+    }, [setIsLoading]);
+
+    return (
+        <>
+            {isLoading && <Loader />}
             <App
                 {...props}
                 initialPage={{
@@ -60,9 +75,6 @@ createInertiaApp({
                     },
                 }}
             />
-        );
-    },
-    progress: {
-        color: "#4B5563",
-    },
-});
+        </>
+    );
+}

@@ -3,6 +3,7 @@ import { Link } from "@inertiajs/react";
 import CountUp from "react-countup";
 import { useInView } from "react-intersection-observer";
 import { useEffect, useRef, useState } from "react";
+import { useSwipeable } from "react-swipeable"; // Add this import at the top
 
 export default function Home({ projects, auth }) {
     const testimonials = [
@@ -44,6 +45,14 @@ export default function Home({ projects, auth }) {
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
 
+    // Add swipe handlers
+    const swipeHandlers = useSwipeable({
+        onSwipedLeft: () => handleNext(),
+        onSwipedRight: () => handlePrev(),
+        preventDefaultTouchmoveEvent: true,
+        trackMouse: true,
+    });
+
     const featuredProjects =
         projects?.filter((project) => {
             return project.featured_projects?.find(
@@ -51,15 +60,17 @@ export default function Home({ projects, auth }) {
             );
         }) || [];
 
-    // Auto-advance to next project
+    // Update your auto-advance useEffect to handle mobile
     useEffect(() => {
-        if (featuredProjects.length <= 3 || isHovered) return;
+        if (featuredProjects.length <= getVisibleSlides() || isHovered) return;
 
         const interval = setInterval(() => {
             setIsTransitioning(true);
             setTimeout(() => {
                 setCurrentIndex(
-                    (prev) => (prev + 1) % (featuredProjects.length - 2)
+                    (prev) =>
+                        (prev + 1) %
+                        (featuredProjects.length - (getVisibleSlides() - 1))
                 );
                 setIsTransitioning(false);
             }, 500);
@@ -68,8 +79,15 @@ export default function Home({ projects, auth }) {
         return () => clearInterval(interval);
     }, [featuredProjects.length, currentIndex, isHovered]);
 
+    // Helper function to get visible slides based on screen size
+    const getVisibleSlides = () => {
+        if (typeof window === "undefined") return 3; // SSR fallback
+        return window.innerWidth < 768 ? 1 : window.innerWidth < 1024 ? 2 : 3;
+    };
+
+    // Update your handleNext and handlePrev functions
     const handlePrev = () => {
-        if (featuredProjects.length <= 3) return;
+        if (featuredProjects.length <= getVisibleSlides()) return;
         setIsTransitioning(true);
         setTimeout(() => {
             setCurrentIndex((prev) => Math.max(0, prev - 1));
@@ -78,11 +96,11 @@ export default function Home({ projects, auth }) {
     };
 
     const handleNext = () => {
-        if (featuredProjects.length <= 3) return;
+        if (featuredProjects.length <= getVisibleSlides()) return;
         setIsTransitioning(true);
         setTimeout(() => {
             setCurrentIndex((prev) =>
-                Math.min(featuredProjects.length - 3, prev + 1)
+                Math.min(featuredProjects.length - getVisibleSlides(), prev + 1)
             );
             setIsTransitioning(false);
         }, 500);
@@ -126,7 +144,7 @@ export default function Home({ projects, auth }) {
                                 Join as Volunteer
                             </Link>
                             <Link
-                                href="/register-organization"
+                                href="/register"
                                 className="px-6 py-3 rounded-full border-2 border-white text-white font-bold hover:bg-white/10 transition-all duration-300 hover:scale-105"
                             >
                                 Register Organization
@@ -266,7 +284,6 @@ export default function Home({ projects, auth }) {
             </section>
 
             {/* Featured Volunteer Projects - Streamlined */}
-            {/* Featured Volunteer Projects - Streamlined */}
             <section className="py-16 bg-gray-50 px-4 sm:px-6">
                 <div className="max-w-6xl mx-auto">
                     <div className="text-center mb-12">
@@ -284,7 +301,10 @@ export default function Home({ projects, auth }) {
                             onMouseEnter={() => setIsHovered(true)}
                             onMouseLeave={() => setIsHovered(false)}
                         >
-                            <div className="relative overflow-hidden">
+                            <div
+                                className="relative overflow-hidden"
+                                {...swipeHandlers}
+                            >
                                 <div
                                     className={`flex transition-transform duration-500 ease-in-out ${
                                         isTransitioning
@@ -294,16 +314,7 @@ export default function Home({ projects, auth }) {
                                     style={{
                                         transform: `translateX(-${
                                             currentIndex *
-                                            (100 /
-                                                Math.min(
-                                                    featuredProjects.length,
-                                                    window.innerWidth < 768
-                                                        ? 1
-                                                        : window.innerWidth <
-                                                          1024
-                                                        ? 2
-                                                        : 3
-                                                ))
+                                            (100 / getVisibleSlides())
                                         }%)`,
                                     }}
                                 >
@@ -405,7 +416,7 @@ export default function Home({ projects, auth }) {
                             </div>
 
                             {/* Navigation arrows */}
-                            {featuredProjects.length > 3 && (
+                            {featuredProjects.length > getVisibleSlides() && (
                                 <>
                                     <button
                                         onClick={handlePrev}
@@ -430,7 +441,8 @@ export default function Home({ projects, auth }) {
                                         onClick={handleNext}
                                         disabled={
                                             currentIndex >=
-                                            featuredProjects.length - 3
+                                            featuredProjects.length -
+                                                getVisibleSlides()
                                         }
                                         className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-blue-800 w-10 h-10 rounded-full shadow-md items-center justify-center z-10 transition-all hover:scale-110 disabled:opacity-30 disabled:cursor-not-allowed"
                                     >
@@ -456,7 +468,7 @@ export default function Home({ projects, auth }) {
                                 {Array.from({
                                     length: Math.ceil(
                                         featuredProjects.length /
-                                            (window.innerWidth < 768 ? 1 : 2)
+                                            getVisibleSlides()
                                     ),
                                 }).map((_, index) => (
                                     <button

@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Inertia\Inertia;
+use App\Models\Contact;
 use App\Models\Payment;
 use App\Models\Project;
-use App\Models\Category;
 
+use App\Models\Category;
+use App\Mail\ContactReply;
 use App\Models\Subcategory;
 use Illuminate\Http\Request;
 use App\Models\ProjectRemark;
@@ -441,5 +443,49 @@ class AdminsController extends Controller
         $featuredProject->save();
 
         return redirect()->back()->with('success', 'Featured project status updated and user notified.');
+    }
+
+    public function adminIndex()
+    {
+        $messages = Contact::latest()->paginate(10);
+        return Inertia::render('Admins/Contacts/Index', [
+            'messages' => $messages
+        ]);
+    }
+
+    public function adminShow(Contact $contact)
+    {
+        // Mark as read when admin opens the message
+        if (!$contact->is_read) {
+            $contact->update(['is_read' => true]);
+        }
+
+        return Inertia::render('Admins/Contacts/Show', [
+            'message' => $contact->load('admin')
+        ]);
+    }
+
+    public function adminReply(Request $request, Contact $contact)
+    {
+        $validated = $request->validate([
+            'reply_subject' => 'required|string|max:255',
+            'reply_message' => 'required|string|max:5000',
+        ]);
+
+        $updateData = [
+            'is_replied' => true,
+            'replied_at' => now(),
+            'reply_subject' => $validated['reply_subject'],
+            'reply_message' => $validated['reply_message'],
+            'admin_id' => auth()->guard('admin')->id()
+        ];
+
+        $contact->update($updateData);
+
+        // Send reply email to the original sender
+        Mail::to($contact->email)->send(new ContactReply($contact));
+
+        return redirect()->route('admin.contacts.index')
+            ->with('success', 'Reply sent successfully!');
     }
 }
