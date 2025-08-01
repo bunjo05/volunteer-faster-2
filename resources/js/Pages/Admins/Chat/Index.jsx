@@ -27,9 +27,10 @@ export default function AdminChatIndex({
     const [chats, setChats] = useState(initialChats || []);
     const [requests, setRequests] = useState(initialRequests || []);
     const [endedChats, setEndedChats] = useState(initialEndedChats || []);
-    const [activeTab, setActiveTab] = useState("chats"); // 'chats', 'requests', or 'ended'
+    const [activeTab, setActiveTab] = useState("chats");
     const messagesEndRef = useRef(null);
     const messageRefs = useRef({});
+    const echoListeners = useRef({});
 
     // Close sidebar when chat is selected on mobile
     useEffect(() => {
@@ -38,53 +39,98 @@ export default function AdminChatIndex({
         }
     }, [selectedChat]);
 
+    // Add this to your Echo setup
     useEffect(() => {
-        if (window.Echo) {
-            const allConversations = [...chats, ...requests];
-            const listeners = allConversations.map((chat) => {
-                const channel = window.Echo.private(`chat.${chat.id}`);
+        if (!window.Echo || !selectedChat) return;
 
-                channel.listen(".NewChatMessage", (e) => {
-                    if (selectedChat && selectedChat.id === e.chatId) {
-                        setSelectedChat((prev) => ({
-                            ...prev,
-                            messages: [...(prev.messages || []), e.message],
-                        }));
-                    }
+        const readStatusChannel = window.Echo.private(
+            `chat.${selectedChat.id}`
+        );
 
-                    const updateList = (list) =>
-                        list.map((c) => {
-                            if (c.id === e.chatId) {
-                                return {
-                                    ...c,
-                                    latestMessage: {
-                                        message: e.message.content,
-                                        created_at: e.message.created_at,
-                                    },
-                                    unreadCount:
-                                        e.message.sender_type ===
-                                        "App\\Models\\User"
-                                            ? (c.unreadCount || 0) + 1
-                                            : c.unreadCount,
-                                };
-                            }
-                            return c;
-                        });
+        readStatusChannel.listen(".MessageRead", (e) => {
+            if (e.chatId === selectedChat.id) {
+                setSelectedChat((prev) => ({
+                    ...prev,
+                    messages: (prev.messages || []).map((msg) =>
+                        msg.sender_id === auth.user.id && msg.status !== "Read"
+                            ? { ...msg, status: "Read" }
+                            : msg
+                    ),
+                }));
+            }
+        });
 
-                    setChats(updateList(chats));
-                    setRequests(updateList(requests));
-                });
+        return () => {
+            readStatusChannel.stopListening(".MessageRead");
+        };
+    }, [selectedChat?.id]);
 
-                return channel;
+    const handleNewMessage = (e) => {
+        const { message, chatId } = e;
+
+        // Update selected chat if it's the current one
+        if (selectedChat && selectedChat.id === chatId) {
+            setSelectedChat((prev) => {
+                // Check if message already exists (including optimistic messages)
+                const messageExists = prev.messages?.some(
+                    (m) =>
+                        m.id === message.id ||
+                        (m.status === "Sending" &&
+                            m.content === message.content)
+                );
+                if (messageExists) {
+                    // Replace optimistic message with real one
+                    return {
+                        ...prev,
+                        messages: prev.messages.map((m) =>
+                            m.id === message.id ||
+                            (m.status === "Sending" &&
+                                m.content === message.content)
+                                ? message
+                                : m
+                        ),
+                        latestMessage: {
+                            message: message.content,
+                            created_at: message.created_at,
+                        },
+                    };
+                }
+
+                return {
+                    ...prev,
+                    messages: [...(prev.messages || []), message],
+                    latestMessage: {
+                        message: message.content,
+                        created_at: message.created_at,
+                    },
+                };
+            });
+        }
+
+        // Update chat lists more efficiently
+        const updateChatList = (list) =>
+            list.map((chat) => {
+                if (chat.id === chatId) {
+                    return {
+                        ...chat,
+                        latestMessage: {
+                            message: message.content,
+                            created_at: message.created_at,
+                        },
+                        unreadCount:
+                            message.sender_type === "App\\Models\\User" &&
+                            (!selectedChat || selectedChat.id !== chatId)
+                                ? (chat.unreadCount || 0) + 1
+                                : chat.unreadCount,
+                    };
+                }
+                return chat;
             });
 
-            return () => {
-                listeners.forEach((channel) => {
-                    channel.stopListening(".NewChatMessage");
-                });
-            };
-        }
-    }, [chats, requests, endedChats, selectedChat]);
+        setChats(updateChatList(chats));
+        setRequests(updateChatList(requests));
+        setEndedChats(updateChatList(endedChats));
+    };
 
     const filteredChats = chats.filter(
         (chat) =>
@@ -129,49 +175,69 @@ export default function AdminChatIndex({
         )
             return;
 
-        try {
-            const tempId = Date.now();
-            const newMsg = {
-                id: tempId,
+        const tempId = Date.now();
+        const newMsg = {
+            id: tempId,
+            content: newMessage,
+            sender_id: auth.user.id,
+            sender_type: "App\\Models\\Admin",
+            created_at: new Date().toISOString(),
+            status: "Sending",
+            reply_to: replyToMessage?.id || null,
+            original_message: replyToMessage || null,
+            sender: {
+                id: auth.user.id,
+                name: auth.user.name,
+                email: auth.user.email,
+            },
+        };
+
+        // Optimistic update
+        setSelectedChat((prev) => ({
+            ...prev,
+            messages: [...(prev.messages || []), newMsg],
+            latestMessage: {
                 message: newMessage,
-                sender_id: auth.user.id,
-                sender_type: "App\\Models\\Admin",
                 created_at: new Date().toISOString(),
-                status: "Sent",
-                reply_to: replyToMessage?.id || null,
-                original_message: replyToMessage || null,
-                sender: {
-                    id: auth.user.id,
-                    name: auth.user.name,
-                    email: auth.user.email,
-                },
-            };
+            },
+        }));
 
-            setSelectedChat((prev) => ({
-                ...prev,
-                messages: [...(prev.messages || []), newMsg],
-                latestMessage: {
-                    message: newMessage,
-                    created_at: new Date().toISOString(),
-                },
-            }));
+        setNewMessage("");
+        setIsReplying(false);
+        setReplyToMessage(null);
 
-            setNewMessage("");
-            setIsReplying(false);
-            setReplyToMessage(null);
-
-            await router.post(
+        try {
+            const response = await router.post(
                 route("admin.chat.store", selectedChat.id),
                 {
                     content: newMessage,
                     reply_to: replyToMessage?.id || null,
+                    temp_id: tempId,
                 },
                 {
                     preserveScroll: true,
+                    onSuccess: () => {
+                        // No need to remove temp message here - Echo will handle it
+                    },
+                    onError: () => {
+                        // Mark as failed if there's an error
+                        setSelectedChat((prev) => ({
+                            ...prev,
+                            messages: (prev.messages || []).map((m) =>
+                                m.id === tempId ? { ...m, status: "Failed" } : m
+                            ),
+                        }));
+                    },
                 }
             );
         } catch (error) {
             console.error("Error sending message:", error);
+            setSelectedChat((prev) => ({
+                ...prev,
+                messages: (prev.messages || []).map((m) =>
+                    m.id === tempId ? { ...m, status: "Failed" } : m
+                ),
+            }));
         }
     };
 

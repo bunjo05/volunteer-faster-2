@@ -6,6 +6,7 @@ use App\Models\Chat;
 use App\Models\User;
 use Inertia\Inertia;
 use App\Models\Admin;
+use App\Events\MessageRead;
 use App\Models\ChatMessage;
 use Illuminate\Http\Request;
 use App\Events\NewChatMessage;
@@ -57,7 +58,7 @@ class ChatController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, Chat $chat)
     {
         $request->validate([
             'content' => 'required|string',
@@ -72,10 +73,10 @@ class ChatController extends Controller
             abort(403);
         }
 
-        $message = $chat->chatMessages()->create([
+        $message = $chat->messages()->create([
             'content' => $request->content,
-            'sender_id' => $user->id,
-            'sender_type' => get_class($user)
+            'sender_id' => auth()->id(),
+            'sender_type' => get_class(auth()->user()),
         ]);
 
         // Load the sender relationship
@@ -94,13 +95,9 @@ class ChatController extends Controller
         ];
 
         // Always broadcast the message
-        broadcast(new NewChatMessage($formattedMessage, $chat->id))->toOthers();
+        broadcast(new NewChatMessage($formattedMessage, $chat->id));
 
-        return back();
-        // response()->json([
-        // 'success' => true,
-        // 'message' => $formattedMessage
-        // ]);
+        return response()->json(['success' => true]);
     }
 
     public function acceptChat(Request $request, Chat $chat)
@@ -157,14 +154,28 @@ class ChatController extends Controller
 
         return response()->json(['success' => true]);
     }
-    public function markAsRead(Chat $chat)
+    public function markAsRead(Request $request, Chat $chat)
     {
-        $chat->chatMessages()
+        $user = Auth::user();
+
+        // Verify user is part of this chat
+        if (!$chat->participants()->where('user_id', $user->id)->exists()) {
+            abort(403);
+        }
+
+        // Mark all admin messages as read
+        $updated = $chat->messages()
+            ->where('sender_type', 'App\Models\Admin')
             ->whereNull('read_at')
-            ->where('sender_type', Admin::class)
             ->update(['read_at' => now()]);
 
-        return response()->json(['success' => true]);
+        // Broadcast the read status update
+        broadcast(new MessageRead($chat->id, now()))->toOthers();
+
+        return response()->json([
+            'success' => true,
+            'updated_count' => $updated
+        ]);
     }
 
 
@@ -313,7 +324,8 @@ class ChatController extends Controller
 
         $request->validate([
             'content' => 'required|string|max:1000',
-            'reply_to' => 'nullable|exists:chat_messages,id'
+            'reply_to' => 'nullable|exists:chat_messages,id',
+            'temp_id' => 'nullable' // Add temp_id validation
         ]);
 
         $message = $chat->messages()->create([
@@ -326,9 +338,16 @@ class ChatController extends Controller
         // Load the sender relationship
         $message->load('sender');
 
-        // Pass both message and chat ID to the event
+        // Include temp_id in broadcast for client-side matching
+        $message->temp_id = $request->temp_id;
+
         broadcast(new NewChatMessage($message, $chat->id))->toOthers();
-        return back();
+
+        return response()->json([
+            'success' => true,
+            'message_id' => $message->id,
+            'temp_id' => $request->temp_id
+        ]);
     }
     public function AdminMarkAsRead(Chat $chat)
     {

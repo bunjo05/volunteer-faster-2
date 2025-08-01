@@ -30,6 +30,14 @@ export default function Bookings({ bookings: initialBookings }) {
     const [selectedStatus, setSelectedStatus] = useState(null);
     const [selectedBookingId, setSelectedBookingId] = useState(null);
 
+    const statusColors = {
+        Pending: "bg-amber-100 text-amber-800",
+        Approved: "bg-emerald-100 text-emerald-800",
+        Cancelled: "bg-rose-100 text-rose-800",
+        Completed: "bg-indigo-100 text-indigo-800",
+        Rejected: "bg-red-100 text-red-800",
+    };
+
     const openConfirmationDialog = (bookingId, newStatus) => {
         setSelectedBookingId(bookingId);
         setSelectedStatus(newStatus);
@@ -120,14 +128,6 @@ export default function Bookings({ bookings: initialBookings }) {
         return activeBooking.payments.some(
             (payment) => payment.status === "deposit_paid"
         );
-    };
-
-    const statusColors = {
-        Pending: "bg-amber-100 text-amber-800",
-        Approved: "bg-emerald-100 text-emerald-800",
-        Cancelled: "bg-rose-100 text-rose-800",
-        Completed: "bg-indigo-100 text-indigo-800",
-        Rejected: "bg-red-100 text-red-800",
     };
 
     return (
@@ -246,12 +246,28 @@ export default function Bookings({ bookings: initialBookings }) {
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <span className="text-sm text-gray-500">
-                                                            {
-                                                                booking.project
-                                                                    .title
-                                                            }
-                                                        </span>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <span className="text-sm text-gray-500">
+                                                                {
+                                                                    booking
+                                                                        .project
+                                                                        .title
+                                                                }
+                                                            </span>
+                                                            <span
+                                                                className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+                                                                    statusColors[
+                                                                        booking
+                                                                            .booking_status
+                                                                    ] ||
+                                                                    "bg-gray-100 text-gray-800"
+                                                                }`}
+                                                            >
+                                                                {
+                                                                    booking.booking_status
+                                                                }
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <ChevronRight
@@ -658,30 +674,44 @@ export default function Bookings({ bookings: initialBookings }) {
 
                                                         <div className="flex flex-wrap gap-2">
                                                             {[
+                                                                // Always show Approved
                                                                 {
                                                                     value: "Approved",
                                                                     icon: (
                                                                         <Check className="w-4 h-4 mr-1" />
                                                                     ),
                                                                 },
-                                                                {
-                                                                    value: "Cancelled",
-                                                                    icon: (
-                                                                        <Ban className="w-4 h-4 mr-1" />
-                                                                    ),
-                                                                },
-                                                                {
-                                                                    value: "Completed",
-                                                                    icon: (
-                                                                        <Check className="w-4 h-4 mr-1" />
-                                                                    ),
-                                                                },
-                                                                {
-                                                                    value: "Rejected",
-                                                                    icon: (
-                                                                        <X className="w-4 h-4 mr-1" />
-                                                                    ),
-                                                                },
+                                                                // Only show Rejected when status is Pending
+                                                                ...(activeBooking.booking_status ===
+                                                                "Pending"
+                                                                    ? [
+                                                                          {
+                                                                              value: "Rejected",
+                                                                              icon: (
+                                                                                  <X className="w-4 h-4 mr-1" />
+                                                                              ),
+                                                                          },
+                                                                      ]
+                                                                    : []),
+                                                                // Only show Cancelled and Completed if status is Approved
+                                                                ...(activeBooking.booking_status ===
+                                                                "Approved"
+                                                                    ? [
+                                                                          {
+                                                                              value: "Cancelled",
+                                                                              icon: (
+                                                                                  <Ban className="w-4 h-4 mr-1" />
+                                                                              ),
+                                                                          },
+                                                                          {
+                                                                              value: "Completed",
+                                                                              icon: (
+                                                                                  <Check className="w-4 h-4 mr-1" />
+                                                                              ),
+                                                                          },
+                                                                      ]
+                                                                    : []),
+                                                                // Show Pending if current status is Pending
                                                                 ...(activeBooking.booking_status ===
                                                                     "Pending" ||
                                                                 (statusChanges[
@@ -763,6 +793,10 @@ export default function Bookings({ bookings: initialBookings }) {
                                                                 <Dialog.Panel className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
                                                                     <div className="flex items-center gap-3 mb-4">
                                                                         {selectedStatus ===
+                                                                            "Pending" && (
+                                                                            <Clock className="w-8 h-8 text-amber-500" />
+                                                                        )}
+                                                                        {selectedStatus ===
                                                                             "Approved" && (
                                                                             <Check className="w-8 h-8 text-emerald-500" />
                                                                         )}
@@ -778,10 +812,7 @@ export default function Bookings({ bookings: initialBookings }) {
                                                                             "Rejected" && (
                                                                             <X className="w-8 h-8 text-red-500" />
                                                                         )}
-                                                                        {selectedStatus ===
-                                                                            "Pending" && (
-                                                                            <Clock className="w-8 h-8 text-amber-500" />
-                                                                        )}
+
                                                                         <Dialog.Title className="text-lg font-medium text-gray-900">
                                                                             Confirm
                                                                             Status

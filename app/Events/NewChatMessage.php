@@ -26,30 +26,27 @@ class NewChatMessage implements ShouldBroadcastNow
 
     public function broadcastOn()
     {
-        return new PrivateChannel('chat.' . $this->chatId);
+        return new PrivateChannel("chat.{$this->chatId}");
     }
 
     public function broadcastAs()
     {
-        return 'NewChatMessage';
+        return 'message.sent';
     }
 
     public function broadcastWith()
     {
-        // Ensure consistent message format
-        $messageData = is_array($this->message) ? $this->message : [
-            'id' => $this->message->id,
-            'content' => $this->message->content,
-            'sender_id' => $this->message->sender_id,
-            'sender_type' => $this->message->sender_type,
-            'created_at' => $this->message->created_at->toISOString(),
-            'status' => 'Sent',
-            'sender' => $this->message->sender,
-            'is_admin' => $this->message->sender_type === 'App\Models\Admin'
-        ];
-
         return [
-            'message' => $messageData,
+            'message' => [
+                'id' => $this->message['id'] ?? $this->message->id,
+                'content' => $this->message['content'] ?? $this->message->content,
+                'sender_id' => $this->message['sender_id'] ?? $this->message->sender_id,
+                'sender_type' => $this->message['sender_type'] ?? $this->message->sender_type,
+                'created_at' => $this->message['created_at'] ?? $this->message->created_at->toISOString(),
+                'status' => 'Sent',
+                'sender' => $this->message['sender'] ?? $this->message->sender,
+                'temp_id' => $this->message['temp_id'] ?? ($this->message->temp_id ?? null),
+            ],
             'chatId' => $this->chatId
         ];
     }

@@ -12,8 +12,12 @@ export default function FloatingChat() {
     const [showChatList, setShowChatList] = useState(true);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [chatLimitError, setChatLimitError] = useState(null); // New state for chat limit error
+    const [chatLimitError, setChatLimitError] = useState(null);
     const messagesEndRef = useRef(null);
+    const echoChannel = useRef(null);
+
+    // Add this state to track success message
+    const [successMessage, setSuccessMessage] = useState(null);
 
     const { data, setData, post, processing, reset } = useForm({
         content: "",
@@ -25,7 +29,106 @@ export default function FloatingChat() {
         (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
     );
 
-    // Fetch chats when opening
+    // Add this useEffect hook to listen for read status updates
+    useEffect(() => {
+        if (!isOpen || !chat?.id || !window.Echo) return;
+
+        const channel = window.Echo.private(`chat.${chat.id}`);
+
+        // Listen for message read events
+        channel.listen(".MessageRead", (e) => {
+            setMessages((prev) =>
+                prev.map((msg) =>
+                    msg.sender_type === "App\\Models\\Admin" && !msg.read_at
+                        ? { ...msg, read_at: e.timestamp, status: "Read" }
+                        : msg
+                )
+            );
+
+            // Update unread count in chat list
+            setChats((prev) =>
+                prev.map((c) =>
+                    c.id === chat.id ? { ...c, unread_count: 0 } : c
+                )
+            );
+        });
+
+        return () => {
+            channel.stopListening(".MessageRead");
+        };
+    }, [chat?.id, isOpen]);
+
+    const handleNewMessage = (e) => {
+        const { message, chatId } = e;
+
+        // Update selected chat if it's the current one
+        if (selectedChat && selectedChat.id === chatId) {
+            setSelectedChat((prev) => {
+                // Check if message already exists (including optimistic messages)
+                const messageExists = prev.messages?.some(
+                    (m) =>
+                        m.id === message.id ||
+                        (m.status === "Sending" &&
+                            m.content === message.content)
+                );
+                if (messageExists) {
+                    // Replace optimistic message with real one
+                    return {
+                        ...prev,
+                        messages: prev.messages.map((m) =>
+                            m.id === message.id ||
+                            (m.status === "Sending" &&
+                                m.content === message.content)
+                                ? message
+                                : m
+                        ),
+                        latestMessage: {
+                            message: message.content,
+                            created_at: message.created_at,
+                        },
+                    };
+                }
+
+                return {
+                    ...prev,
+                    messages: [...(prev.messages || []), message],
+                    latestMessage: {
+                        message: message.content,
+                        created_at: message.created_at,
+                    },
+                };
+            });
+        }
+
+        // Update chat lists more efficiently
+        const updateChatList = (list) =>
+            list.map((chat) => {
+                if (chat.id === chatId) {
+                    return {
+                        ...chat,
+                        latestMessage: {
+                            message: message.content,
+                            created_at: message.created_at,
+                        },
+                        unreadCount:
+                            message.sender_type === "App\\Models\\User" &&
+                            (!selectedChat || selectedChat.id !== chatId)
+                                ? (chat.unreadCount || 0) + 1
+                                : chat.unreadCount,
+                    };
+                }
+                return chat;
+            });
+
+        setChats(updateChatList(chats));
+        setRequests(updateChatList(requests));
+        setEndedChats(updateChatList(endedChats));
+    };
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
     useEffect(() => {
         if (isOpen) {
             fetchChats();
@@ -38,51 +141,8 @@ export default function FloatingChat() {
     const handleCloseChat = () => {
         setIsOpen(false);
         setShowChatList(true);
-        setChatLimitError(null); // Clear error when closing chat
+        setChatLimitError(null);
     };
-
-    // Setup Echo listener
-    useEffect(() => {
-        if (!isOpen || !window.Echo || !data.chat_id) return;
-
-        const channel = window.Echo.private(`chat.${data.chat_id}`);
-
-        channel.listen(".NewChatMessage", (e) => {
-            setMessages((prev) => {
-                if (!e.message?.id) return prev;
-
-                const isOwnMessage = e.message.sender_id === auth.user.id;
-                const isNewMessage = !prev.some(
-                    (msg) => msg.id === e.message.id
-                );
-
-                if (isNewMessage) {
-                    if (isOwnMessage) {
-                        return prev.map((msg) =>
-                            msg.status === "Sending" &&
-                            msg.sender_id === auth.user.id
-                                ? e.message
-                                : msg
-                        );
-                    }
-                    return [...prev, e.message];
-                }
-                return prev;
-            });
-
-            if (e.message?.sender_type === "App\\Models\\Admin") {
-                axios.post(`/volunteer/chat/${data.chat_id}/read`);
-            }
-            setTimeout(scrollToBottom, 100);
-        });
-
-        return () => channel.stopListening(".NewChatMessage");
-    }, [isOpen, data.chat_id, auth.user.id]);
-
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    };
-    useEffect(scrollToBottom, [messages]);
 
     const fetchChats = async () => {
         setLoading(true);
@@ -94,7 +154,6 @@ export default function FloatingChat() {
                     (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
                 ) || [];
 
-            // Remove the default status assignment - just use the status from backend
             setChats(sorted);
 
             if (sorted.length > 0 && !chat) {
@@ -113,6 +172,7 @@ export default function FloatingChat() {
         }
     };
 
+    // Modify fetchMessages to properly mark messages as read
     const fetchMessages = async (chatId) => {
         try {
             const response = await axios.get(
@@ -121,6 +181,31 @@ export default function FloatingChat() {
             setMessages(response.data.messages || []);
             setData("chat_id", chatId);
             setShowChatList(false);
+
+            // Mark messages as read when opening chat
+            if (chatId) {
+                await axios.post(`/volunteer/chat/${chatId}/read`);
+
+                // Update local state immediately
+                setMessages((prev) =>
+                    prev.map((msg) =>
+                        msg.sender_type === "App\\Models\\Admin" && !msg.read_at
+                            ? {
+                                  ...msg,
+                                  read_at: new Date().toISOString(),
+                                  status: "Read",
+                              }
+                            : msg
+                    )
+                );
+
+                // Update unread count in chat list
+                setChats((prev) =>
+                    prev.map((c) =>
+                        c.id === chatId ? { ...c, unread_count: 0 } : c
+                    )
+                );
+            }
         } catch (error) {
             console.error("Fetch messages error:", error);
             setError(
@@ -133,13 +218,12 @@ export default function FloatingChat() {
 
     const startNewChat = async () => {
         setLoading(true);
-        setChatLimitError(null); // Clear previous errors
+        setChatLimitError(null);
         try {
             const response = await axios.post("/volunteer/chat/new");
 
             if (response.data.error) {
                 if (response.data.existing_chat) {
-                    // If there's an existing pending chat, open it instead
                     setChat(response.data.existing_chat);
                     setChats((prev) => [response.data.existing_chat, ...prev]);
                     fetchMessages(response.data.existing_chat.id);
@@ -173,6 +257,7 @@ export default function FloatingChat() {
         }
     };
 
+    // Modify the handleSubmit function
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!data.content.trim()) return;
@@ -192,34 +277,25 @@ export default function FloatingChat() {
             },
         };
 
-        // Optimistic update - add message immediately
+        // Optimistic update
         setMessages((prev) => [...prev, optimisticMessage]);
         setData("content", "");
-        setTimeout(scrollToBottom, 100);
+        scrollToBottom();
 
         try {
             const chatId = data.chat_id || (chat?.id ?? null);
-            if (!chatId) {
-                throw new Error("No chat session available");
-            }
+            if (!chatId) throw new Error("No chat session available");
 
-            await router.post(
-                route("volunteer.chat.store"),
-                {
-                    content: data.content,
-                    chat_id: chatId,
-                    temp_id: tempId,
-                },
-                {
-                    preserveScroll: true,
-                    onError: (errors) => {
-                        setError(errors?.message || "Failed to send message");
-                        setMessages((prev) =>
-                            prev.filter((msg) => msg.id !== tempId)
-                        );
-                    },
-                }
-            );
+            const response = await axios.post(route("volunteer.chat.store"), {
+                content: data.content,
+                chat_id: chatId,
+                temp_id: tempId,
+            });
+
+            if (response.data.success) {
+                setSuccessMessage("Message sent successfully");
+                setTimeout(() => setSuccessMessage(null), 3000); // Hide after 3 seconds
+            }
         } catch (error) {
             console.error("Message send error:", error);
             setError(error.message || "Failed to send message");
@@ -227,7 +303,6 @@ export default function FloatingChat() {
         }
     };
 
-    // Check if user has active/pending chats
     const hasActiveOrPendingChat = chats.some(
         (c) => c.status === "active" || c.status === "pending"
     );
@@ -431,6 +506,15 @@ export default function FloatingChat() {
 
                             {/* Message Input */}
                             <div className="p-4 border-t">
+                                {successMessage && (
+                                    <div className="absolute bottom-16 left-4 right-4">
+                                        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded relative">
+                                            <span className="block sm:inline">
+                                                {successMessage}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
                                 <form
                                     onSubmit={handleSubmit}
                                     className="flex items-center"

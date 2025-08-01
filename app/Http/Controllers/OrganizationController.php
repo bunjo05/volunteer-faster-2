@@ -405,6 +405,7 @@ class OrganizationController extends Controller
             'start_date' => 'required|date',
             'gallery_images' => 'nullable|array',
             'gallery_images.*' => 'image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'point_exchange' => 'nullable|boolean',
         ]);
 
         $data['user_id'] = Auth::id();

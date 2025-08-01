@@ -37,6 +37,7 @@ class Project extends Model
         'status',
         'user_id',
         'request_for_approval',
+        'point_exchange', // Added point exchange column
     ];
 
     protected $casts = [

@@ -472,7 +472,7 @@ export default function Projects({
                                                 <span className="font-medium">
                                                     Duration:
                                                 </span>{" "}
-                                                {project.duration}{" "}
+                                                {project.max_duration}{" "}
                                                 {project.duration_type}
                                             </div>
 

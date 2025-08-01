@@ -14,7 +14,7 @@
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
         <meta name="csrf-token" content="{{ csrf_token() }}">
-<script src="https://js.stripe.com/v3/"></script>
+        <script src="https://js.stripe.com/v3/"></script>
         <!-- Scripts -->
         @routes
         @viteReactRefresh

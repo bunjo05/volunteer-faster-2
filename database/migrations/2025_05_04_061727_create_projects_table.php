@@ -38,6 +38,7 @@ return new class extends Migration
             $table->enum('status', ['Active', 'Pending', 'Suspended', 'Rejected'])->default('Pending');
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->boolean('request_for_approval')->default(false);
+            $table->boolean('point_exchange')->default(false); // Added point exchange column
             $table->timestamps();
         });
     }

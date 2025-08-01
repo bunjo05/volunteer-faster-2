@@ -228,17 +228,23 @@ Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->
 
 // routes/web.php
 Route::middleware('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
+    // Route::prefix('chat')->group(function () {
+    //     Route::get('/', [ChatController::class, 'index']);
+    //     Route::post('/', [ChatController::class, 'store'])->name('volunteer.chat.store');
+    //     Route::post('/{chat}/read', [ChatController::class, 'markAsRead']);
+    // });
+    Route::post('/payment/checkout', [StripePaymentController::class, 'checkout'])->name('payment.checkout');
+    Route::get('/payment/success', [StripePaymentController::class, 'success'])->name('payment.success');
+    Route::get('/payment/cancel', [StripePaymentController::class, 'cancel'])->name('payment.cancel');
+});
+
+// routes/web.php
+Route::middleware('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
     Route::prefix('chat')->group(function () {
         Route::get('/', [ChatController::class, 'index']);
         Route::post('/', [ChatController::class, 'store'])->name('volunteer.chat.store');
         Route::post('/{chat}/read', [ChatController::class, 'markAsRead']);
     });
-    Route::post('/payment/checkout', [StripePaymentController::class, 'checkout'])->name('payment.checkout');
-    Route::get('/payment/success', [StripePaymentController::class, 'success'])->name('payment.success');
-    Route::get('/payment/cancel', [StripePaymentController::class, 'cancel'])->name('payment.cancel');
-
-    // Route::post('/stripe/webhook', [StripeWebhookController::class, 'handleWebhook'])
-    //     ->name('stripe.webhook');
 });
 
 
