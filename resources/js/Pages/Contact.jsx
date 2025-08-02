@@ -10,12 +10,20 @@ export default function Contact() {
         message: "",
     });
     const [submitted, setSubmitted] = useState(false);
+    const [formError, setFormError] = useState("");
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        setFormError(""); // Clear any previous errors
+
         post(route("contact.store"), {
             onSuccess: () => {
                 setSubmitted(true);
+            },
+            onError: (errors) => {
+                if (errors.email_suspended) {
+                    setFormError(errors.email_suspended);
+                }
             },
         });
     };
@@ -45,8 +53,6 @@ export default function Contact() {
             <section className="py-16 md:py-24 bg-white">
                 <div className="container mx-auto px-6">
                     <div className="max-w-2xl mx-auto">
-                        {" "}
-                        {/* Reduced max-width for better centering */}
                         <div className="bg-white rounded-xl shadow-md p-8 md:p-10">
                             {submitted ? (
                                 <div className="text-center py-8">
@@ -66,6 +72,29 @@ export default function Contact() {
                                     <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">
                                         Send Us a Message
                                     </h2>
+
+                                    {/* Form-wide error message */}
+                                    {formError && (
+                                        <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded">
+                                            <div className="flex items-center">
+                                                <svg
+                                                    className="h-5 w-5 text-red-500 mr-3"
+                                                    fill="currentColor"
+                                                    viewBox="0 0 20 20"
+                                                >
+                                                    <path
+                                                        fillRule="evenodd"
+                                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                                        clipRule="evenodd"
+                                                    />
+                                                </svg>
+                                                <p className="text-red-700 font-medium">
+                                                    {formError}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <form
                                         onSubmit={handleSubmit}
                                         className="space-y-6"
@@ -116,7 +145,11 @@ export default function Contact() {
                                                             e.target.value
                                                         )
                                                     }
-                                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    className={`w-full px-4 py-3 border ${
+                                                        formError
+                                                            ? "border-red-300"
+                                                            : "border-gray-300"
+                                                    } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
                                                     required
                                                 />
                                                 {errors.email && (

@@ -99,6 +99,17 @@ class HomeController extends Controller
 
     public function storeContactMessage(Request $request)
     {
+        // First check if email is suspended
+        $suspendedContact = Contact::where('email', $request->email)
+            ->where('is_suspended', 1)
+            ->first();
+
+        if ($suspendedContact) {
+            return back()->withErrors([
+                'email_suspended' => 'This email address has been suspended from sending messages. Please contact support if you believe this is an error.'
+            ]);
+        }
+
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255',

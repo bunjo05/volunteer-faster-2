@@ -219,6 +219,11 @@ export default function Booking({ project, auth, canResetPassword }) {
                                     <input
                                         type="date"
                                         name="end_date"
+                                        min={
+                                            new Date()
+                                                .toISOString()
+                                                .split("T")[0]
+                                        }
                                         value={data.end_date}
                                         onChange={(e) =>
                                             setData("end_date", e.target.value)
@@ -255,10 +260,11 @@ export default function Booking({ project, auth, canResetPassword }) {
                                         onChange={(e) =>
                                             setData("message", e.target.value)
                                         }
+                                        required
                                         className="w-full p-2 border rounded"
                                         maxLength={255}
                                         rows="3"
-                                        placeholder="Optional message..."
+                                        placeholder="Brief message to the Organization Admin..."
                                     ></textarea>
                                 </div>
                                 <button

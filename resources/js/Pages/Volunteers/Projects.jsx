@@ -505,15 +505,19 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                     </div>
                                                 </div>
                                             </div>
-                                            {pointsPaymentSuccess && (
-                                                <div className="mt-4 p-3 bg-green-100 text-green-800 rounded-lg">
-                                                    <CheckCircle2 className="inline h-5 w-5 mr-2" />
-                                                    Balance successfully paid
-                                                    with points!
+
+                                            {activeBooking.project
+                                                .point_exchange === 1 && (
+                                                <div>
+                                                    {pointsPaymentSuccess && (
+                                                        <div className="mt-4 p-3 bg-green-100 text-green-800 rounded-lg">
+                                                            <CheckCircle2 className="inline h-5 w-5 mr-2" />
+                                                            Balance successfully
+                                                            paid with points!
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
-
-                                            {}
 
                                             {/* Payment Information Card - Only show for Paid projects */}
                                             {activeBooking.project
@@ -653,29 +657,37 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                             - deposit has been paid
                             - points payment hasn't succeeded
                             - no existing points transaction for this booking */}
-                                                                    {hasPaidDeposit() &&
-                                                                        !pointsPaymentSuccess &&
-                                                                        !hasPointsTransaction(
-                                                                            activeBooking
-                                                                        ) && (
-                                                                            <button
-                                                                                onClick={() =>
-                                                                                    setShowPointsPaymentModal(
-                                                                                        true
-                                                                                    )
-                                                                                }
-                                                                                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors"
-                                                                            >
-                                                                                Pay
-                                                                                Balance
-                                                                                with
-                                                                                Points
-                                                                                ($
-                                                                                {calculateRemainingBalance().toLocaleString()}
 
-                                                                                )
-                                                                            </button>
-                                                                        )}
+                                                                    {activeBooking
+                                                                        .project
+                                                                        .point_exchange ===
+                                                                        1 && (
+                                                                        <div>
+                                                                            {hasPaidDeposit() &&
+                                                                                !pointsPaymentSuccess &&
+                                                                                !hasPointsTransaction(
+                                                                                    activeBooking
+                                                                                ) && (
+                                                                                    <button
+                                                                                        onClick={() =>
+                                                                                            setShowPointsPaymentModal(
+                                                                                                true
+                                                                                            )
+                                                                                        }
+                                                                                        className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors"
+                                                                                    >
+                                                                                        Pay
+                                                                                        Balance
+                                                                                        with
+                                                                                        Points
+                                                                                        ($
+                                                                                        {calculateRemainingBalance().toLocaleString()}
+
+                                                                                        )
+                                                                                    </button>
+                                                                                )}
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             )}
                                                         {hasPointsTransaction(

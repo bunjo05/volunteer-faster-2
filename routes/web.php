@@ -149,8 +149,10 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     Route::get('/contacts/{contact}', [AdminsController::class, 'adminShow'])->name('admin.contacts.show');
     Route::post('/contacts/{contact}/reply', [AdminsController::class, 'adminReply'])->name('admin.contacts.reply');
 
-    Route::post('/contacts/{contact}/toggle-suspension', [AdminsController::class, 'toggleContactSuspension'])
-        ->name('admin.contacts.toggle-suspension');
+    Route::put('/contacts/{contact}/status', [AdminsController::class, 'updateContactStatus']);
+
+    // Route::post('/contacts/{contact}/toggle-suspension', [AdminsController::class, 'toggleContactSuspension'])
+    //     ->name('admin.contacts.toggle-suspension');
 });
 
 Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
