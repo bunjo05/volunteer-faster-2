@@ -29,35 +29,82 @@ export default function FloatingChat() {
         (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
     );
 
-    // Add this useEffect hook to listen for read status updates
+    // Add this useEffect hook to properly handle Echo initialization and channel subscription
     useEffect(() => {
         if (!isOpen || !chat?.id || !window.Echo) return;
 
-        const channel = window.Echo.private(`chat.${chat.id}`);
+        // Clean up any previous channel
+        if (echoChannel.current) {
+            echoChannel.current.stopListening(".message.sent");
+            echoChannel.current.stopListening(".MessageRead");
+        }
 
-        // Listen for message read events
-        channel.listen(".MessageRead", (e) => {
-            setMessages((prev) =>
-                prev.map((msg) =>
-                    msg.sender_type === "App\\Models\\Admin" && !msg.read_at
-                        ? { ...msg, read_at: e.timestamp, status: "Read" }
-                        : msg
+        // Initialize the channel
+        echoChannel.current = window.Echo.private(`chat.${chat.id}`);
+
+        // Listen for new messages
+        echoChannel.current.listen(".message.sent", (data) => {
+            setMessages((prev) => {
+                // Check if message already exists (including optimistic messages)
+                const messageExists = prev.some(
+                    (m) =>
+                        m.id === data.message.id ||
+                        (m.temp_id && m.temp_id === data.message.temp_id)
+                );
+
+                if (messageExists) {
+                    return prev.map((m) =>
+                        m.id === data.message.id ||
+                        (m.temp_id && m.temp_id === data.message.temp_id)
+                            ? data.message
+                            : m
+                    );
+                }
+
+                return [...prev, data.message];
+            });
+
+            // Update chat list if needed
+            setChats((prev) =>
+                prev.map((c) =>
+                    c.id === data.chatId
+                        ? {
+                              ...c,
+                              latestMessage: {
+                                  message: data.message.content,
+                                  created_at: data.message.created_at,
+                              },
+                              unread_count:
+                                  c.id === chat.id
+                                      ? 0
+                                      : (c.unread_count || 0) + 1,
+                          }
+                        : c
                 )
             );
 
-            // Update unread count in chat list
-            setChats((prev) =>
-                prev.map((c) =>
-                    c.id === chat.id ? { ...c, unread_count: 0 } : c
+            // Scroll to bottom when new message arrives
+            scrollToBottom();
+        });
+
+        // Listen for read events
+        echoChannel.current.listen(".MessageRead", (data) => {
+            setMessages((prev) =>
+                prev.map((msg) =>
+                    msg.sender_type === "App\\Models\\Admin" && !msg.read_at
+                        ? { ...msg, read_at: data.timestamp, status: "Read" }
+                        : msg
                 )
             );
         });
 
         return () => {
-            channel.stopListening(".MessageRead");
+            if (echoChannel.current) {
+                echoChannel.current.stopListening(".message.sent");
+                echoChannel.current.stopListening(".MessageRead");
+            }
         };
     }, [chat?.id, isOpen]);
-
     const handleNewMessage = (e) => {
         const { message, chatId } = e;
 
@@ -275,6 +322,7 @@ export default function FloatingChat() {
                 name: auth.user.name,
                 email: auth.user.email,
             },
+            temp_id: tempId, // Include temp_id for matching
         };
 
         // Optimistic update
@@ -289,17 +337,22 @@ export default function FloatingChat() {
             const response = await axios.post(route("volunteer.chat.store"), {
                 content: data.content,
                 chat_id: chatId,
-                temp_id: tempId,
+                temp_id: tempId, // Send temp_id to server
             });
 
             if (response.data.success) {
                 setSuccessMessage("Message sent successfully");
-                setTimeout(() => setSuccessMessage(null), 3000); // Hide after 3 seconds
+                setTimeout(() => setSuccessMessage(null), 3000);
             }
         } catch (error) {
             console.error("Message send error:", error);
             setError(error.message || "Failed to send message");
-            setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
+            // Remove the optimistic message if sending failed
+            setMessages((prev) =>
+                prev.filter(
+                    (msg) => msg.id !== tempId && msg.temp_id !== tempId
+                )
+            );
         }
     };
 

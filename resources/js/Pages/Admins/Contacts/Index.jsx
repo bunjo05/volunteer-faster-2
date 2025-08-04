@@ -1,216 +1,172 @@
-import GeneralPages from "@/Layouts/GeneralPages";
-import { Head, useForm } from "@inertiajs/react";
-import { useState } from "react";
+import React, { useState } from "react";
+import { usePage, router } from "@inertiajs/react";
+import AdminLayout from "@/Layouts/AdminLayout";
+import { Eye } from "lucide-react";
 
-export default function Contact() {
-    const { data, setData, post, processing, errors } = useForm({
-        name: "",
-        email: "",
-        subject: "",
-        message: "",
-    });
-    const [submitted, setSubmitted] = useState(false);
-    const [emailError, setEmailError] = useState("");
+export default function Index() {
+    const { messages } = usePage().props;
+    const [statusChanges, setStatusChanges] = useState({});
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setEmailError(""); // Reset previous error
+    const statusBadge = (status, type) => {
+        const color = status
+            ? type === "read"
+                ? "bg-green-100 text-green-700"
+                : type === "replied"
+                ? "bg-blue-100 text-blue-700"
+                : "bg-red-100 text-red-700"
+            : "bg-gray-100 text-gray-500";
 
-        try {
-            await post(route("contact.store"), {
-                onSuccess: () => {
-                    setSubmitted(true);
-                },
-                onError: (errors) => {
-                    if (errors.email_suspended) {
-                        setEmailError(errors.email_suspended);
-                    }
-                },
-            });
-        } catch (error) {
-            console.error("Submission error:", error);
-        }
+        const label = status ? "Yes" : "No";
+
+        return (
+            <span
+                className={`px-2 py-1 rounded text-xs font-semibold ${color}`}
+            >
+                {label}
+            </span>
+        );
+    };
+
+    const handleStatusChange = (messageId, newStatus) => {
+        const boolStatus = newStatus === "1";
+        setStatusChanges((prev) => ({ ...prev, [messageId]: boolStatus }));
+
+        router.put(`/admin/contacts/${messageId}/status`, {
+            is_suspended: boolStatus,
+        });
     };
 
     return (
-        <GeneralPages>
-            <Head title="Contact Us" />
+        <AdminLayout>
+            <div className="p-6 space-y-6">
+                <h1 className="text-3xl font-bold text-gray-800">
+                    Contact Messages
+                </h1>
 
-            {/* Hero Section */}
-            <section className="relative bg-blue-900 text-white py-20 md:py-28">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-800 to-blue-600 opacity-90"></div>
-                <div className="container mx-auto px-6 relative z-10">
-                    <div className="max-w-4xl mx-auto text-center">
-                        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
-                            Get in{" "}
-                            <span className="text-yellow-300">Touch</span>
-                        </h1>
-                        <p className="text-xl md:text-2xl opacity-90">
-                            We'd love to hear from you! Reach out with questions
-                            or feedback.
-                        </p>
-                    </div>
-                </div>
-            </section>
+                <div className="bg-white shadow rounded-xl overflow-x-auto">
+                    <table className="min-w-full text-sm text-left text-gray-700">
+                        <thead className="bg-gray-100 text-gray-600 text-xs uppercase">
+                            <tr>
+                                <th className="px-6 py-4">Name</th>
+                                <th className="px-6 py-4">Email</th>
+                                <th className="px-6 py-4">Subject</th>
+                                <th className="px-6 py-4">Read</th>
+                                <th className="px-6 py-4">Replied</th>
+                                <th className="px-6 py-4">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {messages.data.map((message) => {
+                                const isSuspended = message.is_suspended;
 
-            {/* Centered Contact Form Section */}
-            <section className="py-16 md:py-24 bg-white">
-                <div className="container mx-auto px-6">
-                    <div className="max-w-2xl mx-auto">
-                        <div className="bg-white rounded-xl shadow-md p-8 md:p-10">
-                            {submitted ? (
-                                <div className="text-center py-8">
-                                    <div className="text-green-500 text-5xl mb-4">
-                                        ✓
-                                    </div>
-                                    <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                                        Thank You!
-                                    </h3>
-                                    <p className="text-gray-600">
-                                        Your message has been sent successfully.
-                                        We'll get back to you soon.
-                                    </p>
-                                </div>
-                            ) : (
-                                <>
-                                    <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">
-                                        Send Us a Message
-                                    </h2>
-                                    <form
-                                        onSubmit={handleSubmit}
-                                        className="space-y-6"
-                                    >
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div>
-                                                <label
-                                                    htmlFor="name"
-                                                    className="block text-sm font-medium text-gray-700 mb-1"
-                                                >
-                                                    Your Name
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    id="name"
-                                                    name="name"
-                                                    value={data.name}
-                                                    onChange={(e) =>
-                                                        setData(
-                                                            "name",
-                                                            e.target.value
-                                                        )
-                                                    }
-                                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                    required
-                                                />
-                                                {errors.name && (
-                                                    <p className="mt-1 text-sm text-red-600">
-                                                        {errors.name}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <div>
-                                                <label
-                                                    htmlFor="email"
-                                                    className="block text-sm font-medium text-gray-700 mb-1"
-                                                >
-                                                    Email Address
-                                                </label>
-                                                <input
-                                                    type="email"
-                                                    id="email"
-                                                    name="email"
-                                                    value={data.email}
-                                                    onChange={(e) =>
-                                                        setData(
-                                                            "email",
-                                                            e.target.value
-                                                        )
-                                                    }
-                                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                    required
-                                                />
-                                                {errors.email && (
-                                                    <p className="mt-1 text-sm text-red-600">
-                                                        {errors.email}
-                                                    </p>
-                                                )}
-                                                {emailError && (
-                                                    <p className="mt-1 text-sm text-red-600">
-                                                        {emailError}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label
-                                                htmlFor="subject"
-                                                className="block text-sm font-medium text-gray-700 mb-1"
+                                const rowClass = `border-b ${
+                                    isSuspended
+                                        ? "bg-red-50"
+                                        : "hover:bg-gray-50 transition"
+                                }`;
+
+                                const cellText = (text) =>
+                                    isSuspended ? (
+                                        <span className="line-through text-gray-500">
+                                            {text}
+                                        </span>
+                                    ) : (
+                                        text
+                                    );
+
+                                return (
+                                    <tr key={message.id} className={rowClass}>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            {cellText(message.name)}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            {cellText(message.email)}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            {cellText(message.subject)}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {statusBadge(
+                                                message.is_read,
+                                                "read"
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {statusBadge(
+                                                message.is_replied,
+                                                "replied"
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 flex items-center gap-3">
+                                            <button
+                                                onClick={() =>
+                                                    router.visit(
+                                                        `/admin/contacts/${message.id}`
+                                                    )
+                                                }
+                                                className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 transition"
                                             >
-                                                Subject
-                                            </label>
-                                            <input
-                                                type="text"
-                                                id="subject"
-                                                name="subject"
-                                                value={data.subject}
+                                                <Eye className="w-4 h-4" />
+                                                View
+                                            </button>
+
+                                            <select
+                                                value={
+                                                    statusChanges[
+                                                        message.id
+                                                    ] !== undefined
+                                                        ? statusChanges[
+                                                              message.id
+                                                          ]
+                                                            ? "1"
+                                                            : "0"
+                                                        : message.is_suspended
+                                                        ? "1"
+                                                        : "0"
+                                                }
                                                 onChange={(e) =>
-                                                    setData(
-                                                        "subject",
+                                                    handleStatusChange(
+                                                        message.id,
                                                         e.target.value
                                                     )
                                                 }
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                required
-                                            />
-                                            {errors.subject && (
-                                                <p className="mt-1 text-sm text-red-600">
-                                                    {errors.subject}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label
-                                                htmlFor="message"
-                                                className="block text-sm font-medium text-gray-700 mb-1"
+                                                className="px-2 py-1 text-sm border rounded-md bg-white text-gray-700 hover:border-gray-400 transition"
                                             >
-                                                Your Message
-                                            </label>
-                                            <textarea
-                                                id="message"
-                                                name="message"
-                                                rows="5"
-                                                value={data.message}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "message",
-                                                        e.target.value
-                                                    )
-                                                }
-                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                required
-                                            ></textarea>
-                                            {errors.message && (
-                                                <p className="mt-1 text-sm text-red-600">
-                                                    {errors.message}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <button
-                                            type="submit"
-                                            disabled={processing}
-                                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 disabled:opacity-50"
-                                        >
-                                            {processing
-                                                ? "Sending..."
-                                                : "Send Message"}
-                                        </button>
-                                    </form>
-                                </>
-                            )}
-                        </div>
-                    </div>
+                                                <option value="">
+                                                    Change Status
+                                                </option>
+                                                <option value="0">
+                                                    Active
+                                                </option>
+                                                <option value="1">
+                                                    Suspended
+                                                </option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
                 </div>
-            </section>
-        </GeneralPages>
+
+                {/* Pagination */}
+                <div className="flex flex-wrap items-center gap-2">
+                    {messages.links.map((link, index) => (
+                        <button
+                            key={index}
+                            disabled={!link.url}
+                            className={`px-4 py-1 rounded border text-sm transition ${
+                                link.active
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-white text-gray-700 hover:bg-blue-50"
+                            }`}
+                            onClick={() => link.url && router.visit(link.url)}
+                            dangerouslySetInnerHTML={{ __html: link.label }}
+                        />
+                    ))}
+                </div>
+            </div>
+        </AdminLayout>
     );
 }

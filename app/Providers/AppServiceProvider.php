@@ -31,19 +31,22 @@ class AppServiceProvider extends ServiceProvider
             $router->aliasMiddleware('check.role', CheckUserRole::class);
         });
 
-        Broadcast::routes(['middleware' => ['auth:admin']]);
+        // Update broadcast routes to include all guards
+        Broadcast::routes(['middleware' => ['auth:web,admin']]);
 
         Broadcast::channel('admin.chat-requests', function ($admin) {
             return true;
         });
 
         Broadcast::channel('chat.{chatId}', function ($user, $chatId) {
-            return $user->chats()->where('chats.id', $chatId)->exists();
+            return \App\Models\ChatParticipant::where('chat_id', $chatId)
+                ->where(function ($query) use ($user) {
+                    $query->where('user_id', $user->id)
+                        ->orWhere('admin_id', $user->id);
+                })
+                ->exists();
         });
 
         require base_path('routes/channels.php');
-
-        // Vite::prefetch(concurrency: 3);
-        // Route::middleware('check.role', CheckUserRole::class);
     }
 }

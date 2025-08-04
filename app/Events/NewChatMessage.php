@@ -37,17 +37,14 @@ class NewChatMessage implements ShouldBroadcastNow
     public function broadcastWith()
     {
         return [
-            'message' => [
-                'id' => $this->message['id'] ?? $this->message->id,
-                'content' => $this->message['content'] ?? $this->message->content,
-                'sender_id' => $this->message['sender_id'] ?? $this->message->sender_id,
-                'sender_type' => $this->message['sender_type'] ?? $this->message->sender_type,
-                'created_at' => $this->message['created_at'] ?? $this->message->created_at->toISOString(),
-                'status' => 'Sent',
-                'sender' => $this->message['sender'] ?? $this->message->sender,
-                'temp_id' => $this->message['temp_id'] ?? ($this->message->temp_id ?? null),
-            ],
+            'message' => $this->message,
             'chatId' => $this->chatId
         ];
+    }
+
+    // Add this method to ensure the event is broadcast immediately
+    public function broadcastWhen()
+    {
+        return true;
     }
 }

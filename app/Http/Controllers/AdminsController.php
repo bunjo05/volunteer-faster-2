@@ -445,7 +445,7 @@ class AdminsController extends Controller
         return redirect()->back()->with('success', 'Featured project status updated and user notified.');
     }
 
-    public function adminIndex()
+    public function adminChatIndex()
     {
         $messages = Contact::latest()->paginate(10);
         return Inertia::render('Admins/Contacts/Index', [
@@ -499,22 +499,4 @@ class AdminsController extends Controller
 
         return redirect()->back()->with('success', 'Message status updated successfully.');
     }
-
-    // public function toggleContactSuspension(Request $request, Contact $contact)
-    // {
-    //     $validated = $request->validate([
-    //         'is_suspended' => 'required|boolean',
-    //     ]);
-
-    //     $updateData = [
-    //         'is_suspended' => $validated['is_suspended'],
-    //     ];
-
-    //     $contact->update($updateData);
-    //     // $contact->update([
-    //     //     'is_suspended' => !$contact->is_suspended,
-    //     // ]);
-
-    //     return back()->with('success', 'Message suspension status updated.');
-    // }
 }

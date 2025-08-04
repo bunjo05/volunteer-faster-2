@@ -62,7 +62,8 @@ class ChatController extends Controller
     {
         $request->validate([
             'content' => 'required|string',
-            'chat_id' => 'required|exists:chats,id'
+            'chat_id' => 'required|exists:chats,id',
+            'temp_id' => 'nullable' // Add temp_id validation
         ]);
 
         $user = Auth::user();
@@ -77,6 +78,7 @@ class ChatController extends Controller
             'content' => $request->content,
             'sender_id' => auth()->id(),
             'sender_type' => get_class(auth()->user()),
+            'temp_id' => $request->temp_id // Store temp_id if provided
         ]);
 
         // Load the sender relationship
@@ -91,13 +93,18 @@ class ChatController extends Controller
             'created_at' => $message->created_at->toISOString(),
             'status' => 'Sent',
             'sender' => $message->sender,
-            'is_admin' => $message->sender_type === 'App\Models\Admin'
+            'is_admin' => $message->sender_type === 'App\Models\Admin',
+            'temp_id' => $message->temp_id // Include temp_id in broadcast
         ];
 
-        // Always broadcast the message
-        broadcast(new NewChatMessage($formattedMessage, $chat->id));
+        // Broadcast the message
+        broadcast(new NewChatMessage($formattedMessage, $chat->id))->toOthers();
 
-        return response()->json(['success' => true]);
+        return response()->json([
+            'success' => true,
+            'message_id' => $message->id,
+            'temp_id' => $message->temp_id
+        ]);
     }
 
     public function acceptChat(Request $request, Chat $chat)

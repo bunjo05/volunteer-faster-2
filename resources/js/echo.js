@@ -14,6 +14,8 @@ window.Echo = new Echo({
         headers: {
             "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')
                 .content,
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`, // If using token-based auth
         },
     },
+    enabledTransports: ["ws", "wss"], // Force WebSocket transport
 });

@@ -145,7 +145,7 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     Route::put('/featured-projects/{slug}/status', [AdminsController::class, 'updateFeaturedProjectStatus'])
         ->name('admin.featured-projects.update-status');
 
-    Route::get('/contacts', [AdminsController::class, 'adminIndex'])->name('admin.contacts.index');
+    Route::get('/contacts', [AdminsController::class, 'adminChatIndex'])->name('admin.contacts.index');
     Route::get('/contacts/{contact}', [AdminsController::class, 'adminShow'])->name('admin.contacts.show');
     Route::post('/contacts/{contact}/reply', [AdminsController::class, 'adminReply'])->name('admin.contacts.reply');
 
