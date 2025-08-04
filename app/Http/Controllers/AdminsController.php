@@ -29,7 +29,43 @@ class AdminsController extends Controller
 {
     public function index()
     {
-        return inertia('Admins/Dashboard');
+        $stats = [
+            'users' => [
+                'total' => User::count(),
+                'active' => User::where('status', 'Active')->count(),
+                'pending' => User::where('status', 'Pending')->count(),
+                'suspended' => User::where('status', 'Suspended')->count(),
+            ],
+            'projects' => [
+                'total' => Project::count(),
+                'approved' => Project::where('status', 'Approved')->count(),
+                'pending' => Project::where('status', 'Pending')->count(),
+                'rejected' => Project::where('status', 'Rejected')->count(),
+            ],
+            'organizations' => OrganizationProfile::count(),
+            'payments' => [
+                'total' => Payment::sum('amount'),
+                'count' => Payment::count(),
+                'successful' => Payment::where('status', 'succeeded')->count(),
+            ],
+            'messages' => [
+                'total' => Contact::count(),
+                'unread' => Contact::where('is_read', false)->count(),
+                'replied' => Contact::where('is_replied', true)->count(),
+            ],
+        ];
+
+        $recentActivities = [
+            'users' => User::latest()->take(5)->get(),
+            'projects' => Project::with('user')->latest()->take(5)->get(),
+            'payments' => Payment::with('user')->latest()->take(5)->get(),
+            'messages' => Contact::latest()->take(5)->get(),
+        ];
+
+        return inertia('Admins/Dashboard', [
+            'stats' => $stats,
+            'recentActivities' => $recentActivities,
+        ]);
     }
 
     public function users()
