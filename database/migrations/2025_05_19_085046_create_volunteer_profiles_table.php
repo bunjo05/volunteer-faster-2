@@ -17,7 +17,6 @@ return new class extends Migration
             $table->string('gender');
             $table->string('dob');
             $table->string('country');
-            $table->string('address');
             $table->string('city');
             $table->string('state')->nullable(); // Added state field
             $table->string('postal')->nullable();

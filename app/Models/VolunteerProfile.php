@@ -14,12 +14,17 @@ class VolunteerProfile extends Model
         'gender',
         'dob',
         'country',
-        'address',
+        'state',
         'city',
         'postal',
         'phone',
+        'profile_picture',
+        'facebook',
+        'twitter',
+        'instagram',
+        'linkedin',
     ];
-        public function user()
+    public function user()
     {
         return $this->belongsTo(User::class);
     }

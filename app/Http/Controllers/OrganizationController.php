@@ -140,12 +140,17 @@ class OrganizationController extends Controller
         $user = Auth::user();
         $organization = $user->organization;
 
-        // Check if verification exists
-        $verification = OrganizationVerification::where('organization_profile_id', $organization->id)->exists();
+        // Initialize verification status as false if no organization profile exists
+        $verification = false;
+
+        if ($organization) {
+            // Only check verification if organization profile exists
+            $verification = OrganizationVerification::where('organization_profile_id', $organization->id)->exists();
+        }
 
         return Inertia::render('Organizations/Profile', [
             'organization' => $organization,
-            'verification' => $verification, // Pass verification status
+            'verification' => $verification,
             'auth' => [
                 'user' => Auth::user(),
             ],
@@ -154,53 +159,60 @@ class OrganizationController extends Controller
 
     public function updateProfile(Request $request)
     {
+        $user = auth()->user();
+
         $data = $request->validate([
-            'name' => 'required|string',
-            'slug' => 'required|string',
-            'city' => 'required|string',
-            'country' => 'required|string',
-            'state' => 'nullable|string',
-            'foundedYear' => 'required|integer',
-            'phone' => 'required|string',
-            'website' => 'nullable|url',
-            'facebook' => 'nullable|string',
-            'instagram' => 'nullable|string',
-            'twitter' => 'nullable|string',
-            'linkedin' => 'nullable|string',
-            'youtube' => 'nullable|string',
-            'email' => 'required|email',
-            'description' => 'nullable|string|max:1100',
+            'name' => 'required|string|max:255',
+            'slug' => 'required|string|max:255|unique:organization_profiles,slug,' . ($user->organization ? $user->organization->id : 'NULL'),
+            'city' => 'required|string|max:255',
+            'country' => 'required|string|max:255',
+            'state' => 'nullable|string|max:255',
+            'foundedYear' => 'required|integer|min:1900|max:' . date('Y'),
+            'phone' => 'required|string|max:20',
+            'website' => 'nullable|url|max:255',
+            'facebook' => 'nullable|string|max:255',
+            'twitter' => 'nullable|string|max:255',
+            'instagram' => 'nullable|string|max:255',
+            'linkedin' => 'nullable|string|max:255',
+            'youtube' => 'nullable|string|max:255',
+            // 'email' => 'required|email',
+            'description' => 'nullable|string|max:1000',
             'mission_statement' => 'nullable|string|max:500',
             'vision_statement' => 'nullable|string|max:500',
             'values' => 'nullable|string|max:500',
-            'address' => 'nullable|string',
-            'postal' => 'nullable|string',
-            'logo' => 'nullable|image|max:2048',
-            'current_logo' => 'nullable|string', // Add this for existing logo
+            'address' => 'nullable|string|max:255',
+            'postal' => 'nullable|string|max:20',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'current_logo' => 'nullable|string',
+            'remove_logo' => 'nullable|boolean',
         ]);
 
-        $profile = OrganizationProfile::firstOrNew(['user_id' => auth()->id()]);
-
-        // Handle logo upload
+        // Handle logo upload/removal
         if ($request->hasFile('logo')) {
             // Delete old logo if exists
-            if ($profile->logo) {
-                Storage::disk('public')->delete($profile->logo);
+            if ($user->organization && $user->organization->logo) {
+                Storage::disk('public')->delete($user->organization->logo);
             }
-            $data['logo'] = $request->file('logo')->store('logos', 'public');
-        } elseif ($request->current_logo) {
-            // Keep the existing logo if no new one was uploaded
-            $data['logo'] = $request->current_logo;
+            $data['logo'] = $request->file('logo')->store('organization/logos', 'public');
+        } elseif ($request->input('remove_logo', false)) {
+            // Remove logo if requested
+            if ($user->organization && $user->organization->logo) {
+                Storage::disk('public')->delete($user->organization->logo);
+            }
+            $data['logo'] = null;
+        } elseif ($request->filled('current_logo')) {
+            // Keep existing logo if no changes
+            $data['logo'] = $request->input('current_logo');
         }
 
-        $profile->fill($data);
 
-        // Set user_id if it's a new profile
-        if (!$profile->exists) {
-            $profile->user_id = auth()->id();
+        // Update or create organization profile
+        if ($user->organization) {
+            $user->organization->update($data);
+        } else {
+            $data['user_id'] = $user->id;
+            OrganizationProfile::create($data);
         }
-
-        $profile->update();
 
         return redirect()->back()->with('success', 'Profile updated successfully.');
     }
@@ -555,12 +567,12 @@ class OrganizationController extends Controller
 
         // Handle gallery images
         if ($isEdit) {
-            // Get existing gallery images from request
-            $existingImages = $request->input('existing_gallery_images', []);
+            // Get existing gallery image IDs from request
+            $existingImageIds = $request->input('existing_gallery_images', []);
 
             // Delete images that were removed
             $imagesToDelete = $project->galleryImages()
-                ->whereNotIn('image_path', $existingImages)
+                ->whereNotIn('id', $existingImageIds)
                 ->get();
 
             foreach ($imagesToDelete as $image) {
@@ -586,6 +598,7 @@ class OrganizationController extends Controller
                 'gallery_images' => 'At least one gallery image is required.'
             ]);
         }
+
 
         $message = $isEdit
             ? 'Project updated successfully.'

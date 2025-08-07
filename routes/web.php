@@ -200,7 +200,7 @@ Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->
     Route::get('/projects', [OrganizationController::class, 'projects'])->name('organization.projects');
 
     Route::get('/projects/create', [OrganizationController::class, 'createProject'])->name('organization.projects.create');
-    Route::post('/projects/{slug}', [OrganizationController::class, 'storeProject'])->name('organization.projects.store');
+    Route::post('/projects/{slug?}', [OrganizationController::class, 'storeProject'])->name('organization.projects.store');
     Route::post('/projects/{project}/request-review', [OrganizationController::class, 'requestReview'])->name('projects.requestReview');
 
     Route::get('/projects/{slug}/edit', [OrganizationController::class, 'editProject'])

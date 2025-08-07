@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useForm, Head } from "@inertiajs/react";
 import OrganizationLayout from "@/Layouts/OrganizationLayout";
+import LocationDropdown from "@/Components/LocationDropdown";
 
 // Reusable form components
 const FormInput = ({
@@ -224,7 +225,9 @@ export default function ProjectForm({
             isEdit && project?.featured_image ? project.featured_image : null,
         category_id: project?.category_id || "",
         subcategory_id: project?.subcategory_id || "",
-        address: project?.address || "",
+        country: project?.country || "",
+        city: project?.city || "",
+        state: project?.state || "",
         short_description: project?.short_description || "",
         detailed_description: project?.detailed_description || "",
         min_duration: project?.min_duration || "",
@@ -240,14 +243,12 @@ export default function ProjectForm({
         activities: project?.activities || "",
         suitable: project?.suitable || [],
         availability_months: project?.availability_months || [],
-        gallery_images:
-            project?.gallery_images?.map((img) => ({
-                id: img.id,
-                image_path: img.image_path,
-                isExisting: true,
-            })) || [],
-        existing_gallery_images:
-            project?.gallery_images?.map((img) => img.image_path) || [],
+
+        gallery_images: [],
+        existing_gallery_images: isEdit
+            ? project?.gallery_images?.map((img) => img.id)
+            : [],
+
         start_date: project?.start_date || "",
         status: project?.status || "Pending",
         point_exchange: project?.point_exchange || false,
@@ -301,7 +302,13 @@ export default function ProjectForm({
         },
         {
             label: "Project Details",
-            fields: ["address", "short_description", "detailed_description"],
+            fields: [
+                "country",
+                "city",
+                "state",
+                "short_description",
+                "detailed_description",
+            ],
         },
         {
             label: "Duration & Routine",
@@ -458,13 +465,7 @@ export default function ProjectForm({
             }));
 
             setGalleryPreviews((prev) => [...prev, ...newPreviews]);
-            setData("gallery_images", [
-                ...data.gallery_images,
-                ...validFiles.map((file) => ({
-                    file,
-                    isNew: true,
-                })),
-            ]);
+            setData("gallery_images", [...data.gallery_images, ...validFiles]);
         }
 
         e.target.value = "";
@@ -475,19 +476,21 @@ export default function ProjectForm({
         const removedImage = updatedPreviews[index];
 
         if (removedImage.id) {
-            // Existing image - mark for deletion
+            // Existing image - remove from existing_gallery_images array
             setData(
                 "existing_gallery_images",
                 data.existing_gallery_images.filter(
-                    (img) => img !== removedImage.url.replace("/storage/", "")
+                    (id) => id !== removedImage.id
                 )
             );
         } else {
-            // New image - remove from upload list
+            // New image - remove from gallery_images array
             URL.revokeObjectURL(removedImage.url);
             setData(
                 "gallery_images",
-                data.gallery_images.filter((_, i) => i !== index)
+                data.gallery_images.filter(
+                    (_, i) => i !== index - data.existing_gallery_images.length
+                )
             );
         }
 
@@ -509,7 +512,9 @@ export default function ProjectForm({
 
         formData.append("category_id", data.category_id);
         formData.append("subcategory_id", data.subcategory_id);
-        formData.append("address", data.address);
+        formData.append("country", data.country);
+        formData.append("state", data.state);
+        formData.append("city", data.city);
         formData.append("short_description", data.short_description);
         formData.append("detailed_description", data.detailed_description);
         formData.append("min_duration", data.min_duration);
@@ -536,33 +541,21 @@ export default function ProjectForm({
             formData.append("existing_featured_image", data.featured_image);
         }
 
-        // Handle gallery images differently for create vs edit
+        // Handle gallery images
         if (isEdit) {
-            // For edit: include existing images that should be preserved
-            if (
-                data.existing_gallery_images &&
-                data.existing_gallery_images.length > 0
-            ) {
-                data.existing_gallery_images.forEach((imagePath, index) => {
-                    formData.append(
-                        `existing_gallery_images[${index}]`,
-                        imagePath
-                    );
-                });
-            }
+            // For edit: include existing image IDs that should be preserved
+            data.existing_gallery_images.forEach((id, index) => {
+                formData.append(`existing_gallery_images[${index}]`, id);
+            });
 
             // Add new gallery images
-            data.gallery_images.forEach((item, index) => {
-                if (item.file instanceof File) {
-                    formData.append(`gallery_images[${index}]`, item.file);
-                }
+            data.gallery_images.forEach((file, index) => {
+                formData.append(`gallery_images[${index}]`, file);
             });
         } else {
-            // For create: only add new gallery images
-            data.gallery_images.forEach((item, index) => {
-                if (item.file instanceof File) {
-                    formData.append(`gallery_images[${index}]`, item.file);
-                }
+            // For create: add all gallery images
+            data.gallery_images.forEach((file, index) => {
+                formData.append(`gallery_images[${index}]`, file);
             });
         }
 
@@ -767,15 +760,31 @@ export default function ProjectForm({
                     {/* Step 2: Project Details */}
                     {step === 2 && (
                         <>
-                            <FormInput
-                                label="Address"
-                                name="address"
-                                value={data.address}
-                                onChange={(e) =>
-                                    setData("address", e.target.value)
-                                }
-                                error={errors.address}
+                            <LocationDropdown
+                                selectedCountry={data.country}
+                                selectedState={data.state}
+                                selectedCity={data.city}
+                                onCountryChange={(value) => {
+                                    setData("country", value);
+                                    setData("state", "");
+                                    setData("city", "");
+                                }}
+                                onCountryNameChange={(name) => {
+                                    setData("country_name", name);
+                                }}
+                                onStateChange={(value) => {
+                                    setData("state", value);
+                                    setData("city", "");
+                                }}
+                                onCityChange={(value) => {
+                                    setData("city", value);
+                                }}
+                                isEditing={isEditing}
+                                errors={errors}
                             />
+                            {showError("country")}
+                            {showError("state")}
+                            {showError("city")}
 
                             <FormTextarea
                                 label="Short Description"

@@ -18,7 +18,9 @@ return new class extends Migration
             $table->string('featured_image')->nullable();
             $table->foreignId('category_id')->constrained()->onDelete('cascade');
             $table->foreignId('subcategory_id')->nullable()->constrained()->onDelete('cascade');
-            $table->string('address');
+            $table->string('country')->nullable();
+            $table->string('city')->nullable();
+            $table->string('state')->nullable();
             $table->text('short_description');
             $table->text('detailed_description');
             $table->integer('min_duration')->nullable();

@@ -24,13 +24,14 @@ class OrganizationProfile extends Model
         'instagram',
         'linkedin',
         'youtube',
+        // 'email',
         'description',
         'mission_statement',
         'vision_statement',
         'values',
         'address',
         'postal',
-        'logo',
+        'logo'
     ];
 
     /**
