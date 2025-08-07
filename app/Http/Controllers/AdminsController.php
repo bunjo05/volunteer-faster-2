@@ -22,6 +22,7 @@ use App\Models\OrganizationProfile;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\FeaturedProjectApproved;
 use App\Mail\FeaturedProjectRejected;
+use App\Models\OrganizationVerification;
 use Illuminate\Support\Facades\Validator;
 use SebastianBergmann\CodeCoverage\Report\Xml\Report;
 
@@ -79,9 +80,54 @@ class AdminsController extends Controller
     public function organizations()
     {
         $organizations = OrganizationProfile::latest()->get(); // Add pagination if needed
-        return inertia('Admins/Organizations', [
+        return inertia('Admins/Organizations/Index', [
             'organizations' => $organizations,
         ]);
+    }
+
+    public function viewOrganization($slug)
+    {
+        $organization = OrganizationProfile::where('slug', $slug)->firstOrFail();
+        return inertia('Admins/Organizations/View', [
+            'organization' => $organization,
+        ]);
+    }
+
+    public function organizationVerifications($slug)
+    {
+        $organization = OrganizationProfile::where('slug', $slug)->firstOrFail();
+        $verification = OrganizationVerification::where('organization_profile_id', $organization->id)->first();
+
+        return inertia('Admins/Organizations/Verification', [
+            'organization' => $organization,
+            'verification' => $verification,
+        ]);
+    }
+
+    public function updateVerification(Request $request, $slug, $verification_id)
+    {
+        $request->validate([
+            'action' => 'required|in:approve,reject',
+            'comments' => 'nullable|string|max:1000',
+        ]);
+
+        $verification = OrganizationVerification::findOrFail($verification_id);
+        $organization = OrganizationProfile::where('slug', $slug)->firstOrFail();
+
+        // Update verification status
+        $verification->status = $request->action === 'approve' ? 'Approved' : 'Rejected';
+        $verification->comments = $request->comments;
+        $verification->verified_at = now();
+        $verification->admin_id = auth('admin')->id();
+        $verification->save();
+
+        // If approved, update organization verification status
+        // if ($request->action === 'approve') {
+        //     $organization->status = true;
+        //     $organization->save();
+        // }
+
+        return redirect()->back()->with('success', 'Verification status updated successfully.');
     }
 
     public function updateStatus(Request $request, User $user)

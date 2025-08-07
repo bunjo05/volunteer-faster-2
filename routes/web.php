@@ -85,7 +85,13 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     Route::put('/project/{id}/status', [AdminsController::class, 'updateProjectStatus'])->name('admin.project.update-status');
     Route::post('/project/remark', [AdminsController::class, 'storeRemark'])->name('admin.project.remark.store');
     Route::put('/admin/project-remark/{id}', [AdminsController::class, 'updateRemark'])->name('admin.project.remark.update');
+
     Route::get('/organizations', [AdminsController::class, 'organizations'])->name('admin.organizations');
+    Route::get('/organizations/{slug}', [AdminsController::class, 'viewOrganization'])->name('admin.organizations.view');
+    Route::get('/organizations/{slug}/verifications', [AdminsController::class, 'organizationVerifications'])->name('admin.organizations.verifications');
+    Route::post('/organizations/{slug}/verifications/{verification_id}', [AdminsController::class, 'updateVerification'])
+        ->name('admin.organizations.verification.update');
+
     Route::get('/volunteers', [AdminsController::class, 'volunteers'])->name('admin.volunteers');
     Route::get('/projects', [AdminsController::class, 'projects'])->name('admin.projects');
     Route::get('/projects/{slug}', [AdminsController::class, 'viewProject'])->name('admin.projects.view');
@@ -164,10 +170,7 @@ Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(
     Route::post('/messages', [VolunteerController::class, 'storeMessage'])
         ->name('volunteer.messages.store');
 
-    Route::post('/panel/messages', [VolunteerController::class, 'panelStoreMessage'])
-        ->name('volunteer.panel.messages.store');
-    // Route::post('/messages', [VolunteerController::class, 'panelStoreMessage'])
-    //     ->name('volunteer.panel.messages.store');
+
 
     Route::get('/project', [VolunteerController::class, 'projects'])->name('volunteer.projects');
     Route::post('/send-reminder/{bookingId}', [VolunteerController::class, 'sendReminder'])
@@ -195,11 +198,16 @@ Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->
     Route::post('/messages', [OrganizationController::class, 'storeMessage'])
         ->name('organization.messages.store');
     Route::get('/projects', [OrganizationController::class, 'projects'])->name('organization.projects');
+
     Route::get('/projects/create', [OrganizationController::class, 'createProject'])->name('organization.projects.create');
-    Route::post('/projects', [OrganizationController::class, 'storeProject'])->name('organization.projects.store');
+    Route::post('/projects/{slug}', [OrganizationController::class, 'storeProject'])->name('organization.projects.store');
     Route::post('/projects/{project}/request-review', [OrganizationController::class, 'requestReview'])->name('projects.requestReview');
-    Route::get('/projects/{slug}/edit', [OrganizationController::class, 'editProject'])->name('organization.projects.edit');
-    Route::post('/projects/{slug}', [OrganizationController::class, 'updateProject'])->name('organization.projects.update');
+
+    Route::get('/projects/{slug}/edit', [OrganizationController::class, 'editProject'])
+        ->name('organization.projects.edit');
+    Route::put('/projects/{slug}', [OrganizationController::class, 'updateProject'])
+        ->name('organization.projects.update');
+
     Route::get('/bookings', [OrganizationController::class, 'volunteerBookings'])->name('organization.bookings');
     Route::put('/bookings/{booking}/update-status', [OrganizationController::class, 'updateBookingStatus'])
         ->name('bookings.update-status');
@@ -219,13 +227,11 @@ Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->
     Route::get('/featured/cancel', [FeaturedProjectController::class, 'cancel'])
         ->name('featured.cancel');
 
-    // Route::get('/projects/{project}/feature', [FeaturedProjectController::class, 'showFeatureModal'])
-    //     ->name('featured.showModal')
-    //     ->middleware('auth');
+    Route::get('/{organization_profile}/verification', [OrganizationController::class, 'verification'])
+        ->name('organization.verification');
 
-    // Route::post('/featured/checkout', [FeaturedProjectController::class, 'checkout'])
-    //     ->name('featured.checkout')
-    //     ->middleware('auth');
+    Route::post('/{organization_profile}/verification', [OrganizationController::class, 'storeVerification'])
+        ->name('organization.verification.store');
 });
 
 // routes/web.php

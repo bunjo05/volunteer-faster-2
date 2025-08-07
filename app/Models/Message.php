@@ -60,4 +60,9 @@ class Message extends Model
     {
         return $this->status === 'unread';
     }
+
+    public function booking(): BelongsTo
+    {
+        return $this->belongsTo(VolunteerBooking::class, 'booking_id');
+    }
 }

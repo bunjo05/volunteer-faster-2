@@ -13,14 +13,20 @@ return new class extends Migration
     {
         Schema::create('volunteer_profiles', function (Blueprint $table) {
             $table->id();
-             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-             $table->string('gender');
-             $table->string('dob');
-             $table->string('country');
-             $table->string('address');
-             $table->string('city');
-             $table->string('postal')->nullable();
-             $table->string('phone');
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->string('gender');
+            $table->string('dob');
+            $table->string('country');
+            $table->string('address');
+            $table->string('city');
+            $table->string('state')->nullable(); // Added state field
+            $table->string('postal')->nullable();
+            $table->string('phone');
+            $table->string('profile_picture')->nullable();
+            $table->string('facebook')->nullable();
+            $table->string('twitter')->nullable();
+            $table->string('instagram')->nullable();
+            $table->string('linkedin')->nullable();
             $table->timestamps();
         });
     }

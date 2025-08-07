@@ -1,3 +1,4 @@
+// resources/js/echo.js
 import Echo from "laravel-echo";
 import Pusher from "pusher-js";
 
@@ -14,8 +15,8 @@ window.Echo = new Echo({
         headers: {
             "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')
                 .content,
-            Authorization: `Bearer ${localStorage.getItem("auth_token")}`, // If using token-based auth
+            Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
     },
-    enabledTransports: ["ws", "wss"], // Force WebSocket transport
+    enabledTransports: ["ws", "wss"],
 });

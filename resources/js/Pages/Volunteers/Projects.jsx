@@ -36,12 +36,19 @@ const statusColors = {
 
 export default function Projects({ auth, payments, points, totalPoints }) {
     const [messageContent, setMessageContent] = useState("");
-    const { post } = useForm();
     const { bookings = [], flash } = usePage().props;
     const [activeBooking, setActiveBooking] = useState(bookings[0] || null);
     const [showSuccess, setShowSuccess] = useState(false);
     const [stripePromise, setStripePromise] = useState(null);
     const [showMessageModal, setShowMessageModal] = useState(false);
+
+    const { post, setData, errors, data, processing } = useForm({
+        message: "",
+        sender_id: "",
+        receiver_id: "", // Will be set when sending a message
+        project_id: "", // Will be set when sending a message
+        status: "", // Default status for new messages
+    });
 
     // Add this state
     const [pointsPaymentSuccess, setPointsPaymentSuccess] = useState(false);
@@ -140,7 +147,11 @@ export default function Projects({ auth, payments, points, totalPoints }) {
 
     const handleSendMessage = (e) => {
         e.preventDefault();
-        if (!messageContent.trim()) return alert("Message cannot be empty");
+
+        if (!messageContent.trim()) {
+            return alert("Message cannot be empty");
+        }
+
         if (
             !activeBooking?.project?.user ||
             activeBooking.project.user.id === auth.user.id
@@ -148,26 +159,25 @@ export default function Projects({ auth, payments, points, totalPoints }) {
             return alert("Cannot send message - invalid recipient");
         }
 
-        post(
-            route("volunteer.panel.messages.store"),
-            {
-                message: messageContent,
-                sender_id: auth.user.id,
-                receiver_id: activeBooking.project.user.id,
-                project_id: activeBooking.project.id,
+        const messageData = {
+            message: messageContent,
+            sender_id: auth.user.id,
+            receiver_id: activeBooking.project.user.id,
+            project_id: activeBooking.project.id,
+            status: "Unread",
+        };
+
+        post(route("volunteer.messages.store"), messageData, {
+            onSuccess: () => {
+                setShowMessageModal(false);
+                setMessageContent("");
+                setShowSuccess(true);
             },
-            {
-                onSuccess: () => {
-                    setShowMessageModal(false);
-                    setMessageContent("");
-                    setShowSuccess(true);
-                },
-                onError: (errors) => {
-                    console.error("Error sending message:", errors);
-                    alert("Failed to send message. Please try again.");
-                },
-            }
-        );
+            onError: (errors) => {
+                console.error("Error sending message:", errors);
+                alert("Failed to send message. Please try again.");
+            },
+        });
     };
 
     useEffect(() => {
@@ -749,7 +759,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                         View Full Project
                                                         Details
                                                     </Link>
-                                                    <button
+                                                    {/* <button
                                                         onClick={() =>
                                                             setShowMessageModal(
                                                                 true
@@ -759,7 +769,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                     >
                                                         <MessageCircle className="w-4 h-4 mr-2" />
                                                         Message Project Owner
-                                                    </button>
+                                                    </button> */}
                                                 </div>
                                             </div>
                                         </div>
@@ -815,8 +825,11 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                         <button
                                             type="submit"
                                             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg"
+                                            disabled={processing}
                                         >
-                                            Send Message
+                                            {processing
+                                                ? "Sending..."
+                                                : "Send Message"}
                                         </button>
                                     </div>
                                 </form>

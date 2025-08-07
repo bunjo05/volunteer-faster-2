@@ -7,6 +7,7 @@ use App\Models\Admin;
 use App\Models\Message;
 use App\Models\Project;
 use App\Models\Category;
+use App\Events\NewMessage;
 use Illuminate\Support\Str;
 use App\Models\GalleryImage;
 use Illuminate\Http\Request;
@@ -17,7 +18,9 @@ use App\Mail\ProjectReviewRequested;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use App\Models\OrganizationVerification;
 use App\Services\VolunteerPointsService;
+use Illuminate\Validation\ValidationException;
 
 class OrganizationController extends Controller
 {
@@ -134,9 +137,15 @@ class OrganizationController extends Controller
 
     public function profile()
     {
-        $organization = Auth::user()->organization;
+        $user = Auth::user();
+        $organization = $user->organization;
+
+        // Check if verification exists
+        $verification = OrganizationVerification::where('organization_profile_id', $organization->id)->exists();
+
         return Inertia::render('Organizations/Profile', [
             'organization' => $organization,
+            'verification' => $verification, // Pass verification status
             'auth' => [
                 'user' => Auth::user(),
             ],
@@ -150,15 +159,40 @@ class OrganizationController extends Controller
             'slug' => 'required|string',
             'city' => 'required|string',
             'country' => 'required|string',
+            'state' => 'nullable|string',
             'foundedYear' => 'required|integer',
             'phone' => 'required|string',
-            'email' => 'required|email',
             'website' => 'nullable|url',
-            'description' => 'nullable|string',
+            'facebook' => 'nullable|string',
+            'instagram' => 'nullable|string',
+            'twitter' => 'nullable|string',
+            'linkedin' => 'nullable|string',
+            'youtube' => 'nullable|string',
+            'email' => 'required|email',
+            'description' => 'nullable|string|max:1100',
+            'mission_statement' => 'nullable|string|max:500',
+            'vision_statement' => 'nullable|string|max:500',
+            'values' => 'nullable|string|max:500',
+            'address' => 'nullable|string',
+            'postal' => 'nullable|string',
             'logo' => 'nullable|image|max:2048',
+            'current_logo' => 'nullable|string', // Add this for existing logo
         ]);
 
         $profile = OrganizationProfile::firstOrNew(['user_id' => auth()->id()]);
+
+        // Handle logo upload
+        if ($request->hasFile('logo')) {
+            // Delete old logo if exists
+            if ($profile->logo) {
+                Storage::disk('public')->delete($profile->logo);
+            }
+            $data['logo'] = $request->file('logo')->store('logos', 'public');
+        } elseif ($request->current_logo) {
+            // Keep the existing logo if no new one was uploaded
+            $data['logo'] = $request->current_logo;
+        }
+
         $profile->fill($data);
 
         // Set user_id if it's a new profile
@@ -166,12 +200,7 @@ class OrganizationController extends Controller
             $profile->user_id = auth()->id();
         }
 
-        // Handle logo upload
-        if ($request->hasFile('logo')) {
-            $profile->logo = $request->file('logo')->store('logos', 'public');
-        }
-
-        $profile->save();
+        $profile->update();
 
         return redirect()->back()->with('success', 'Profile updated successfully.');
     }
@@ -181,7 +210,7 @@ class OrganizationController extends Controller
         $user = Auth::user();
 
         // Get all messages where user is either sender or receiver
-        $messages = Message::with(['sender', 'receiver', 'originalMessage.sender'])
+        $messages = Message::with(['sender', 'receiver', 'originalMessage.sender', 'booking', 'project'])
             ->where(function ($query) use ($user) {
                 $query->where('receiver_id', $user->id)
                     ->orWhere('sender_id', $user->id);
@@ -191,9 +220,14 @@ class OrganizationController extends Controller
 
         // Group messages by conversation partner
         $groupedMessages = $messages->groupBy(function ($message) use ($user) {
-            return $message->sender_id === $user->id
+            // Use a composite key that includes booking_id if available
+            $baseKey = $message->sender_id === $user->id
                 ? $message->receiver_id
                 : $message->sender_id;
+
+            return $message->booking_id
+                ? "{$baseKey}-{$message->booking_id}"
+                : $baseKey;
         });
 
         // Prepare conversations with replied messages
@@ -274,9 +308,45 @@ class OrganizationController extends Controller
             'receiver_id' => 'required|exists:users,id',
             'message' => 'required|string|max:1000',
             'reply_to' => 'nullable|exists:messages,id',
+            'project_id' => 'nullable|exists:projects,id',
+            'booking_id' => 'nullable|exists:volunteer_bookings,id',
         ]);
 
-        // Filter restricted content
+        $user = Auth::user();
+        $project = $request->project_id ? Project::find($request->project_id) : null;
+
+        // Determine booking_id logic:
+        // - If volunteer is sending first message, leave booking_id empty
+        // - If organization is replying, get booking_id from previous message
+        // - If volunteer is replying, get booking_id from previous message
+        $bookingId = null;
+        if ($request->reply_to) {
+            $originalMessage = Message::find($request->reply_to);
+            $bookingId = $originalMessage->booking_id;
+        } else if ($project) {
+            $booking = VolunteerBooking::where('project_id', $project->id)
+                ->where('user_id', $request->receiver_id)
+                ->first();
+            $bookingId = $booking ? $booking->id : null;
+        }
+
+
+        // Check if this is a paid project conversation
+        $isPaidProject = $project && $project->type_of_project === 'Paid';
+
+        // Check if user has made payment for paid projects
+        $hasPayment = false;
+        if ($isPaidProject) {
+            $hasPayment = VolunteerBooking::where('user_id', $user->id)
+                ->where('project_id', $project->id)
+                ->where('booking_status', 'Approved')
+                ->whereHas('payments', function ($query) {
+                    $query->where('status', 'completed');
+                })
+                ->exists();
+        }
+
+        // Patterns for restricted content
         $patterns = [
             'phone' => '/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/',
             'email' => '/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/',
@@ -286,29 +356,40 @@ class OrganizationController extends Controller
         $filteredMessage = $request->message;
         $hasRestrictedContent = false;
 
-        foreach ($patterns as $pattern) {
-            if (preg_match($pattern, $filteredMessage)) {
-                $filteredMessage = preg_replace($pattern, '[content removed]', $filteredMessage);
-                $hasRestrictedContent = true;
+        // Only filter restricted content if:
+        // - It's a free project, OR
+        // - It's a paid project but no payment has been made
+        if (!$isPaidProject || ($isPaidProject && !$hasPayment)) {
+            foreach ($patterns as $pattern) {
+                if (preg_match($pattern, $filteredMessage)) {
+                    $filteredMessage = preg_replace($pattern, '[content removed]', $filteredMessage);
+                    $hasRestrictedContent = true;
+                }
             }
         }
-
-        $user = Auth::user();
 
         $message = Message::create([
             'sender_id' => $user->id,
             'receiver_id' => $request->receiver_id,
-            'message' =>  $filteredMessage,
+            'message' => $filteredMessage,
             'status' => 'Unread',
             'reply_to' => $request->reply_to,
+            'project_id' => $request->project_id,
+            'booking_id' => $bookingId, // Add booking_id to the message
         ]);
 
-        // Load relationships
+        dd($message);
+
         $message->load(['sender', 'receiver', 'originalMessage.sender']);
+
+        broadcast(new NewMessage($message))->toOthers();
+        broadcast(new NewMessage($message))->toOthers();
 
         return back()->with([
             'success' => 'Message sent successfully.',
-            'hasRestrictedContent' => $hasRestrictedContent
+            'hasRestrictedContent' => $hasRestrictedContent,
+            'isPaidProject' => $isPaidProject,
+            'hasPayment' => $hasPayment,
         ]);
     }
 
@@ -372,16 +453,27 @@ class OrganizationController extends Controller
     {
         $categories = Category::with('subcategories')->get();
 
-        return Inertia::render('Organizations/Projects/Create', [
+        return Inertia::render('Organizations/Projects/Form', [
             'categories' => $categories,
         ]);
     }
-    public function storeProject(Request $request)
+    public function storeProject(Request $request, $slug = null)
     {
-        $data = $request->validate([
+        // Determine if we're creating or updating
+        $isEdit = $slug !== null;
+
+        if ($isEdit) {
+            $project = Project::where('slug', $slug)
+                ->where('user_id', auth()->id())
+                ->firstOrFail();
+        } else {
+            $project = new Project();
+        }
+
+        $slugChanged = $request->has('slug') && $isEdit && $request->input('slug') !== $project->slug;
+
+        $rules = [
             'title' => 'required|string|max:255',
-            'slug' => 'required|string|max:255|unique:projects,slug',
-            'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'category_id' => 'required|exists:categories,id',
             'subcategory_id' => 'required|exists:subcategories,id',
             'address' => 'required|string',
@@ -402,32 +494,85 @@ class OrganizationController extends Controller
             'suitable.*' => 'string|in:Adults,Students,Families,Retirees',
             'availability_months' => 'required|array',
             'availability_months.*' => 'string|in:January,February,March,April,May,June,July,August,September,October,November,December',
-            'start_date' => 'required|date',
-            'gallery_images' => 'nullable|array',
-            'gallery_images.*' => 'image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'start_date' => 'nullable|date',
             'point_exchange' => 'nullable|boolean',
-        ]);
+            'existing_featured_image' => 'nullable|string',
+        ];
+
+        if ($isEdit) {
+            $rules['gallery_images'] = 'nullable|array';
+            $rules['gallery_images.*'] = 'image|mimes:jpeg,png,jpg,gif,svg|max:2048';
+            // Only require existing_gallery_images if there were existing images
+            if ($project->galleryImages()->count() > 0) {
+                $rules['existing_gallery_images'] = 'required|array';
+                $rules['existing_gallery_images.*'] = 'string';
+            }
+        } else {
+            $rules['gallery_images'] = 'required|array|min:1';
+            $rules['gallery_images.*'] = 'image|mimes:jpeg,png,jpg,gif,svg|max:2048';
+        }
+
+        // Featured image validation
+        if ($request->hasFile('featured_image')) {
+            $rules['featured_image'] = 'image|mimes:jpeg,png,jpg,gif,svg|max:2048';
+        }
+
+        // Validate slug only if changed or new project
+        if ($slugChanged || !$isEdit) {
+            $rules['slug'] = 'required|string|max:255|unique:projects,slug';
+        }
+
+        $data = $request->validate($rules);
+
+        if (!$slugChanged && $isEdit) {
+            $data['slug'] = $project->slug;
+        }
 
         $data['user_id'] = Auth::id();
-        $data['status'] = 'Pending';
+        $data['status'] = $isEdit ? $project->status : 'Pending';
 
         // Handle featured image
         if ($request->hasFile('featured_image')) {
+            // Delete old image if exists
+            if ($isEdit && $project->featured_image) {
+                Storage::disk('public')->delete($project->featured_image);
+            }
             $data['featured_image'] = $request->file('featured_image')->store('projects/featured', 'public');
+        } elseif ($request->filled('existing_featured_image')) {
+            $data['featured_image'] = $request->input('existing_featured_image');
+        } elseif ($isEdit && $project->featured_image) {
+            // Keep existing image if not changed
+            $data['featured_image'] = $project->featured_image;
+        } else {
+            $data['featured_image'] = null;
         }
 
-        // Handle multi-select fields
         $data['suitable'] = $request->input('suitable', []);
         $data['availability_months'] = $request->input('availability_months', []);
 
-        // Create the project
-        $project = Project::create($data);
+        $project->fill($data);
+        $project->save();
 
-        // Save gallery images
+        // Handle gallery images
+        if ($isEdit) {
+            // Get existing gallery images from request
+            $existingImages = $request->input('existing_gallery_images', []);
+
+            // Delete images that were removed
+            $imagesToDelete = $project->galleryImages()
+                ->whereNotIn('image_path', $existingImages)
+                ->get();
+
+            foreach ($imagesToDelete as $image) {
+                Storage::disk('public')->delete($image->image_path);
+                $image->delete();
+            }
+        }
+
+        // Add new gallery images
         if ($request->hasFile('gallery_images')) {
             foreach ($request->file('gallery_images') as $image) {
                 $path = $image->store('projects/gallery', 'public');
-
                 GalleryImage::create([
                     'project_id' => $project->id,
                     'image_path' => $path,
@@ -435,51 +580,48 @@ class OrganizationController extends Controller
             }
         }
 
-        return redirect()->route('organization.projects')->with('success', 'Project created successfully.');
-    }
+        // For new projects, ensure at least one gallery image exists
+        if (!$isEdit && $project->galleryImages()->count() === 0) {
+            throw ValidationException::withMessages([
+                'gallery_images' => 'At least one gallery image is required.'
+            ]);
+        }
 
+        $message = $isEdit
+            ? 'Project updated successfully.'
+            : 'Project created successfully.';
+
+        return redirect()->route('organization.projects')->with('success', $message);
+    }
 
     public function editProject($slug)
     {
-        $project = Project::with(['category', 'subcategory', 'galleryImages', 'projectRemarks'])
+        $project = Project::with(['category', 'subcategory', 'galleryImages'])
             ->where('slug', $slug)
             ->where('user_id', auth()->id())
             ->firstOrFail();
 
         $categories = Category::with('subcategories')->get();
 
-        return Inertia::render('Organizations/Projects/Edit', [
+        return inertia('Organizations/Projects/Form', [
             'project' => $project,
             'categories' => $categories,
-            'subcategories' => $project->category->subcategories,
-            'selectedSubcategory' => $project->subcategory_id,
-            'selectedCategory' => $project->category_id,
-            'projectRemarks' => $project->projectRemarks->map(function ($remark) {
-                return [
-                    'id' => $remark->id,
-                    'remark' => $remark->remark,
-                    'status' => $remark->status,
-                    'created_at' => $remark->created_at->format('Y-m-d H:i:s'),
-                ];
-            }),
-            'galleryImages' => $project->galleryImages->map(function ($image) {
-                return [
-                    'id' => $image->id,
-                    'url' => asset('storage/' . $image->image_path),
-                ];
-            }),
+            'isEdit' => true,
         ]);
     }
 
 
     public function updateProject(Request $request, $slug)
     {
-        $project = Project::where('slug', $slug)->where('user_id', auth()->id())->firstOrFail();
+        $project = Project::where('slug', $slug)
+            ->where('user_id', auth()->id())
+            ->firstOrFail();
 
         $data = $request->validate([
             'title' => 'required|string|max:255',
             'slug' => 'required|string|max:255|unique:projects,slug,' . $project->id,
             'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'existing_featured_image' => 'nullable|string',
             'category_id' => 'required|exists:categories,id',
             'subcategory_id' => 'required|exists:subcategories,id',
             'address' => 'required|string',
@@ -500,13 +642,15 @@ class OrganizationController extends Controller
             'suitable.*' => 'string|in:Adults,Students,Families,Retirees',
             'availability_months' => 'required|array',
             'availability_months.*' => 'string|in:January,February,March,April,May,June,July,August,September,October,November,December',
-            'start_date' => 'required|date',
+            'start_date' => 'nullable|date',
             'gallery_images' => 'nullable|array',
             'gallery_images.*' => 'image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'existing_gallery_images' => 'nullable|array',
             'existing_gallery_images.*' => 'string',
-            'status' => 'required|in:Active,Pending,Suspended',
+            'point_exchange' => 'nullable|boolean',
+            'remove_featured_image' => 'nullable|boolean',
         ]);
+
 
         // Handle featured image
         if ($request->hasFile('featured_image')) {
@@ -514,27 +658,31 @@ class OrganizationController extends Controller
             if ($project->featured_image) {
                 Storage::disk('public')->delete($project->featured_image);
             }
-            $data['featured_image'] = $request->file('featured_image')->store('projects/featured', 'public');
+            $data['featured_image'] = $request->file('featured_image')
+                ->store('projects/featured', 'public');
+        } elseif ($request->remove_featured_image) {
+            // Remove featured image if requested
+            if ($project->featured_image) {
+                Storage::disk('public')->delete($project->featured_image);
+            }
+            $data['featured_image'] = null;
         }
-
-        // Handle multi-select fields
-        $data['suitable'] = $request->input('suitable', []);
-        $data['availability_months'] = $request->input('availability_months', []);
 
         // Handle gallery images
         $existingGalleryImages = $request->input('existing_gallery_images', []);
 
         // Delete removed images
-        $project->galleryImages()->whereNotIn('image_path', $existingGalleryImages)->each(function ($image) {
-            Storage::disk('public')->delete($image->image_path);
-            $image->delete();
-        });
+        $project->galleryImages()
+            ->whereNotIn('image_path', $existingGalleryImages)
+            ->each(function ($image) {
+                Storage::disk('public')->delete($image->image_path);
+                $image->delete();
+            });
 
         // Add new images
         if ($request->hasFile('gallery_images')) {
             foreach ($request->file('gallery_images') as $image) {
                 $path = $image->store('projects/gallery', 'public');
-
                 GalleryImage::create([
                     'project_id' => $project->id,
                     'image_path' => $path,
@@ -544,10 +692,9 @@ class OrganizationController extends Controller
 
         $project->update($data);
 
-        return redirect()->route('organization.projects')->with('success', 'Project updated successfully.');
+        return redirect()->route('organization.projects')
+            ->with('success', 'Project updated successfully.');
     }
-
-
 
     public function deleteProject($slug)
     {
@@ -598,5 +745,53 @@ class OrganizationController extends Controller
             'totalPoints' => $pointsService->getTotalPointsForOrganization($user->id),
             'pointsHistory' => $pointsService->getPointsHistoryForOrganization($user->id),
         ]);
+    }
+
+    public function verification()
+    {
+        $user = Auth::user();
+        $organization_profile = OrganizationProfile::where('user_id', $user->id)->first();
+
+        if (!$organization_profile) {
+            return redirect()->route('organization.profile')->with('error', 'Organization profile not found.');
+        }
+
+        return Inertia::render('Organizations/Verification', [
+            'profile' => $organization_profile,
+            'auth' => [
+                'user' => $user,
+            ],
+            'organization_profile' => $organization_profile->slug,
+        ]);
+    }
+
+    public function storeVerification(Request $request, $organization_profile)
+    {
+        $organizationProfile = OrganizationProfile::where('slug', $organization_profile)->firstOrFail();
+
+        $data = $request->validate([
+            'type_of_document' => 'required|string|max:255',
+            'certificate' => 'required|file|mimes:pdf,jpg,jpeg,png|max:2048',
+            'type_of_document_2' => 'nullable|string|max:255',
+            'another_document' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
+        ]);
+
+        // Store the certificate files
+        if ($request->hasFile('certificate')) {
+            $data['certificate'] = $request->file('certificate')->store('verification_certificates', 'public');
+        }
+
+        if ($request->hasFile('another_document')) {
+            $data['another_document'] = $request->file('another_document')->store('other_verification_documents', 'public');
+        }
+
+        // Add the organization profile ID to the data
+        $data['organization_profile_id'] = $organizationProfile->id;
+
+        // Create the verification record
+        OrganizationVerification::create($data);
+
+        // Redirect to profile page with success message
+        return redirect()->route('organization.profile')->with('success', 'Verification documents submitted successfully!');
     }
 }

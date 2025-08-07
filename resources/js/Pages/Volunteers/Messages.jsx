@@ -3,8 +3,7 @@ import { usePage, router } from "@inertiajs/react";
 import { useState, useEffect, useCallback, useRef } from "react";
 
 export default function Messages({ auth: propAuth }) {
-    const { messages: initialMessages = [] } = usePage().props;
-    const auth = propAuth || usePage().props.auth;
+    const { messages: initialMessages = [], auth } = usePage().props;
     const [groupedMessages, setGroupedMessages] = useState({});
     const [selectedConversationId, setSelectedConversationId] = useState(null);
     const [newMessage, setNewMessage] = useState("");
@@ -16,6 +15,14 @@ export default function Messages({ auth: propAuth }) {
     const messagesEndRef = useRef(null);
     const [contentWarning, setContentWarning] = useState(false);
 
+    const selectedConversation = selectedConversationId
+        ? groupedMessages[selectedConversationId]
+        : null;
+
+    // Determine if this is a paid project conversation and if payment was made
+    const currentProject = selectedConversation?.project;
+    const isPaidProject = currentProject?.type_of_project === "Paid";
+    const hasPayment = currentProject?.has_payment || false;
     // Regex patterns for restricted content
     const restrictedPatterns = {
         phone: /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g,
@@ -24,7 +31,12 @@ export default function Messages({ auth: propAuth }) {
     };
 
     // Function to filter restricted content
-    const filterContent = (text) => {
+    const filterContent = (text, isPaidProject, hasPaidBooking) => {
+        // If it's a paid project with payment, don't filter anything
+        if (isPaidProject && hasPaidBooking) {
+            return { cleanedText: text, hasRestrictedContent: false };
+        }
+
         let hasRestrictedContent = false;
         let cleanedText = text;
 
@@ -39,17 +51,127 @@ export default function Messages({ auth: propAuth }) {
         return { cleanedText, hasRestrictedContent };
     };
 
-    // Initialize grouped messages from props
+    // Function to filter restricted content
+    // const filterContent = (text) => {
+    //     let hasRestrictedContent = false;
+    //     let cleanedText = text;
+
+    //     // Check each pattern
+    //     Object.values(restrictedPatterns).forEach((pattern) => {
+    //         if (pattern.test(cleanedText)) {
+    //             cleanedText = cleanedText.replace(pattern, "[content removed]");
+    //             hasRestrictedContent = true;
+    //         }
+    //     });
+
+    //     return { cleanedText, hasRestrictedContent };
+    // };
+
+    useEffect(() => {
+        if (!window.Echo) {
+            // Initialize Echo only once
+            window.Echo = new Echo({
+                broadcaster: "pusher",
+                key: process.env.MIX_PUSHER_APP_KEY,
+                cluster: process.env.MIX_PUSHER_APP_CLUSTER,
+                forceTLS: true,
+                authEndpoint: "/broadcasting/auth",
+                auth: {
+                    headers: {
+                        "X-CSRF-TOKEN": document.querySelector(
+                            'meta[name="csrf-token"]'
+                        ).content,
+                    },
+                },
+            });
+        }
+
+        const userId = auth.user.id;
+
+        window.Echo.private(`chat.${userId}`).listen(".new.message", (data) => {
+            const newMessage = data.message;
+
+            setGroupedMessages((prev) => {
+                const updated = { ...prev };
+                const senderId =
+                    newMessage.sender_id === userId
+                        ? newMessage.receiver_id
+                        : newMessage.sender_id;
+
+                if (updated[senderId]) {
+                    updated[senderId] = {
+                        ...updated[senderId],
+                        messages: [...updated[senderId].messages, newMessage],
+                        latestMessage: newMessage,
+                        unreadCount:
+                            newMessage.receiver_id === userId
+                                ? (updated[senderId].unreadCount || 0) + 1
+                                : updated[senderId].unreadCount,
+                        // Update payment status if included in message
+                        project: newMessage.project_id
+                            ? {
+                                  ...updated[senderId].project,
+                                  has_payment: newMessage.has_payment || false,
+                              }
+                            : updated[senderId].project,
+                    };
+                } else {
+                    updated[senderId] = {
+                        sender: {
+                            id: senderId,
+                            name: newMessage.sender.name || "Unknown",
+                            email: newMessage.sender.email || "",
+                        },
+                        project: newMessage.project_id
+                            ? {
+                                  id: newMessage.project_id,
+                                  type_of_project:
+                                      newMessage.project?.type_of_project,
+                                  has_payment: newMessage.has_payment || false,
+                              }
+                            : null,
+                        messages: [newMessage],
+                        latestMessage: newMessage,
+                        unreadCount: newMessage.receiver_id === userId ? 1 : 0,
+                    };
+                }
+
+                return updated;
+            });
+        });
+
+        return () => {
+            if (window.Echo) {
+                window.Echo.leave(`chat.${userId}`);
+            }
+        };
+    }, [auth.user.id, selectedConversationId]);
+
+    // In your useEffect for initializing grouped messages:
     useEffect(() => {
         const initialGrouped = initialMessages.reduce((acc, conversation) => {
-            acc[conversation.sender.id] = conversation;
+            // Use conversation.sender instead of selectedConversation.sender
+            if (!conversation.sender) return acc;
+
+            const conversationWithPayment = {
+                ...conversation,
+                project: conversation.project
+                    ? {
+                          ...conversation.project,
+                          has_payment:
+                              conversation.project.has_payment || false,
+                      }
+                    : null,
+            };
+
+            acc[conversation.sender.id] = conversationWithPayment;
             return acc;
         }, {});
 
         setGroupedMessages(initialGrouped);
 
-        // Select first conversation if none selected
-        if (!selectedConversationId && initialMessages.length > 0) {
+        // Select first conversation if none selected and there are valid conversations
+        if (!selectedConversationId && Object.keys(initialGrouped).length > 0) {
             const firstKey = Object.keys(initialGrouped)[0];
             setSelectedConversationId(firstKey);
         }
@@ -138,7 +260,22 @@ export default function Messages({ auth: propAuth }) {
 
         if (!newMessage.trim() || !selectedConversationId) return;
 
-        const { cleanedText, hasRestrictedContent } = filterContent(newMessage);
+        // Get the current conversation's project and booking (if any)
+        const currentProject = selectedConversation?.project;
+        const currentBooking = selectedConversation?.booking;
+
+        // Check if this is a paid project
+        const isPaidProject = currentProject?.type_of_project === "Paid";
+
+        // Check if user has made payment for this project
+        const hasPayment = currentProject?.has_payment || false;
+
+        // Filter content based on project type and payment status
+        const { cleanedText, hasRestrictedContent } = filterContent(
+            newMessage,
+            isPaidProject,
+            hasPayment
+        );
 
         if (hasRestrictedContent) {
             setContentWarning(true);
@@ -146,9 +283,20 @@ export default function Messages({ auth: propAuth }) {
             return;
         }
 
+        // Determine receiver ID
         const receiverId = isReplying
             ? replyToMessage.sender_id
-            : selectedConversationId;
+            : selectedConversation.sender.id;
+
+        // Determine booking_id:
+        // - Use booking_id from reply if replying
+        // - Use current booking_id if available
+        let bookingId = null;
+        if (isReplying) {
+            bookingId = replyToMessage.booking_id;
+        } else if (currentBooking) {
+            bookingId = currentBooking.id;
+        }
 
         router.post(
             route("volunteer.messages.store"),
@@ -156,6 +304,8 @@ export default function Messages({ auth: propAuth }) {
                 receiver_id: receiverId,
                 message: cleanedText,
                 reply_to: isReplying ? replyToMessage.id : null,
+                project_id: currentProject?.id || null,
+                booking_id: bookingId,
             },
             {
                 preserveScroll: true,
@@ -164,6 +314,7 @@ export default function Messages({ auth: propAuth }) {
                     setIsReplying(false);
                     setReplyToMessage(null);
 
+                    // Optimistically update the messages
                     const newMsg = {
                         id: Date.now(),
                         message: cleanedText,
@@ -173,6 +324,8 @@ export default function Messages({ auth: propAuth }) {
                         status: "Read",
                         reply_to: isReplying ? replyToMessage.id : null,
                         original_message: isReplying ? replyToMessage : null,
+                        project_id: currentProject?.id || null,
+                        booking_id: bookingId,
                     };
 
                     setGroupedMessages((prev) => {
@@ -208,10 +361,9 @@ export default function Messages({ auth: propAuth }) {
             }
         );
     };
-
-    const selectedConversation = selectedConversationId
-        ? groupedMessages[selectedConversationId]
-        : null;
+    // const selectedConversation = selectedConversationId
+    //     ? groupedMessages[selectedConversationId]
+    //     : null;
 
     return (
         <VolunteerLayout auth={auth}>
@@ -232,13 +384,10 @@ export default function Messages({ auth: propAuth }) {
                                     : "-translate-x-full"
                             } md:translate-x-0 transition-transform duration-300 ease-in-out border-r border-gray-200`}
                         >
-                            <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-                                <h2 className="text-lg font-semibold">
-                                    Conversations
-                                </h2>
+                            <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center">
                                 <button
-                                    onClick={() => setShowConversations(false)}
-                                    className="md:hidden p-1 rounded-full hover:bg-gray-200"
+                                    onClick={() => setShowConversations(true)}
+                                    className="md:hidden mr-2 p-1 rounded-full hover:bg-gray-200"
                                 >
                                     <svg
                                         className="w-5 h-5"
@@ -250,10 +399,38 @@ export default function Messages({ auth: propAuth }) {
                                             strokeLinecap="round"
                                             strokeLinejoin="round"
                                             strokeWidth={2}
-                                            d="M6 18L18 6M6 6l12 12"
+                                            d="M4 6h16M4 12h16M4 18h16"
                                         />
                                     </svg>
                                 </button>
+                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
+                                    {selectedConversation?.sender?.name?.charAt(
+                                        0
+                                    ) || "U"}
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-semibold text-gray-900">
+                                        {selectedConversation?.sender?.name ||
+                                            "Unknown"}
+                                    </h2>
+                                    {selectedConversation?.project && (
+                                        <p className="text-xs text-gray-500">
+                                            Project:{" "}
+                                            {selectedConversation.project.title}
+                                            {selectedConversation?.booking && (
+                                                <span>
+                                                    {" "}
+                                                    (Booking #
+                                                    {
+                                                        selectedConversation
+                                                            .booking.id
+                                                    }
+                                                    )
+                                                </span>
+                                            )}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                             <ul className="divide-y divide-gray-200 max-h-[70vh] overflow-y-auto">
                                 {Object.values(groupedMessages).length > 0 ? (
@@ -335,6 +512,47 @@ export default function Messages({ auth: propAuth }) {
 
                     {/* Chat Interface */}
                     <div className="col-span-2 flex flex-col">
+                        {isPaidProject && (
+                            <div className="mb-2 p-2 bg-green-50 rounded-lg text-sm">
+                                {hasPayment ? (
+                                    <p className="text-green-700">
+                                        <svg
+                                            className="w-4 h-4 inline mr-1"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M5 13l4 4L19 7"
+                                            />
+                                        </svg>
+                                        Payment verified - You can now share
+                                        contact details
+                                    </p>
+                                ) : (
+                                    <p className="text-yellow-700">
+                                        <svg
+                                            className="w-4 h-4 inline mr-1"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                                            />
+                                        </svg>
+                                        This is a paid project - Contact sharing
+                                        is restricted until payment is made
+                                    </p>
+                                )}
+                            </div>
+                        )}
                         {selectedConversation ? (
                             <>
                                 <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center">
@@ -358,10 +576,32 @@ export default function Messages({ auth: propAuth }) {
                                             />
                                         </svg>
                                     </button>
-                                    <div className="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
-                                        {selectedConversation.sender.name?.charAt(
-                                            0
-                                        ) || "U"}
+                                    <div>
+                                        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
+                                            {selectedConversation.sender.name?.charAt(
+                                                0
+                                            ) || "U"}
+                                        </div>
+                                        {selectedConversation.project && (
+                                            <p className="text-xs text-gray-500">
+                                                Project:{" "}
+                                                {
+                                                    selectedConversation.project
+                                                        .title
+                                                }
+                                                {selectedConversation.booking && (
+                                                    <span>
+                                                        {" "}
+                                                        (Booking #
+                                                        {
+                                                            conversation.booking
+                                                                .id
+                                                        }
+                                                        )
+                                                    </span>
+                                                )}
+                                            </p>
+                                        )}
                                     </div>
                                     <div>
                                         <h2 className="text-lg font-semibold text-gray-900">

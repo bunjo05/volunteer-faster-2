@@ -45,7 +45,6 @@ export default function Projects({
     }
 
     useEffect(() => {
-        // console.log("Initializing Stripe with key:", stripeKey);
         setStripeLoading(true);
 
         const initializeStripe = async () => {
@@ -54,12 +53,10 @@ export default function Projects({
                     throw new Error("Stripe key is missing");
                 }
 
-                // Clear any existing Stripe instance
                 stripePromiseRef.current = null;
                 stripeInitialized.current = false;
                 stripeError.current = null;
 
-                // Load Stripe and wait for it to be ready
                 stripePromiseRef.current = loadStripe(stripeKey);
                 const stripe = await stripePromiseRef.current;
 
@@ -68,9 +65,7 @@ export default function Projects({
                 }
 
                 stripeInitialized.current = true;
-                // console.log("Stripe initialized successfully");
             } catch (error) {
-                // console.error("Failed to initialize Stripe:", error);
                 stripeError.current = error;
                 stripeInitialized.current = false;
             } finally {
@@ -91,14 +86,12 @@ export default function Projects({
     }, [stripeKey]);
 
     useEffect(() => {
-        // Safely access flash from props
         const flash = props?.flash;
 
         if (flash?.success) {
             setSuccessMessage(flash.success);
             setShowSuccessBadge(true);
 
-            // Hide after 10 seconds
             const timer = setTimeout(() => {
                 setShowSuccessBadge(false);
                 setSuccessMessage("");
@@ -106,7 +99,7 @@ export default function Projects({
 
             return () => clearTimeout(timer);
         }
-    }, [props?.flash]); // Optional chaining here as well
+    }, [props?.flash]);
 
     const handleFeatureClick = (project) => {
         setSelectedProject(project);
@@ -159,7 +152,6 @@ export default function Projects({
                 throw new Error("Stripe is not available");
             }
 
-            // Add CSRF token to headers
             axios.defaults.headers.common["X-CSRF-TOKEN"] =
                 document.querySelector('meta[name="csrf-token"]').content;
 
@@ -167,8 +159,6 @@ export default function Projects({
                 project_id: selectedProject.id,
                 plan_type: selectedPlan,
             });
-
-            // console.log("Checkout response:", response.data);
 
             if (!response.data.sessionId) {
                 throw new Error("No session ID returned from server");
@@ -179,11 +169,9 @@ export default function Projects({
             });
 
             if (result.error) {
-                // console.error("Stripe redirect error:", result.error);
                 alert("Payment processing failed: " + result.error.message);
             }
         } catch (error) {
-            // console.error("Checkout error:", error);
             alert(
                 "An error occurred: " +
                     (error.response?.data?.error || error.message)
@@ -216,7 +204,6 @@ export default function Projects({
         }
     };
 
-    // Pricing plans configuration
     const pricingPlans = {
         "1_month": {
             price: 50.0,
@@ -243,7 +230,6 @@ export default function Projects({
     return (
         <OrganizationLayout>
             <div className="min-h-screen py-10 px-4 sm:px-8 bg-gray-100">
-                {/* Header and Search - unchanged from your original code */}
                 {showSuccessBadge && (
                     <div className="fixed top-4 right-4 z-50">
                         <div className="flex items-center gap-2 bg-green-500 text-white px-4 py-3 rounded-md shadow-lg animate-fade-in">
@@ -270,61 +256,9 @@ export default function Projects({
                         </div>
                     </div>
                 )}
-                {/* Status Notification */}
-                {isPending && (
-                    <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-md shadow-sm">
-                        <div className="flex">
-                            <div className="flex-shrink-0">
-                                <svg
-                                    className="h-5 w-5 text-yellow-400"
-                                    viewBox="0 0 20 20"
-                                    fill="currentColor"
-                                >
-                                    <path
-                                        fillRule="evenodd"
-                                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                        clipRule="evenodd"
-                                    />
-                                </svg>
-                            </div>
-                            <div className="ml-3">
-                                <p className="text-sm text-yellow-700">
-                                    Your account is currently being reviewed by
-                                    an admin. You won't be able to create new
-                                    projects until your account is approved.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                )}
-                {isSuspended && (
-                    <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 rounded-md shadow-sm">
-                        <div className="flex">
-                            <div className="flex-shrink-0">
-                                <svg
-                                    className="h-5 w-5 text-red-400"
-                                    viewBox="0 0 20 20"
-                                    fill="currentColor"
-                                >
-                                    <path
-                                        fillRule="evenodd"
-                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                        clipRule="evenodd"
-                                    />
-                                </svg>
-                            </div>
-                            <div className="ml-3">
-                                <p className="text-sm text-red-700">
-                                    Your account has been suspended. You can no
-                                    longer create projects. Please contact
-                                    support if you believe this is an error.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
-                {!hasProfile && isActive && (
+                {/* Organization Profile Not Filled Badge */}
+                {!hasProfile && isPending && (
                     <div className="mb-6 p-4 bg-blue-50 border-l-4 border-blue-400 rounded-md shadow-sm">
                         <div className="flex">
                             <div className="flex-shrink-0">
@@ -353,6 +287,61 @@ export default function Projects({
                                         Go to Profile →
                                     </Link>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Account Under Review Badge */}
+                {hasProfile && isPending && (
+                    <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-md shadow-sm">
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                <svg
+                                    className="h-5 w-5 text-yellow-400"
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                >
+                                    <path
+                                        fillRule="evenodd"
+                                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                        clipRule="evenodd"
+                                    />
+                                </svg>
+                            </div>
+                            <div className="ml-3">
+                                <p className="text-sm text-yellow-700">
+                                    Please wait, your account is currently under
+                                    review. An admin will review your profile
+                                    and make a decision soon.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {isSuspended && (
+                    <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 rounded-md shadow-sm">
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                <svg
+                                    className="h-5 w-5 text-red-400"
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                >
+                                    <path
+                                        fillRule="evenodd"
+                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                        clipRule="evenodd"
+                                    />
+                                </svg>
+                            </div>
+                            <div className="ml-3">
+                                <p className="text-sm text-red-700">
+                                    Your account has been suspended. You can no
+                                    longer create projects. Please contact
+                                    support if you believe this is an error.
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -390,7 +379,6 @@ export default function Projects({
                         />
                     </div>
 
-                    {/* Project Cards */}
                     <div className="space-y-6">
                         {projectsWithFeaturedStatus.length === 0 ? (
                             <p className="text-gray-500">No projects found.</p>
@@ -400,7 +388,6 @@ export default function Projects({
                                     key={project.id}
                                     className="bg-white rounded-lg px-[10px] shadow hover:shadow-md flex items-center transition duration-300 overflow-hidden"
                                 >
-                                    {/* Project card content - unchanged from your original code */}
                                     <div className="relative w-[200px] h-[200px] rounded-xl overflow-hidden shadow-lg border border-gray-200">
                                         {project.status === "Rejected" && (
                                             <span className="absolute top-2 left-2 flex items-center gap-1 bg-red-500/90 text-white text-[11px] font-semibold px-3 py-1 rounded-full shadow-md backdrop-blur-sm">
@@ -596,7 +583,6 @@ export default function Projects({
                     </div>
                 </div>
 
-                {/* Integrated Feature Modal */}
                 {showFeatureModal && selectedProject && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                         <div className="bg-white rounded-lg p-6 max-w-md w-full">

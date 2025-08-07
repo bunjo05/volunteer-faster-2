@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useForm, Head } from "@inertiajs/react";
 import OrganizationLayout from "@/Layouts/OrganizationLayout";
 
@@ -28,14 +28,6 @@ const FormInput = ({
         {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
     </div>
 );
-
-const removeFeaturedImage = () => {
-    setData("featured_image", null);
-    setPreviewImage(null);
-    if (featuredImageInputRef.current) {
-        featuredImageInputRef.current.value = "";
-    }
-};
 
 const FormTextarea = ({
     label,
@@ -219,33 +211,46 @@ const StepIndicator = ({ steps, currentStep, errorSteps, onStepClick }) => {
     );
 };
 
-export default function CreateProjectForm({ categories }) {
-    const { data, setData, post, errors, processing } = useForm({
-        title: "",
-        slug: "",
-        featured_image: null,
-        category_id: "",
-        subcategory_id: "",
-        address: "",
-        short_description: "",
-        detailed_description: "",
-        min_duration: "",
-        max_duration: "",
-        duration_type: "Days",
-        daily_routine: "",
-        type_of_project: "Free",
-        fees: "",
-        currency: "USD",
-        category_of_charge: "Day",
-        includes: "",
-        excludes: "",
-        activities: "",
-        suitable: [],
-        availability_months: [],
-        gallery_images: [],
-        start_date: "",
-        status: "Pending",
-        point_exchange: false,
+export default function ProjectForm({
+    categories,
+    project = null,
+    isEdit = false,
+}) {
+    const featuredImageInputRef = useRef(null);
+    const { data, setData, post, put, errors, processing } = useForm({
+        title: project?.title || "",
+        slug: project?.slug || "",
+        featured_image:
+            isEdit && project?.featured_image ? project.featured_image : null,
+        category_id: project?.category_id || "",
+        subcategory_id: project?.subcategory_id || "",
+        address: project?.address || "",
+        short_description: project?.short_description || "",
+        detailed_description: project?.detailed_description || "",
+        min_duration: project?.min_duration || "",
+        max_duration: project?.max_duration || "",
+        duration_type: project?.duration_type || "Days",
+        daily_routine: project?.daily_routine || "",
+        type_of_project: project?.type_of_project || "Free",
+        fees: project?.fees || "",
+        currency: project?.currency || "USD",
+        category_of_charge: project?.category_of_charge || "Day",
+        includes: project?.includes || "",
+        excludes: project?.excludes || "",
+        activities: project?.activities || "",
+        suitable: project?.suitable || [],
+        availability_months: project?.availability_months || [],
+        gallery_images:
+            project?.gallery_images?.map((img) => ({
+                id: img.id,
+                image_path: img.image_path,
+                isExisting: true,
+            })) || [],
+        existing_gallery_images:
+            project?.gallery_images?.map((img) => img.image_path) || [],
+        start_date: project?.start_date || "",
+        status: project?.status || "Pending",
+        point_exchange: project?.point_exchange || false,
     });
 
     const ALLOWED_IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "webp"];
@@ -254,8 +259,16 @@ export default function CreateProjectForm({ categories }) {
     const [selectedCategory, setSelectedCategory] = useState("");
     const [step, setStep] = useState(1);
     const [charCount, setCharCount] = useState(0);
-    const [previewImage, setPreviewImage] = useState(null);
-    const [galleryPreviews, setGalleryPreviews] = useState([]);
+    const [previewImage, setPreviewImage] = useState(
+        project?.featured_image ? `/storage/${project.featured_image}` : null
+    );
+    const [galleryPreviews, setGalleryPreviews] = useState(
+        project?.gallery_images?.map((img) => ({
+            url: `/storage/${img.image_path}`,
+            file: null,
+            id: img.id,
+        })) || []
+    );
     const [stepsWithErrors, setStepsWithErrors] = useState([]);
 
     const months = [
@@ -316,19 +329,26 @@ export default function CreateProjectForm({ categories }) {
         { label: "Media & Dates", fields: ["gallery_images", "start_date"] },
     ];
 
-    // Initialize previews from existing data if editing
+    // Initialize form with project data if editing
     useEffect(() => {
-        if (data.featured_image && typeof data.featured_image === "string") {
-            setPreviewImage(data.featured_image);
+        if (isEdit && project) {
+            if (project.featured_image) {
+                setData("featured_image", project.featured_image);
+                setPreviewImage(`/storage/${project.featured_image}`);
+            }
+            if (project.gallery_images?.length > 0) {
+                const existingPreviews = project.gallery_images.map((img) => ({
+                    url: `/storage/${img.image_path}`,
+                    file: null,
+                    id: img.id,
+                }));
+                setGalleryPreviews(existingPreviews);
+            }
+            if (project.category_id) {
+                setSelectedCategory(project.category_id);
+            }
         }
-        if (data.gallery_images?.length > 0) {
-            const existingPreviews = data.gallery_images.map((img) => ({
-                url: img instanceof File ? URL.createObjectURL(img) : img,
-                file: img instanceof File ? img : null,
-            }));
-            setGalleryPreviews(existingPreviews);
-        }
-    }, []);
+    }, [isEdit, project]);
 
     useEffect(() => {
         const errorSteps = steps.reduce((acc, curr, index) => {
@@ -337,7 +357,9 @@ export default function CreateProjectForm({ categories }) {
             }
             return acc;
         }, []);
-        setStepsWithErrors(errorSteps);
+
+        // Ensure unique step numbers
+        setStepsWithErrors([...new Set(errorSteps)]);
     }, [errors]);
 
     const handleShortDescriptionChange = (e) => {
@@ -350,6 +372,19 @@ export default function CreateProjectForm({ categories }) {
         } else {
             setData("short_description", value.substring(0, 499));
             setCharCount(500);
+        }
+    };
+
+    const removeFeaturedImage = () => {
+        setData("featured_image", null);
+        setPreviewImage(null);
+        if (featuredImageInputRef.current) {
+            featuredImageInputRef.current.value = "";
+        }
+
+        // If editing and there was a previous image, mark it for deletion
+        if (isEdit && project?.featured_image) {
+            setData("remove_featured_image", true);
         }
     };
 
@@ -419,75 +454,189 @@ export default function CreateProjectForm({ categories }) {
             const newPreviews = validFiles.map((file) => ({
                 url: URL.createObjectURL(file),
                 file,
+                isNew: true,
             }));
+
             setGalleryPreviews((prev) => [...prev, ...newPreviews]);
-            setData("gallery_images", [...data.gallery_images, ...validFiles]);
+            setData("gallery_images", [
+                ...data.gallery_images,
+                ...validFiles.map((file) => ({
+                    file,
+                    isNew: true,
+                })),
+            ]);
         }
 
-        if (invalidFiles.length) {
-            e.target.value = "";
-        }
+        e.target.value = "";
     };
 
     const removeGalleryImage = (index) => {
         const updatedPreviews = [...galleryPreviews];
-        const updatedFiles = [...data.gallery_images];
+        const removedImage = updatedPreviews[index];
 
-        if (updatedPreviews[index].file) {
-            URL.revokeObjectURL(updatedPreviews[index].url);
+        if (removedImage.id) {
+            // Existing image - mark for deletion
+            setData(
+                "existing_gallery_images",
+                data.existing_gallery_images.filter(
+                    (img) => img !== removedImage.url.replace("/storage/", "")
+                )
+            );
+        } else {
+            // New image - remove from upload list
+            URL.revokeObjectURL(removedImage.url);
+            setData(
+                "gallery_images",
+                data.gallery_images.filter((_, i) => i !== index)
+            );
         }
 
         updatedPreviews.splice(index, 1);
-        updatedFiles.splice(index, 1);
-
         setGalleryPreviews(updatedPreviews);
-        setData("gallery_images", updatedFiles);
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
         const formData = new FormData();
 
-        Object.keys(data).forEach((key) => {
-            if (
-                key === "gallery_images" &&
-                Array.isArray(data.gallery_images)
-            ) {
-                data.gallery_images.forEach((file, index) => {
-                    if (file instanceof File) {
-                        formData.append(`gallery_images[${index}]`, file);
-                    }
-                });
-            } else if (
-                key === "featured_image" &&
-                data.featured_image instanceof File
-            ) {
-                formData.append("featured_image", data.featured_image);
-            } else if (Array.isArray(data[key])) {
-                data[key].forEach((value, index) => {
-                    formData.append(`${key}[${index}]`, value);
-                });
-            } else {
-                formData.append(key, data[key]);
-            }
+        // Include all required fields
+        formData.append("title", data.title);
+
+        // Only include slug if it has changed or we're creating a new project
+        if (!isEdit || data.slug !== project.slug) {
+            formData.append("slug", data.slug);
+        }
+
+        formData.append("category_id", data.category_id);
+        formData.append("subcategory_id", data.subcategory_id);
+        formData.append("address", data.address);
+        formData.append("short_description", data.short_description);
+        formData.append("detailed_description", data.detailed_description);
+        formData.append("min_duration", data.min_duration);
+        formData.append("max_duration", data.max_duration);
+        formData.append("duration_type", data.duration_type);
+        formData.append("daily_routine", data.daily_routine);
+        formData.append("type_of_project", data.type_of_project);
+        formData.append("activities", data.activities);
+
+        // Handle array fields
+        data.availability_months.forEach((month, index) => {
+            formData.append(`availability_months[${index}]`, month);
         });
 
-        post(route("organization.projects.store"), {
-            data: formData,
-            forceFormData: true,
+        data.suitable.forEach((item, index) => {
+            formData.append(`suitable[${index}]`, item);
         });
+
+        // Handle featured image - only include if it's a new file
+        if (data.featured_image instanceof File) {
+            formData.append("featured_image", data.featured_image);
+        } else if (isEdit && typeof data.featured_image === "string") {
+            // For existing images, send the path separately
+            formData.append("existing_featured_image", data.featured_image);
+        }
+
+        // Handle gallery images differently for create vs edit
+        if (isEdit) {
+            // For edit: include existing images that should be preserved
+            if (
+                data.existing_gallery_images &&
+                data.existing_gallery_images.length > 0
+            ) {
+                data.existing_gallery_images.forEach((imagePath, index) => {
+                    formData.append(
+                        `existing_gallery_images[${index}]`,
+                        imagePath
+                    );
+                });
+            }
+
+            // Add new gallery images
+            data.gallery_images.forEach((item, index) => {
+                if (item.file instanceof File) {
+                    formData.append(`gallery_images[${index}]`, item.file);
+                }
+            });
+        } else {
+            // For create: only add new gallery images
+            data.gallery_images.forEach((item, index) => {
+                if (item.file instanceof File) {
+                    formData.append(`gallery_images[${index}]`, item.file);
+                }
+            });
+        }
+
+        // Include other fields conditionally
+        if (data.type_of_project === "Paid") {
+            formData.append("fees", data.fees || "");
+            formData.append("currency", data.currency || "USD");
+            formData.append(
+                "category_of_charge",
+                data.category_of_charge || "Day"
+            );
+            formData.append("includes", data.includes || "");
+            formData.append("excludes", data.excludes || "");
+        }
+
+        if (data.start_date) {
+            formData.append("start_date", data.start_date);
+        }
+
+        formData.append("point_exchange", data.point_exchange ? "1" : "0");
+
+        if (isEdit) {
+            if (data.remove_featured_image) {
+                formData.append("remove_featured_image", "1");
+            }
+
+            post(route("organization.projects.store", project.slug), {
+                data: formData,
+                forceFormData: true,
+                preserveScroll: true,
+            });
+        } else {
+            post(route("organization.projects.store"), {
+                data: formData,
+                forceFormData: true,
+            });
+        }
     };
 
     const selectedCategoryData = categories.find(
         (cat) => String(cat.id) === String(data.category_id)
     );
 
+    const handleNextStep = (e) => {
+        e.preventDefault(); // Add this line to prevent form submission
+
+        // Special case: Always allow moving from step 4 to step 5
+        if (step === 4) {
+            setStep(5);
+            return;
+        }
+
+        // Rest of the function remains the same
+        const currentStepFields = steps[step - 1].fields;
+        const hasErrors = currentStepFields.some((field) => errors[field]);
+
+        if (!hasErrors) {
+            setStep((prev) => Math.min(prev + 1, steps.length));
+        } else {
+            setStepsWithErrors([...new Set([...stepsWithErrors, step])]);
+        }
+    };
+
+    const handlePrevStep = () => {
+        setStep((prev) => Math.max(prev - 1, 1));
+    };
+
     return (
         <OrganizationLayout>
-            <Head title="Create Project" />
+            <Head title={isEdit ? "Edit Project" : "Create Project"} />
             <div className="max-w-5xl mx-auto bg-white p-8 rounded-xl shadow">
-                <h1 className="text-2xl font-bold mb-6">Create New Project</h1>
-
+                <h1 className="text-2xl font-bold mb-6">
+                    {isEdit ? "Edit Project" : "Create New Project"}
+                </h1>
                 <StepIndicator
                     steps={steps}
                     currentStep={step}
@@ -955,7 +1104,7 @@ export default function CreateProjectForm({ categories }) {
                         {step > 1 && (
                             <button
                                 type="button"
-                                onClick={() => setStep(step - 1)}
+                                onClick={handlePrevStep}
                                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
                             >
                                 Back
@@ -963,47 +1112,23 @@ export default function CreateProjectForm({ categories }) {
                         )}
 
                         <div className="ml-auto">
-                            {step < steps.length ? (
-                                <button
-                                    type="button"
-                                    onClick={() => setStep(step + 1)}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                    Next
-                                </button>
-                            ) : (
+                            {step === 5 ? (
                                 <button
                                     type="submit"
                                     disabled={processing}
                                     className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-75"
                                 >
-                                    {processing ? (
-                                        <span className="flex items-center">
-                                            <svg
-                                                className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                fill="none"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <circle
-                                                    className="opacity-25"
-                                                    cx="12"
-                                                    cy="12"
-                                                    r="10"
-                                                    stroke="currentColor"
-                                                    strokeWidth="4"
-                                                ></circle>
-                                                <path
-                                                    className="opacity-75"
-                                                    fill="currentColor"
-                                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                                ></path>
-                                            </svg>
-                                            Submitting...
-                                        </span>
-                                    ) : (
-                                        "Submit Project"
-                                    )}
+                                    {processing
+                                        ? "Submitting..."
+                                        : "Submit Project"}
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={(e) => handleNextStep(e)}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    Next
                                 </button>
                             )}
                         </div>

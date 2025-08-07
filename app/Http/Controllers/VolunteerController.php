@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Chat;
 use App\Models\Message;
 use App\Models\Payment;
+use App\Models\Project;
 use App\Models\Reminder;
+use App\Events\NewMessage;
 use Illuminate\Http\Request;
 use App\Models\ReportProject;
 use App\Models\VolunteerPoint;
@@ -45,7 +47,6 @@ class VolunteerController extends Controller
             'chats' => $chats
         ]);
     }
-
 
     public function startNewChat()
     {
@@ -321,7 +322,7 @@ class VolunteerController extends Controller
         $user = Auth::user();
 
         // Get all messages where user is either sender or receiver
-        $messages = Message::with(['sender', 'receiver', 'originalMessage.sender'])
+        $messages = Message::with(['sender', 'receiver', 'originalMessage.sender', 'booking', 'project'])
             ->where(function ($query) use ($user) {
                 $query->where('receiver_id', $user->id)
                     ->orWhere('sender_id', $user->id);
@@ -331,9 +332,14 @@ class VolunteerController extends Controller
 
         // Group messages by conversation partner
         $groupedMessages = $messages->groupBy(function ($message) use ($user) {
-            return $message->sender_id === $user->id
+            // Use a composite key that includes booking_id if available
+            $baseKey = $message->sender_id === $user->id
                 ? $message->receiver_id
                 : $message->sender_id;
+
+            return $message->booking_id
+                ? "{$baseKey}-{$message->booking_id}"
+                : $baseKey;
         });
 
         // Prepare conversations with replied messages
@@ -416,9 +422,31 @@ class VolunteerController extends Controller
             'receiver_id' => 'required|exists:users,id',
             'message' => 'required|string|max:1000',
             'reply_to' => 'nullable|exists:messages,id',
+            'project_id' => 'nullable|exists:projects,id',
+            'booking_id' => 'nullable|exists:volunteer_bookings,id',
         ]);
 
-        // Filter restricted content
+        $user = Auth::user();
+        $project = $request->project_id ? Project::find($request->project_id) : null;
+        $booking = $request->booking_id ? VolunteerBooking::find($request->booking_id) : null;
+
+        // If we have a booking but no project, get project from booking
+        if ($booking && !$project) {
+            $project = $booking->project;
+        }
+
+        // Check if this is a paid project conversation
+        $isPaidProject = $project && $project->type_of_project === 'Paid';
+
+        // Check if user has made payment for paid projects
+        $hasPayment = false;
+        if ($isPaidProject && $booking) {
+            $hasPayment = $booking->payments()
+                ->where('status', 'completed')
+                ->exists();
+        }
+
+        // Patterns for restricted content
         $patterns = [
             'phone' => '/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/',
             'email' => '/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/',
@@ -428,56 +456,57 @@ class VolunteerController extends Controller
         $filteredMessage = $request->message;
         $hasRestrictedContent = false;
 
-        foreach ($patterns as $pattern) {
-            if (preg_match($pattern, $filteredMessage)) {
-                $filteredMessage = preg_replace($pattern, '[content removed]', $filteredMessage);
-                $hasRestrictedContent = true;
+        // Only filter restricted content if:
+        // - It's a free project, OR
+        // - It's a paid project but no payment has been made
+        if (!$isPaidProject || ($isPaidProject && !$hasPayment)) {
+            foreach ($patterns as $pattern) {
+                if (preg_match($pattern, $filteredMessage)) {
+                    $filteredMessage = preg_replace($pattern, '[content removed]', $filteredMessage);
+                    $hasRestrictedContent = true;
+                }
             }
         }
 
-        $user = Auth::user();
-
-        // Create the new message
         $message = Message::create([
             'sender_id' => $user->id,
             'receiver_id' => $request->receiver_id,
             'message' => $filteredMessage,
             'status' => 'Unread',
             'reply_to' => $request->reply_to,
+            'project_id' => $project ? $project->id : null,
+            'booking_id' => $booking ? $booking->id : null,
         ]);
 
-        dd('Hello World');
 
-        // Load the sender relationship for the response
-        $message->load('sender');
+        broadcast(new NewMessage($message))->toOthers();
+
         return back()->with([
             'success' => 'Message sent successfully.',
-            'hasRestrictedContent' => $hasRestrictedContent
+            'hasRestrictedContent' => $hasRestrictedContent,
+            'isPaidProject' => $isPaidProject,
+            'hasPayment' => $hasPayment,
         ]);
     }
-
 
     public function panelStoreMessage(Request $request)
     {
         $request->validate([
             'message' => 'required|string|max:1000',
-            //     'receiver_id' => 'required|exists:users,id',
-            //     'sender_id' => 'required|exists:users,id',
-            'project_id' => 'nullable|exists:projects,id',
+            'sender_id' => 'required|exists:users,id',
+            'receiver_id' => 'required|exists:users,id',
+            'project_id' => 'required|exists:projects,id',
         ]);
 
-        $message = Message::create([
-            //     'sender_id' => $request->sender_id,
-            //     'receiver_id' => $request->receiver_id,
-            'message' => $request->message,
-            'project_id' => $request->project_id,
-            //     'status' => 'Unread',
-        ]);
+        dd($request);
 
-        dd($message);
-
-        // Load the sender relationship for the response
-        // $message->load('sender');
+        // $message = Message::create([
+        //     'sender_id' => $request->sender_id,
+        //     'receiver_id' => $request->receiver_id,
+        //     'message' => $request->message,
+        //     'project_id' => $request->project_id,
+        //     'status' => 'Unread',
+        // ]);
 
         return response()->json(['success' => true, 'message' => $message]);
     }

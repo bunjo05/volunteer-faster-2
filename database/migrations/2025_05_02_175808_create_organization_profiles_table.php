@@ -17,11 +17,22 @@ return new class extends Migration
             $table->string('name');
             $table->string('slug')->unique();
             $table->string('city')->nullable();
+            $table->string('state')->nullable(); // Added state field
             $table->string('country')->nullable();
             $table->integer('foundedYear')->nullable();
             $table->string('phone')->nullable();
             $table->string('website')->nullable();
+            $table->string('facebook')->nullable();
+            $table->string('twitter')->nullable();
+            $table->string('instagram')->nullable();
+            $table->string('linkedin')->nullable();
+            $table->string('youtube')->nullable();
             $table->text('description')->nullable();
+            $table->string('address')->nullable();
+            $table->text('mission_statement')->nullable();
+            $table->text('vision_statement')->nullable();
+            $table->text('values')->nullable();
+            $table->string('postal')->nullable();
             $table->string('logo')->nullable();
             $table->timestamps();
         });
