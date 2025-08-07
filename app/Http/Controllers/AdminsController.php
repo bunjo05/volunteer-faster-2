@@ -88,8 +88,11 @@ class AdminsController extends Controller
     public function viewOrganization($slug)
     {
         $organization = OrganizationProfile::where('slug', $slug)->firstOrFail();
+        $organization_verification = OrganizationVerification::where('organization_profile_id', $organization->id)->first();
+
         return inertia('Admins/Organizations/View', [
             'organization' => $organization,
+            'organization_verification' => $organization_verification,
         ]);
     }
 

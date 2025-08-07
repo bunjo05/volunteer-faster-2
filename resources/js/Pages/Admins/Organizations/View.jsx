@@ -17,9 +17,13 @@ import {
     Instagram,
     Linkedin,
     Youtube,
+    CheckCircle,
+    Clock,
+    XCircle,
+    ChevronLeft,
 } from "lucide-react";
 
-export default function View({ organization }) {
+export default function View({ organization, organization_verification }) {
     const socialLinks = [
         { name: "Facebook", icon: Facebook, url: organization.facebook },
         { name: "Twitter", icon: Twitter, url: organization.twitter },
@@ -28,39 +32,78 @@ export default function View({ organization }) {
         { name: "YouTube", icon: Youtube, url: organization.youtube },
     ].filter((link) => link.url);
 
+    const showVerifyButton = organization_verification?.status === "Pending";
+    const organizationVerified =
+        organization_verification?.status === "Approved";
+
+    const statusIcons = {
+        Approved: <CheckCircle className="h-5 w-5 mr-1.5 text-green-500" />,
+        Pending: <Clock className="h-5 w-5 mr-1.5 text-yellow-500" />,
+        Rejected: <XCircle className="h-5 w-5 mr-1.5 text-red-500" />,
+    };
+
     return (
         <AdminLayout>
             <Head title={`${organization.name} - Organization Profile`} />
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {/* Header with back button */}
-                <div className="mb-6">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-4 py-4">
+                {/* Header Section */}
+                <div className="mb-4">
                     <Link
                         href={route("admin.organizations")}
-                        className="inline-flex items-center text-blue-600 hover:text-blue-800"
+                        className="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors group"
                     >
-                        ← Back to Organizations
+                        <ChevronLeft className="h-5 w-5 mr-1 group-hover:-translate-x-0.5 transition-transform" />
+                        Back to Organizations
                     </Link>
-                </div>
-                <div>
-                    <Link
-                        href={route(
-                            "admin.organizations.verifications",
-                            organization.slug
-                        )}
-                        className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-4"
-                    >
-                        Verify Organization
-                    </Link>
+
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mt-4">
+                        {/* <div>
+                            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+                                {organization.name}
+                            </h1>
+                            <p className="text-gray-600 mt-1">
+                                Organization profile details and verification
+                                status
+                            </p>
+                        </div> */}
+
+                        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                            {showVerifyButton && (
+                                <Link
+                                    href={route(
+                                        "admin.organizations.verifications",
+                                        organization.slug
+                                    )}
+                                    className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-5 py-2.5 rounded-lg font-medium shadow-md hover:shadow-lg transition-all"
+                                >
+                                    <CheckCircle className="h-5 w-5" />
+                                    Verify Organization
+                                </Link>
+                            )}
+                            {/* <div
+                                className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium ${
+                                    organization.status === "Approved"
+                                        ? "bg-green-50 text-green-800 border border-green-200"
+                                        : organization.status === "Pending"
+                                        ? "bg-yellow-50 text-yellow-800 border border-yellow-200"
+                                        : "bg-red-50 text-red-800 border border-red-200"
+                                }`}
+                            >
+                                {statusIcons[organization.status]}
+                                {organization.status}
+                            </div> */}
+                        </div>
+                    </div>
                 </div>
 
                 {/* Main Profile Card */}
-                <div className="bg-white rounded-xl shadow-md overflow-hidden">
-                    {/* Header with logo and basic info */}
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 sm:p-8">
-                        <div className="flex flex-col sm:flex-row gap-6">
-                            <div className="flex-shrink-0">
-                                <div className="h-32 w-32 rounded-lg border-4 border-white shadow-sm overflow-hidden">
+                <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200/50">
+                    {/* Header with logo */}
+                    <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/80 p-8">
+                        <div className="flex flex-col sm:flex-row gap-8 items-center sm:items-start">
+                            <div className="flex-shrink-0 relative">
+                                <div className="h-40 w-40 rounded-xl border-4 border-white/90 shadow-lg overflow-hidden">
                                     <img
                                         src={
                                             organization.logo
@@ -71,54 +114,67 @@ export default function View({ organization }) {
                                         className="h-full w-full object-cover"
                                     />
                                 </div>
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex items-start justify-between">
-                                    <div>
-                                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                                            {organization.name}
-                                        </h1>
-                                        <div className="flex items-center mt-2 text-gray-600">
-                                            <MapPin className="h-5 w-5 mr-1.5" />
-                                            <span>
-                                                {organization.city},{" "}
-                                                {organization.country}
-                                                {organization.state &&
-                                                    `, ${organization.state}`}
-                                            </span>
+                                {organizationVerified && (
+                                    <div className="absolute -bottom-3 -right-3 bg-white rounded-full p-1.5 shadow-md border border-green-200">
+                                        <div className="bg-green-100 rounded-full p-1.5">
+                                            <CheckCircle className="h-5 w-5 text-green-600" />
                                         </div>
                                     </div>
-                                    <span
-                                        className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                                            organization.status === "Approved"
-                                                ? "bg-green-100 text-green-800"
-                                                : organization.status ===
-                                                  "Pending"
-                                                ? "bg-yellow-100 text-yellow-800"
-                                                : "bg-red-100 text-red-800"
-                                        }`}
-                                    >
-                                        {organization.status}
+                                )}
+                            </div>
+                            <div className="flex-1 text-center sm:text-left">
+                                <div className="flex items-center justify-center sm:justify-start gap-3">
+                                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                                        {organization.name}
+                                    </h1>
+                                </div>
+                                <div className="flex items-center justify-center sm:justify-start mt-3 text-gray-600">
+                                    <MapPin className="h-5 w-5 mr-2 text-gray-500" />
+                                    <span className="text-gray-700">
+                                        {organization.city},{" "}
+                                        {organization.country}
+                                        {organization.state &&
+                                            `, ${organization.state}`}
                                     </span>
                                 </div>
 
                                 {/* Quick Facts */}
-                                <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                    <div className="flex items-center text-sm text-gray-600">
-                                        <Calendar className="h-4 w-4 mr-2 text-gray-500" />
-                                        Founded: {organization.foundedYear}
+                                <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                    <div className="flex flex-col items-center sm:items-start">
+                                        <div className="flex items-center text-sm text-gray-600">
+                                            <Calendar className="h-4 w-4 mr-2 text-gray-500" />
+                                            Founded
+                                        </div>
+                                        <span className="font-medium text-gray-900">
+                                            {organization.foundedYear}
+                                        </span>
                                     </div>
-                                    <div className="flex items-center text-sm text-gray-600">
-                                        <Users className="h-4 w-4 mr-2 text-gray-500" />
-                                        Members: -
+                                    <div className="flex flex-col items-center sm:items-start">
+                                        <div className="flex items-center text-sm text-gray-600">
+                                            <Users className="h-4 w-4 mr-2 text-gray-500" />
+                                            Members
+                                        </div>
+                                        <span className="font-medium text-gray-900">
+                                            -
+                                        </span>
                                     </div>
-                                    <div className="flex items-center text-sm text-gray-600">
-                                        <Eye className="h-4 w-4 mr-2 text-gray-500" />
-                                        Views: -
+                                    <div className="flex flex-col items-center sm:items-start">
+                                        <div className="flex items-center text-sm text-gray-600">
+                                            <Eye className="h-4 w-4 mr-2 text-gray-500" />
+                                            Views
+                                        </div>
+                                        <span className="font-medium text-gray-900">
+                                            -
+                                        </span>
                                     </div>
-                                    <div className="flex items-center text-sm text-gray-600">
-                                        <Heart className="h-4 w-4 mr-2 text-gray-500" />
-                                        Followers: -
+                                    <div className="flex flex-col items-center sm:items-start">
+                                        <div className="flex items-center text-sm text-gray-600">
+                                            <Heart className="h-4 w-4 mr-2 text-gray-500" />
+                                            Followers
+                                        </div>
+                                        <span className="font-medium text-gray-900">
+                                            -
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -126,7 +182,7 @@ export default function View({ organization }) {
                     </div>
 
                     {/* Main Content */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-6 sm:p-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-8">
                         {/* Left Column - About */}
                         <div className="lg:col-span-2 space-y-8">
                             {/* Description */}
@@ -135,7 +191,7 @@ export default function View({ organization }) {
                                     <BookOpen className="h-5 w-5 mr-2 text-blue-600" />
                                     About Us
                                 </h2>
-                                <div className="prose max-w-none text-gray-700">
+                                <div className="prose prose-blue max-w-none text-gray-700">
                                     {organization.description || (
                                         <p className="text-gray-500 italic">
                                             No description provided
@@ -147,9 +203,9 @@ export default function View({ organization }) {
                             {/* Mission, Vision, Values */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {organization.mission_statement && (
-                                    <div className="bg-blue-50 rounded-lg p-4">
-                                        <h3 className="font-medium text-blue-800 mb-2 flex items-center">
-                                            <Target className="h-4 w-4 mr-2" />
+                                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 shadow-sm border border-blue-100">
+                                        <h3 className="font-medium text-blue-800 mb-3 flex items-center">
+                                            <Target className="h-5 w-5 mr-2" />
                                             Mission
                                         </h3>
                                         <p className="text-blue-700">
@@ -158,9 +214,9 @@ export default function View({ organization }) {
                                     </div>
                                 )}
                                 {organization.vision_statement && (
-                                    <div className="bg-indigo-50 rounded-lg p-4">
-                                        <h3 className="font-medium text-indigo-800 mb-2 flex items-center">
-                                            <Eye className="h-4 w-4 mr-2" />
+                                    <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-6 shadow-sm border border-indigo-100">
+                                        <h3 className="font-medium text-indigo-800 mb-3 flex items-center">
+                                            <Eye className="h-5 w-5 mr-2" />
                                             Vision
                                         </h3>
                                         <p className="text-indigo-700">
@@ -169,12 +225,12 @@ export default function View({ organization }) {
                                     </div>
                                 )}
                                 {organization.values && (
-                                    <div className="md:col-span-2 bg-purple-50 rounded-lg p-4">
-                                        <h3 className="font-medium text-purple-800 mb-2 flex items-center">
-                                            <Heart className="h-4 w-4 mr-2" />
+                                    <div className="md:col-span-2 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 shadow-sm border border-purple-100">
+                                        <h3 className="font-medium text-purple-800 mb-3 flex items-center">
+                                            <Heart className="h-5 w-5 mr-2" />
                                             Core Values
                                         </h3>
-                                        <div className="prose max-w-none text-purple-700">
+                                        <div className="prose prose-purple max-w-none text-purple-700">
                                             {organization.values}
                                         </div>
                                     </div>
@@ -185,8 +241,9 @@ export default function View({ organization }) {
                         {/* Right Column - Contact Info */}
                         <div className="space-y-6">
                             {/* Contact Information */}
-                            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-                                <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                                    <Phone className="h-5 w-5 mr-2 text-blue-600" />
                                     Contact Information
                                 </h2>
                                 <div className="space-y-4">
@@ -196,9 +253,12 @@ export default function View({ organization }) {
                                             <h3 className="text-sm font-medium text-gray-500">
                                                 Email
                                             </h3>
-                                            <p className="text-gray-900">
+                                            <a
+                                                href={`mailto:${organization.email}`}
+                                                className="text-blue-600 hover:underline"
+                                            >
                                                 {organization.email}
-                                            </p>
+                                            </a>
                                         </div>
                                     </div>
                                     <div className="flex items-start">
@@ -207,9 +267,12 @@ export default function View({ organization }) {
                                             <h3 className="text-sm font-medium text-gray-500">
                                                 Phone
                                             </h3>
-                                            <p className="text-gray-900">
+                                            <a
+                                                href={`tel:${organization.phone}`}
+                                                className="text-blue-600 hover:underline"
+                                            >
                                                 {organization.phone}
-                                            </p>
+                                            </a>
                                         </div>
                                     </div>
                                     {organization.website && (
@@ -262,8 +325,9 @@ export default function View({ organization }) {
 
                             {/* Social Media */}
                             {socialLinks.length > 0 && (
-                                <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-                                    <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                                    <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                                        <Globe className="h-5 w-5 mr-2 text-blue-600" />
                                         Social Media
                                     </h2>
                                     <div className="flex flex-wrap gap-3">
@@ -278,7 +342,7 @@ export default function View({ organization }) {
                                                     }
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="inline-flex items-center px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50"
+                                                    className="inline-flex items-center px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                                                 >
                                                     <Icon className="h-5 w-5 mr-2" />
                                                     <span>{name}</span>
