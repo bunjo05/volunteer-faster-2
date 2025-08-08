@@ -10,25 +10,29 @@ const FormInput = ({
     name,
     value,
     onChange,
+    // required,
     error,
+    validate, // Add new prop for validation function
     className = "",
     ...props
-}) => (
-    <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-            {label}
-        </label>
-        <input
-            type={type}
-            name={name}
-            value={value || ""}
-            onChange={onChange}
-            className={`w-full px-4 py-2 border rounded-md shadow-sm focus:outline-none focus:ring focus:border-blue-300 ${className}`}
-            {...props}
-        />
-        {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
-    </div>
-);
+}) => {
+    return (
+        <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+                {label}
+            </label>
+            <input
+                type={type}
+                name={name}
+                value={value || ""}
+                onChange={onChange}
+                className={`w-full px-4 py-2 border rounded-md shadow-sm focus:outline-none focus:ring focus:border-blue-300 ${className}`}
+                {...props}
+            />
+            {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
+        </div>
+    );
+};
 
 const FormTextarea = ({
     label,
@@ -37,23 +41,32 @@ const FormTextarea = ({
     onChange,
     error,
     rows = 3,
+    validate, // Add new prop for validation function
     ...props
-}) => (
-    <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-            {label}
-        </label>
-        <textarea
-            name={name}
-            value={value || ""}
-            onChange={onChange}
-            rows={rows}
-            className="w-full px-4 py-2 border rounded-md shadow-sm focus:outline-none focus:ring focus:border-blue-300"
-            {...props}
-        />
-        {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
-    </div>
-);
+}) => {
+    const handleChange = (e) => {
+        onChange(e);
+        if (validate) {
+            validate(e.target.value); // Call validation function if provided
+        }
+    };
+    return (
+        <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+                {label}
+            </label>
+            <textarea
+                name={name}
+                value={value || ""}
+                onChange={onChange}
+                rows={rows}
+                className="w-full px-4 py-2 border rounded-md shadow-sm focus:outline-none focus:ring focus:border-blue-300"
+                {...props}
+            />
+            {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
+        </div>
+    );
+};
 
 const FormSelect = ({
     label,
@@ -62,43 +75,54 @@ const FormSelect = ({
     onChange,
     options,
     error,
+    validate, // Add new prop for validation function
     ...props
-}) => (
-    <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-            {label}
-        </label>
-        <select
-            name={name}
-            value={value || ""}
-            onChange={onChange}
-            className="w-full px-4 py-2 border rounded-md shadow-sm focus:outline-none focus:ring focus:border-blue-300"
-            {...props}
-        >
-            {options.map((option) => (
-                <option key={option.value} value={option.value}>
-                    {option.label}
-                </option>
-            ))}
-        </select>
-        {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
-    </div>
-);
+}) => {
+    const handleChange = (e) => {
+        onChange(e);
+        if (validate) {
+            validate(e.target.value); // Call validation function if provided
+        }
+    };
+    return (
+        <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+                {label}
+            </label>
+            <select
+                name={name}
+                value={value || ""}
+                onChange={onChange}
+                className="w-full px-4 py-2 border rounded-md shadow-sm focus:outline-none focus:ring focus:border-blue-300"
+                {...props}
+            >
+                {options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                        {option.label}
+                    </option>
+                ))}
+            </select>
+            {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
+        </div>
+    );
+};
 
-const FormCheckbox = ({ label, name, checked, onChange, error, ...props }) => (
-    <div className="mb-4 flex items-center">
-        <input
-            type="checkbox"
-            name={name}
-            checked={checked || false}
-            onChange={onChange}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            {...props}
-        />
-        <label className="ml-2 block text-sm text-gray-700">{label}</label>
-        {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
-    </div>
-);
+const FormCheckbox = ({ label, name, checked, onChange, error, ...props }) => {
+    return (
+        <div className="mb-4 flex items-center">
+            <input
+                type="checkbox"
+                name={name}
+                checked={checked || false}
+                onChange={onChange}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                {...props}
+            />
+            <label className="ml-2 block text-sm text-gray-700">{label}</label>
+            {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
+        </div>
+    );
+};
 
 const FormFileInput = ({
     label,
@@ -151,6 +175,45 @@ const ImagePreview = ({ src, onRemove, alt = "Preview" }) => (
     </div>
 );
 
+const MAX_VALUES = 250;
+
+const SHORT_DESCRIPTION = 500;
+
+// Enhanced handleChange functions for real-time updates
+const handleInputChange = (field) => (e) => {
+    const value = e.target.value;
+    setData(field, value);
+    clearErrors(field); // Clear error when user starts typing
+};
+
+const handleCheckboxChange = (field) => (e) => {
+    const checked = e.target.checked;
+    setData(field, checked);
+    clearErrors(field);
+};
+
+const handleArrayCheckboxChange = (field, value) => (e) => {
+    const checked = e.target.checked;
+    setData(
+        field,
+        checked
+            ? [...data[field], value]
+            : data[field].filter((item) => item !== value)
+    );
+    clearErrors(field);
+};
+
+const handleFileChange = (field) => (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (field === "featured_image") {
+        handleFeaturedImageChange(e);
+    } else if (field === "gallery_images") {
+        handleGalleryImageChange(e);
+    }
+};
+
 const StepIndicator = ({ steps, currentStep, errorSteps, onStepClick }) => {
     return (
         <div className="mb-8">
@@ -185,9 +248,10 @@ const StepIndicator = ({ steps, currentStep, errorSteps, onStepClick }) => {
                           ? "bg-blue-600 text-white"
                           : hasError
                           ? "bg-red-500 text-white"
+                          : currentStep > stepNumber
+                          ? "bg-green-500 text-white"
                           : "bg-gray-200 text-gray-600"
                   }
-                  ${currentStep > stepNumber ? "bg-green-500 text-white" : ""}
                   transition-colors duration-200`}
                             >
                                 {stepNumber}
@@ -218,16 +282,25 @@ export default function ProjectForm({
     isEdit = false,
 }) {
     const featuredImageInputRef = useRef(null);
-    const { data, setData, post, put, errors, processing } = useForm({
+    const {
+        data,
+        setData,
+        post,
+        put,
+        errors,
+        processing,
+        setError,
+        clearErrors,
+    } = useForm({
         title: project?.title || "",
         slug: project?.slug || "",
         featured_image:
             isEdit && project?.featured_image ? project.featured_image : null,
         category_id: project?.category_id || "",
         subcategory_id: project?.subcategory_id || "",
-        country: project?.country || "",
-        city: project?.city || "",
-        state: project?.state || "",
+        country: project?.country || null, // Changed from "" to null
+        city: project?.city || null,
+        state: project?.state || null,
         short_description: project?.short_description || "",
         detailed_description: project?.detailed_description || "",
         min_duration: project?.min_duration || "",
@@ -286,6 +359,12 @@ export default function ProjectForm({
         "November",
         "December",
     ];
+    const [isEditing, setIsEditing] = useState(isEdit);
+
+    const showError = (field) =>
+        errors[field] ? (
+            <div className="text-red-500 text-sm mt-1">{errors[field]}</div>
+        ) : null;
 
     const suitableOptions = ["Adults", "Students", "Families", "Retirees"];
 
@@ -304,7 +383,7 @@ export default function ProjectForm({
             label: "Project Details",
             fields: [
                 "country",
-                "city",
+                // "city",
                 "state",
                 "short_description",
                 "detailed_description",
@@ -335,6 +414,18 @@ export default function ProjectForm({
         },
         { label: "Media & Dates", fields: ["gallery_images", "start_date"] },
     ];
+
+    // Add this useEffect to watch for field changes and clear errors
+    useEffect(() => {
+        const currentStepFields = steps[step - 1].fields;
+        const hasCurrentStepErrors = currentStepFields.some(
+            (field) => errors[field]
+        );
+
+        if (!hasCurrentStepErrors) {
+            setStepsWithErrors((prev) => prev.filter((s) => s !== step));
+        }
+    }, [data, step, errors]);
 
     // Initialize form with project data if editing
     useEffect(() => {
@@ -599,8 +690,67 @@ export default function ProjectForm({
         (cat) => String(cat.id) === String(data.category_id)
     );
 
+    // Modified handleNextStep with better validation
     const handleNextStep = (e) => {
-        e.preventDefault(); // Add this line to prevent form submission
+        e.preventDefault();
+
+        // Validate required fields for the current step
+        const currentStepFields = steps[step - 1].fields;
+        let isValid = true;
+
+        currentStepFields.forEach((field) => {
+            if (
+                !data[field] ||
+                (Array.isArray(data[field]) && data[field].length === 0)
+            ) {
+                isValid = false;
+                setError(field, "This field is required");
+            } else {
+                clearErrors(field);
+            }
+        });
+
+        // Field-specific validations
+        if (step === 1) {
+            if (!data.title) {
+                isValid = false;
+                setError("title", "Title is required");
+            }
+            if (!data.category_id) {
+                isValid = false;
+                setError("category_id", "Category is required");
+            }
+        }
+
+        if (step === 2) {
+            if (!data.short_description || data.short_description.length < 50) {
+                isValid = false;
+                setError(
+                    "short_description",
+                    "Short description must be at least 50 characters"
+                );
+            }
+        }
+
+        if (step === 3) {
+            if (
+                data.min_duration &&
+                data.max_duration &&
+                parseInt(data.min_duration) > parseInt(data.max_duration)
+            ) {
+                isValid = false;
+                setError(
+                    "max_duration",
+                    "Maximum duration must be greater than minimum duration"
+                );
+            }
+        }
+
+        if (!isValid) {
+            // Mark current step as having errors
+            setStepsWithErrors([...new Set([...stepsWithErrors, step])]);
+            return;
+        }
 
         // Special case: Always allow moving from step 4 to step 5
         if (step === 4) {
@@ -608,15 +758,8 @@ export default function ProjectForm({
             return;
         }
 
-        // Rest of the function remains the same
-        const currentStepFields = steps[step - 1].fields;
-        const hasErrors = currentStepFields.some((field) => errors[field]);
-
-        if (!hasErrors) {
-            setStep((prev) => Math.min(prev + 1, steps.length));
-        } else {
-            setStepsWithErrors([...new Set([...stepsWithErrors, step])]);
-        }
+        // If validation passes, proceed to next step
+        setStep((prev) => Math.min(prev + 1, steps.length));
     };
 
     const handlePrevStep = () => {
@@ -651,14 +794,21 @@ export default function ProjectForm({
                                     clipRule="evenodd"
                                 />
                             </svg>
-                            <p className="ml-3 text-sm text-red-700">
-                                Please fix errors in step(s):{" "}
-                                {stepsWithErrors.join(", ")}
-                            </p>
+                            <div className="ml-3">
+                                <p className="text-sm text-red-700 font-medium">
+                                    Please fix the following errors:
+                                </p>
+                                <ul className="mt-1 text-sm text-red-700 list-disc list-inside">
+                                    {steps[step - 1].fields
+                                        .filter((field) => errors[field])
+                                        .map((field) => (
+                                            <li key={field}>{errors[field]}</li>
+                                        ))}
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 )}
-
                 <form
                     onSubmit={handleSubmit}
                     encType="multipart/form-data"
@@ -761,23 +911,23 @@ export default function ProjectForm({
                     {step === 2 && (
                         <>
                             <LocationDropdown
-                                selectedCountry={data.country}
-                                selectedState={data.state}
-                                selectedCity={data.city}
+                                selectedCountry={data.country || null}
+                                selectedState={data.state || null}
+                                selectedCity={data.city || null}
                                 onCountryChange={(value) => {
                                     setData("country", value);
                                     setData("state", "");
                                     setData("city", "");
-                                }}
-                                onCountryNameChange={(name) => {
-                                    setData("country_name", name);
+                                    clearErrors("country");
                                 }}
                                 onStateChange={(value) => {
                                     setData("state", value);
                                     setData("city", "");
+                                    clearErrors("state");
                                 }}
                                 onCityChange={(value) => {
                                     setData("city", value);
+                                    clearErrors("city");
                                 }}
                                 isEditing={isEditing}
                                 errors={errors}
@@ -785,7 +935,6 @@ export default function ProjectForm({
                             {showError("country")}
                             {showError("state")}
                             {showError("city")}
-
                             <FormTextarea
                                 label="Short Description"
                                 name="short_description"
@@ -804,7 +953,6 @@ export default function ProjectForm({
                                 {charCount}/500 characters{" "}
                                 {charCount === 499 && " - Maximum reached"}
                             </div>
-
                             <FormTextarea
                                 label="Detailed Description"
                                 name="detailed_description"
@@ -867,6 +1015,7 @@ export default function ProjectForm({
                                 label="Daily Routine"
                                 name="daily_routine"
                                 value={data.daily_routine}
+                                maxLength={MAX_VALUES}
                                 onChange={(e) =>
                                     setData("daily_routine", e.target.value)
                                 }
@@ -979,6 +1128,7 @@ export default function ProjectForm({
                                 label="Activities"
                                 name="activities"
                                 value={data.activities}
+                                maxLength={SHORT_DESCRIPTION}
                                 onChange={(e) =>
                                     setData("activities", e.target.value)
                                 }

@@ -2,14 +2,31 @@ import GeneralPages from "@/Layouts/GeneralPages";
 import { Link } from "@inertiajs/react";
 import { useState } from "react";
 
-export default function Projects({ projects: initialProjects, auth }) {
+export default function Projects({
+    projects: initialProjects,
+    auth,
+    organization_verification,
+}) {
     const [projects, setProjects] = useState(initialProjects);
     const [searchTerm, setSearchTerm] = useState("");
     const [filters, setFilters] = useState({
         category: "",
         type_of_project: "",
-        location: "",
+        country: "",
+        state: "",
+        city: "",
     });
+
+    // Extract unique locations from projects
+    const allCountries = [
+        ...new Set(initialProjects.map((p) => p.country).filter(Boolean)),
+    ];
+    const allStates = [
+        ...new Set(initialProjects.map((p) => p.state).filter(Boolean)),
+    ];
+    const allCities = [
+        ...new Set(initialProjects.map((p) => p.city).filter(Boolean)),
+    ];
 
     // Filter projects based on search and filters
     const filteredProjects = initialProjects.filter((project) => {
@@ -27,17 +44,20 @@ export default function Projects({ projects: initialProjects, auth }) {
             project.type_of_project.toLowerCase() ===
                 filters.type_of_project.toLowerCase();
 
-        const matchesLocation =
-            !filters.location ||
-            project.address
-                ?.toLowerCase()
-                .includes(filters.location.toLowerCase());
+        const matchesCountry =
+            !filters.country || project.country === filters.country;
+
+        const matchesState = !filters.state || project.state === filters.state;
+
+        const matchesCity = !filters.city || project.city === filters.city;
 
         return (
             matchesSearch &&
             matchesCategory &&
             matchesPaymentType &&
-            matchesLocation
+            matchesCountry &&
+            matchesState &&
+            matchesCity
         );
     });
 
@@ -47,6 +67,9 @@ export default function Projects({ projects: initialProjects, auth }) {
             initialProjects.map((p) => p.category?.name).filter(Boolean)
         ),
     ];
+
+    const organizationVerified =
+        organization_verification?.status === "Approved";
 
     return (
         <GeneralPages auth={auth}>
@@ -131,21 +154,91 @@ export default function Projects({ projects: initialProjects, auth }) {
                         </select>
                     </div>
 
-                    {/* Location Filter */}
+                    {/* Country Filter */}
                     <div className="w-full md:w-48">
-                        <input
-                            type="text"
-                            placeholder="Filter by location"
-                            className="block w-full pl-3 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            value={filters.location}
+                        <select
+                            className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            value={filters.country}
                             onChange={(e) =>
                                 setFilters({
                                     ...filters,
-                                    location: e.target.value,
+                                    country: e.target.value,
+                                    state: "", // Reset state when country changes
+                                    city: "", // Reset city when country changes
                                 })
                             }
-                        />
+                        >
+                            <option value="">All Countries</option>
+                            {allCountries.map((country) => (
+                                <option key={country} value={country}>
+                                    {country}
+                                </option>
+                            ))}
+                        </select>
                     </div>
+
+                    {/* State Filter - only shown if a country is selected */}
+                    {filters.country && (
+                        <div className="w-full md:w-48">
+                            <select
+                                className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                value={filters.state}
+                                onChange={(e) =>
+                                    setFilters({
+                                        ...filters,
+                                        state: e.target.value,
+                                        city: "", // Reset city when state changes
+                                    })
+                                }
+                            >
+                                <option value="">All States</option>
+                                {allStates
+                                    .filter((state) =>
+                                        initialProjects.some(
+                                            (p) =>
+                                                p.country === filters.country &&
+                                                p.state === state
+                                        )
+                                    )
+                                    .map((state) => (
+                                        <option key={state} value={state}>
+                                            {state}
+                                        </option>
+                                    ))}
+                            </select>
+                        </div>
+                    )}
+
+                    {/* City Filter - only shown if a state is selected */}
+                    {filters.state && (
+                        <div className="w-full md:w-48">
+                            <select
+                                className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                value={filters.city}
+                                onChange={(e) =>
+                                    setFilters({
+                                        ...filters,
+                                        city: e.target.value,
+                                    })
+                                }
+                            >
+                                <option value="">All Cities</option>
+                                {allCities
+                                    .filter((city) =>
+                                        initialProjects.some(
+                                            (p) =>
+                                                p.state === filters.state &&
+                                                p.city === city
+                                        )
+                                    )
+                                    .map((city) => (
+                                        <option key={city} value={city}>
+                                            {city}
+                                        </option>
+                                    ))}
+                            </select>
+                        </div>
+                    )}
 
                     {/* Reset Filters */}
                     <button
@@ -154,7 +247,9 @@ export default function Projects({ projects: initialProjects, auth }) {
                             setFilters({
                                 category: "",
                                 type_of_project: "",
-                                location: "",
+                                country: "",
+                                state: "",
+                                city: "",
                             });
                         }}
                         className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
@@ -196,8 +291,37 @@ export default function Projects({ projects: initialProjects, auth }) {
                                         alt={project.title}
                                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                                     />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
 
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+                                    {/* Organization Logo at bottom right */}
+                                    {project.organization_profile?.logo && (
+                                        <div className="absolute bottom-1 right-1 w-[80px] h-[80px] rounded-full bg-white p-1 shadow-md border border-gray-200">
+                                            <img
+                                                src={`/storage/${project.organization_profile.logo}`}
+                                                alt="Organization logo"
+                                                className="w-full h-full object-cover rounded-full"
+                                            />
+                                            {/* Verification Badge */}
+                                            {project.organization_profile
+                                                .verification?.status ===
+                                                "Approved" && (
+                                                <div className="absolute -top-1 -right-1 bg-green-500 text-white rounded-full p-1">
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        className="h-4 w-4"
+                                                        viewBox="0 0 20 20"
+                                                        fill="currentColor"
+                                                    >
+                                                        <path
+                                                            fillRule="evenodd"
+                                                            d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                            clipRule="evenodd"
+                                                        />
+                                                    </svg>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                     {/* Payment Type Badge */}
                                     <div className="absolute top-4 right-4">
                                         <span
@@ -271,8 +395,13 @@ export default function Projects({ projects: initialProjects, auth }) {
                                                 d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                                             ></path>
                                         </svg>
-                                        {project.address ||
-                                            "Multiple Locations"}
+                                        {[
+                                            project.city,
+                                            project.state,
+                                            project.country,
+                                        ]
+                                            .filter(Boolean)
+                                            .join(", ") || "Multiple Locations"}
                                     </div>
 
                                     {/* Description */}
@@ -335,7 +464,9 @@ export default function Projects({ projects: initialProjects, auth }) {
                                     setFilters({
                                         category: "",
                                         type_of_project: "",
-                                        location: "",
+                                        country: "",
+                                        state: "",
+                                        city: "",
                                     });
                                 }}
                                 className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

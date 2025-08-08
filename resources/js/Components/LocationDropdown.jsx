@@ -2,12 +2,13 @@ import React, { useState, useEffect } from "react";
 import { Country, State, City } from "country-state-city";
 
 export default function LocationDropdown({
-    selectedCountry = "",
-    selectedState = "",
-    selectedCity = "",
+    selectedCountry = null,
+    selectedState = null,
+    selectedCity = null,
     onCountryChange = () => {},
     onStateChange = () => {},
     onCityChange = () => {},
+    onCountryNameChange = () => {},
     isEditing = false,
     errors = {},
 }) {
@@ -22,158 +23,160 @@ export default function LocationDropdown({
         const countryList = Country.getAllCountries();
         setCountries(countryList);
 
-        // Find the initially selected country object if it exists
-        if (selectedCountry) {
-            const countryObj = countryList.find(
-                (c) => c.name === selectedCountry
-            );
-            setSelectedCountryObj(countryObj);
+        // If no country is selected but we're not editing (create mode), show all countries
+        if (!selectedCountry && !isEditing) {
+            setStates(State.getAllStates());
         }
     }, []);
 
     // Load states when selectedCountry changes
     useEffect(() => {
-        if (selectedCountryObj) {
-            const statesList = State.getStatesOfCountry(
-                selectedCountryObj.isoCode
+        if (selectedCountry) {
+            const countryObj = countries.find(
+                (c) => c.name === selectedCountry
             );
-            setStates(statesList);
-            setCities([]);
+            setSelectedCountryObj(countryObj);
 
-            // Find the initially selected state object if it exists
-            if (selectedState) {
-                const stateObj = statesList.find(
-                    (s) => s.name === selectedState
-                );
-                setSelectedStateObj(stateObj);
+            if (countryObj) {
+                const statesList = State.getStatesOfCountry(countryObj.isoCode);
+                setStates(statesList);
             }
-        } else {
-            setStates([]);
-            setCities([]);
-            setSelectedStateObj(null);
+        } else if (!isEditing) {
+            // In create mode with no country selected, show all states
+            setStates(State.getAllStates());
         }
-    }, [selectedCountryObj]);
+    }, [selectedCountry, countries, isEditing]);
 
     // Load cities when selectedState changes
     useEffect(() => {
-        if (selectedCountryObj && selectedStateObj) {
-            const citiesList = City.getCitiesOfState(
-                selectedCountryObj.isoCode,
-                selectedStateObj.isoCode
-            );
-            setCities(citiesList);
+        if (selectedState && selectedCountryObj) {
+            const stateObj = states.find((s) => s.name === selectedState);
+            setSelectedStateObj(stateObj);
+
+            if (stateObj) {
+                const citiesList = City.getCitiesOfState(
+                    selectedCountryObj.isoCode,
+                    stateObj.isoCode
+                );
+                setCities(citiesList);
+            }
+        } else if (!isEditing && selectedState) {
+            // In create mode, try to find cities for the selected state
+            const allStates = State.getAllStates();
+            const stateObj = allStates.find((s) => s.name === selectedState);
+            if (stateObj) {
+                const citiesList = City.getCitiesOfState(
+                    stateObj.countryCode,
+                    stateObj.isoCode
+                );
+                setCities(citiesList);
+            }
         } else {
             setCities([]);
         }
-    }, [selectedStateObj]);
+    }, [selectedState, selectedCountryObj, states, isEditing]);
 
     const handleCountryChange = (countryName) => {
         const countryObj = countries.find((c) => c.name === countryName);
         setSelectedCountryObj(countryObj);
-        onCountryChange(countryName); // Pass the full country name
-        onStateChange(""); // Reset state
-        onCityChange(""); // Reset city
+        onCountryChange(countryName);
+        onCountryNameChange(countryName);
+        onStateChange("");
+        onCityChange("");
     };
 
     const handleStateChange = (stateName) => {
         const stateObj = states.find((s) => s.name === stateName);
         setSelectedStateObj(stateObj);
-        onStateChange(stateName); // Pass the full state name
-        onCityChange(""); // Reset city
+        onStateChange(stateName);
+        onCityChange("");
     };
+
+    // Create unique keys for options
+    const getCountryKey = (country) => `${country.isoCode}-${country.name}`;
+    const getStateKey = (state) =>
+        `${state.isoCode}-${state.name}-${state.countryCode}`;
+    const getCityKey = (city) =>
+        `${city.name}-${city.countryCode}-${city.stateCode}`;
 
     return (
         <div className="space-y-4">
             <div>
-                <label className="font-semibold">Country:</label>
-                {isEditing ? (
-                    <select
-                        value={selectedCountry}
-                        onChange={(e) => handleCountryChange(e.target.value)}
-                        className={`w-full p-2 mt-1 bg-gray-100 border ${
-                            errors.country
-                                ? "border-red-300"
-                                : "border-gray-300"
-                        } rounded`}
-                    >
-                        <option value="">Select Country</option>
-                        {countries.map((country) => (
-                            <option key={country.isoCode} value={country.name}>
-                                {country.name}
-                            </option>
-                        ))}
-                    </select>
-                ) : (
-                    <p>{selectedCountry || "Not specified"}</p>
-                )}
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Country
+                </label>
+                <select
+                    value={selectedCountry || ""}
+                    onChange={(e) => handleCountryChange(e.target.value)}
+                    className={`w-full px-4 py-2 border rounded-md shadow-sm focus:outline-none focus:ring focus:border-blue-300 ${
+                        errors.country ? "border-red-300" : "border-gray-300"
+                    }`}
+                >
+                    <option value="">Select Country</option>
+                    {countries.map((country) => (
+                        <option
+                            key={getCountryKey(country)}
+                            value={country.name}
+                        >
+                            {country.name}
+                        </option>
+                    ))}
+                </select>
                 {errors.country && (
-                    <p className="mt-1 text-sm text-red-600">
+                    <div className="text-red-500 text-sm mt-1">
                         {errors.country}
-                    </p>
+                    </div>
                 )}
             </div>
 
-            {(states.length > 0 || selectedState) && (
-                <div>
-                    <label className="font-semibold">State/Province:</label>
-                    {isEditing ? (
-                        <select
-                            value={selectedState}
-                            onChange={(e) => handleStateChange(e.target.value)}
-                            className={`w-full p-2 mt-1 bg-gray-100 border ${
-                                errors.state
-                                    ? "border-red-300"
-                                    : "border-gray-300"
-                            } rounded`}
-                        >
-                            <option value="">Select State</option>
-                            {states.map((state) => (
-                                <option key={state.isoCode} value={state.name}>
-                                    {state.name}
-                                </option>
-                            ))}
-                        </select>
-                    ) : (
-                        <p>{selectedState || "Not specified"}</p>
-                    )}
-                    {errors.state && (
-                        <p className="mt-1 text-sm text-red-600">
-                            {errors.state}
-                        </p>
-                    )}
-                </div>
-            )}
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                    State/Province
+                </label>
+                <select
+                    value={selectedState || ""}
+                    onChange={(e) => handleStateChange(e.target.value)}
+                    className={`w-full px-4 py-2 border rounded-md shadow-sm focus:outline-none focus:ring focus:border-blue-300 ${
+                        errors.state ? "border-red-300" : "border-gray-300"
+                    }`}
+                >
+                    <option value="">Select State</option>
+                    {states.map((state) => (
+                        <option key={getStateKey(state)} value={state.name}>
+                            {state.name}
+                        </option>
+                    ))}
+                </select>
+                {errors.state && (
+                    <div className="text-red-500 text-sm mt-1">
+                        {errors.state}
+                    </div>
+                )}
+            </div>
 
-            {(cities.length > 0 || selectedCity) && (
+            {cities.length > 0 && (
                 <div>
-                    <label className="font-semibold">
-                        City: <span className="text-red-500">*</span>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        City
                     </label>
-                    {isEditing ? (
-                        <select
-                            required
-                            value={selectedCity}
-                            onChange={(e) => onCityChange(e.target.value)}
-                            className={`w-full p-2 mt-1 bg-gray-100 border ${
-                                errors.city
-                                    ? "border-red-300"
-                                    : "border-gray-300"
-                            } rounded`}
-                        >
-                            <option value="">Select City</option>
-                            {cities.map((city) => (
-                                <option key={city.name} value={city.name}>
-                                    {city.name}
-                                </option>
-                            ))}
-                        </select>
-                    ) : (
-                        <p>{selectedCity || "Not specified"}</p>
-                    )}
+                    <select
+                        value={selectedCity || ""}
+                        onChange={(e) => onCityChange(e.target.value)}
+                        className={`w-full px-4 py-2 border rounded-md shadow-sm focus:outline-none focus:ring focus:border-blue-300 ${
+                            errors.city ? "border-red-300" : "border-gray-300"
+                        }`}
+                    >
+                        <option value="">Select City</option>
+                        {cities.map((city) => (
+                            <option key={getCityKey(city)} value={city.name}>
+                                {city.name}
+                            </option>
+                        ))}
+                    </select>
                     {errors.city && (
-                        <p className="mt-1 text-sm text-red-600">
+                        <div className="text-red-500 text-sm mt-1">
                             {errors.city}
-                        </p>
+                        </div>
                     )}
                 </div>
             )}

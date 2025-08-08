@@ -20,7 +20,7 @@ import {
 import { usePage } from "@inertiajs/react";
 import { Link } from "@inertiajs/react";
 
-export default function Index({ organizations }) {
+export default function Index({ organizations, verifications }) {
     const [selectedOrg, setSelectedOrg] = useState(null);
     const [searchQuery, setSearchQuery] = useState("");
     const [showFilters, setShowFilters] = useState(false);
@@ -198,11 +198,11 @@ export default function Index({ organizations }) {
                                 </div>
                                 <div>
                                     <p className="text-sm font-medium text-gray-500">
-                                        Approved
+                                        Verified
                                     </p>
                                     <p className="text-2xl font-semibold text-gray-800">
                                         {
-                                            organizations.filter(
+                                            verifications.filter(
                                                 (o) => o.status === "Approved"
                                             ).length
                                         }
@@ -316,9 +316,9 @@ export default function Index({ organizations }) {
                                             </Link>
 
                                             <div className="flex gap-3">
-                                                <button className="text-sm text-yellow-600 hover:underline font-medium">
+                                                {/* <button className="text-sm text-yellow-600 hover:underline font-medium">
                                                     Edit
-                                                </button>
+                                                </button> */}
                                                 <button className="text-sm text-red-600 hover:underline font-medium">
                                                     Delete
                                                 </button>

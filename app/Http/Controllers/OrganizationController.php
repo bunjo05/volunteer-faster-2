@@ -138,24 +138,22 @@ class OrganizationController extends Controller
     public function profile()
     {
         $user = Auth::user();
-        $organization = $user->organization;
+        $organization = OrganizationProfile::where('user_id', $user->id)->first();
 
-        // Initialize verification status as false if no organization profile exists
-        $verification = false;
-
-        if ($organization) {
-            // Only check verification if organization profile exists
-            $verification = OrganizationVerification::where('organization_profile_id', $organization->id)->exists();
-        }
+        $organization_verification = $organization
+            ? OrganizationVerification::where('organization_profile_id', $organization->id)->first()
+            : null;
 
         return Inertia::render('Organizations/Profile', [
             'organization' => $organization,
-            'verification' => $verification,
+            'organization_verification' => $organization_verification,
             'auth' => [
-                'user' => Auth::user(),
+                'user' => $user,
             ],
         ]);
     }
+
+
 
     public function updateProfile(Request $request)
     {
@@ -164,7 +162,7 @@ class OrganizationController extends Controller
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'slug' => 'required|string|max:255|unique:organization_profiles,slug,' . ($user->organization ? $user->organization->id : 'NULL'),
-            'city' => 'required|string|max:255',
+            'city' => 'nullable|string|max:255',
             'country' => 'required|string|max:255',
             'state' => 'nullable|string|max:255',
             'foundedYear' => 'required|integer|min:1900|max:' . date('Y'),
@@ -176,11 +174,11 @@ class OrganizationController extends Controller
             'linkedin' => 'nullable|string|max:255',
             'youtube' => 'nullable|string|max:255',
             // 'email' => 'required|email',
-            'description' => 'nullable|string|max:1000',
+            'description' => 'nullable|string',
             'mission_statement' => 'nullable|string|max:500',
             'vision_statement' => 'nullable|string|max:500',
             'values' => 'nullable|string|max:500',
-            'address' => 'nullable|string|max:255',
+            // 'address' => 'nullable|string|max:255',
             'postal' => 'nullable|string|max:20',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'current_logo' => 'nullable|string',
@@ -390,8 +388,6 @@ class OrganizationController extends Controller
             'booking_id' => $bookingId, // Add booking_id to the message
         ]);
 
-        dd($message);
-
         $message->load(['sender', 'receiver', 'originalMessage.sender']);
 
         broadcast(new NewMessage($message))->toOthers();
@@ -488,7 +484,9 @@ class OrganizationController extends Controller
             'title' => 'required|string|max:255',
             'category_id' => 'required|exists:categories,id',
             'subcategory_id' => 'required|exists:subcategories,id',
-            'address' => 'required|string',
+            'country' => 'required|string',
+            'city' => 'nullable|string',
+            'state' => 'nullable|string',
             'short_description' => 'required|string|max:500',
             'detailed_description' => 'required|string',
             'min_duration' => 'required|integer',
@@ -637,7 +635,9 @@ class OrganizationController extends Controller
             'existing_featured_image' => 'nullable|string',
             'category_id' => 'required|exists:categories,id',
             'subcategory_id' => 'required|exists:subcategories,id',
-            'address' => 'required|string',
+            'country' => 'required|string',
+            'city' => 'required|string',
+            'state' => 'nullable|string',
             'short_description' => 'required|string|max:500',
             'detailed_description' => 'required|string',
             'min_duration' => 'required|integer',

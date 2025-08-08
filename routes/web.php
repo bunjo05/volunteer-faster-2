@@ -31,17 +31,17 @@ Route::get('/volunteer', [HomeController::class, 'volunteer'])->name('volunteer'
 Route::get('/organization', [HomeController::class, 'organization'])->name('organization');
 Route::get('/volunteer-programs', [HomeController::class, 'projects'])->name('projects');
 Route::get('/volunteer-programs/{slug}', [HomeController::class, 'viewProject'])->name('projects.home.view');
-
 Route::get('/volunteer-programs/{slug}/volunteer', [BookingController::class, 'index'])->name('project.volunteer.booking');
-
 Route::post('/volunteer-programs/report', [VolunteerController::class, 'storeProjectReport'])->name('project.report.store');
-
 Route::post('/send-verification-code', [BookingController::class, 'volunteerEmailSend'])->name('volunteer.email.send');
 Route::post('/check-email-exists', [BookingController::class, 'checkEmailExists'])->name('volunteer.email.exists');
 Route::post('/volunteer/email/verify', [BookingController::class, 'verify'])->name('volunteer.email.verify');
 Route::post('/volunteer-booking/store', [BookingController::class, 'store'])->name('volunteer.booking.store');
 
 Route::post('/auth/volunteer-booking/store', [BookingController::class, 'authStore'])->name('auth.volunteer.booking.store');
+
+Route::get('/volunteer-programs/{slug}/{organization_profile}', [HomeController::class, 'OrganizationProfile'])
+    ->name('home.organization.profile');
 
 Route::get('/dashboard', function () {
     $user = Auth::user();

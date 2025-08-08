@@ -2,6 +2,8 @@ import OrganizationLayout from "@/Layouts/OrganizationLayout";
 import { useState, useEffect } from "react";
 import { usePage, useForm, Head, router } from "@inertiajs/react";
 import LocationDropdown from "@/Components/LocationDropdown";
+import { CheckCircle } from "lucide-react";
+import VerifiedBadge from "@/Components/VerifiedBadge";
 
 // Reusable form components (copied from the first example)
 const FormInput = ({
@@ -167,7 +169,11 @@ const StepIndicator = ({ steps, currentStep, errorSteps, onStepClick }) => {
     );
 };
 
-export default function Profile({ organization, auth }) {
+export default function Profile({
+    organization,
+    auth,
+    organization_verification,
+}) {
     const { verification } = usePage().props;
     const [org, setOrg] = useState(organization ?? {});
     const [isEditing, setIsEditing] = useState(false);
@@ -205,7 +211,7 @@ export default function Profile({ organization, auth }) {
     });
 
     const MAX_MISSION_VISION_VALUES = 200;
-    const MAX_DESCRIPTION = 1000;
+    const MAX_DESCRIPTION = 2000;
 
     const steps = [
         {
@@ -343,6 +349,9 @@ export default function Profile({ organization, auth }) {
         setStep((prev) => Math.max(prev - 1, 1));
     };
 
+    const organizationVerified =
+        organization_verification?.status === "Approved";
+
     return (
         <OrganizationLayout>
             <Head title="Organization Profile" />
@@ -362,33 +371,41 @@ export default function Profile({ organization, auth }) {
 
                         {!isEditing && (
                             <div className="flex flex-wrap gap-3">
-                                <button
-                                    onClick={handleVerifyClick}
-                                    disabled={verification}
-                                    className={`inline-flex items-center px-4 py-2 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white transition-all ${
-                                        verification
-                                            ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                            : "bg-white text-indigo-700 hover:bg-indigo-50 hover:shadow-md"
-                                    }`}
-                                >
-                                    <svg
-                                        className="w-5 h-5 mr-2"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                        xmlns="http://www.w3.org/2000/svg"
+                                {!organizationVerified && (
+                                    <button
+                                        onClick={handleVerifyClick}
+                                        disabled={
+                                            organization_verification?.status ===
+                                            "Pending"
+                                        }
+                                        className={`inline-flex items-center px-4 py-2 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white transition-all ${
+                                            organization_verification?.status ===
+                                            "Pending"
+                                                ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                                : "bg-white text-indigo-700 hover:bg-indigo-50 hover:shadow-md"
+                                        }`}
                                     >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                                        />
-                                    </svg>
-                                    {verification
-                                        ? "Verification Submitted"
-                                        : "Verify Account"}
-                                </button>
+                                        <svg
+                                            className="w-5 h-5 mr-2"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                            xmlns="http://www.w3.org/2000/svg"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                                            />
+                                        </svg>
+                                        {organization_verification?.status ===
+                                        "Pending"
+                                            ? "Verification Submitted"
+                                            : "Verify Account"}
+                                    </button>
+                                )}
+
                                 <button
                                     onClick={handleEditClick}
                                     className="inline-flex items-center px-4 py-2 bg-white text-indigo-700 rounded-lg shadow-sm hover:bg-indigo-50 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white transition-all"
@@ -975,13 +992,18 @@ export default function Profile({ organization, auth }) {
                             <div className="md:col-span-2">
                                 <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
                                     {/* Logo */}
-                                    <div className="flex-shrink-0">
+                                    <div className="flex-shrink-0 relative">
                                         {org.logo ? (
-                                            <img
-                                                src={`/storage/${org.logo}`}
-                                                alt="Organization Logo"
-                                                className="w-32 h-32 md:w-40 md:h-40 rounded-lg object-cover border border-gray-200"
-                                            />
+                                            <>
+                                                <img
+                                                    src={`/storage/${org.logo}`}
+                                                    alt="Organization Logo"
+                                                    className="w-32 h-32 md:w-40 md:h-40 rounded-lg object-cover border border-gray-200"
+                                                />
+                                                {organizationVerified && (
+                                                    <VerifiedBadge />
+                                                )}
+                                            </>
                                         ) : (
                                             <div className="w-32 h-32 md:w-40 md:h-40 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400">
                                                 No logo

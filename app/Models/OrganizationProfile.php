@@ -41,4 +41,8 @@ class OrganizationProfile extends Model
     {
         return $this->belongsTo(User::class);
     }
+    public function verification()
+    {
+        return $this->hasOne(OrganizationVerification::class, 'organization_profile_id');
+    }
 }

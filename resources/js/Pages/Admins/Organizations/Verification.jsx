@@ -20,19 +20,19 @@ export default function Verification({ organization, verification }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const verificationStatus = {
-        pending: {
+        Pending: {
             icon: Clock,
             color: "text-yellow-500 bg-yellow-50",
             text: "Pending Verification",
             badgeColor: "bg-yellow-100 text-yellow-800",
         },
-        approved: {
+        Approved: {
             icon: CheckCircle,
             color: "text-green-500 bg-green-50",
             text: "Verified",
             badgeColor: "bg-green-100 text-green-800",
         },
-        rejected: {
+        Rejected: {
             icon: AlertCircle,
             color: "text-red-500 bg-red-50",
             text: "Rejected",
@@ -122,7 +122,7 @@ export default function Verification({ organization, verification }) {
                             </div>
                             {verification && (
                                 <StatusBadge
-                                    status={verification.status || "pending"}
+                                    status={verification.status || "Pending"}
                                 />
                             )}
                         </div>

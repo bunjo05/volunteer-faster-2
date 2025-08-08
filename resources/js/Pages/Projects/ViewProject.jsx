@@ -458,20 +458,30 @@ export default function ViewProject({ project, auth, reportCategories }) {
                 {/* RIGHT SIDE - Sidebar */}
                 <div className="space-y-4 md:col-span-1">
                     {/* Organization Info */}
-                    <section className="bg-blue-50 p-2 rounded-xl border border-gray-200 shadow-sm flex items-center gap-2">
-                        <img
-                            className="w-16 h-16 rounded-full"
-                            src={
-                                project.organization_profile.logo
-                                    ? `/storage/${project.organization_profile.logo}`
-                                    : "/images/placeholder.jpg"
-                            }
-                            alt=""
-                        />
-                        <h3 className="text-xl font-bold text-gray-800 mb-2">
-                            {project.organization_profile?.name}
-                        </h3>
-                    </section>
+                    {project.organization_profile && (
+                        <Link
+                            href={route("home.organization.profile", {
+                                slug: project.slug,
+                                organization_profile:
+                                    project.organization_profile.slug,
+                            })}
+                            className="block bg-blue-50 p-2 rounded-xl border border-gray-200 shadow-sm flex items-center gap-2 hover:bg-blue-100 transition-colors"
+                        >
+                            <img
+                                className="w-16 h-16 rounded-full"
+                                src={
+                                    project.organization_profile.logo
+                                        ? `/storage/${project.organization_profile.logo}`
+                                        : "/images/placeholder.jpg"
+                                }
+                                alt={project.organization_profile.name}
+                            />
+                            <h3 className="text-xl font-bold text-gray-800 mb-2">
+                                {project.organization_profile.name}
+                            </h3>
+                        </Link>
+                    )}
+
                     {/* Quick Facts */}
                     <section className="bg-blue-50 p-6 rounded-xl shadow-md">
                         <h2 className="text-xl font-semibold text-gray-800 mb-4">

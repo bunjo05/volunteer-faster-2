@@ -24,6 +24,7 @@ use App\Mail\FeaturedProjectApproved;
 use App\Mail\FeaturedProjectRejected;
 use App\Models\OrganizationVerification;
 use Illuminate\Support\Facades\Validator;
+use App\Mail\OrganizationVerificationMail;
 use SebastianBergmann\CodeCoverage\Report\Xml\Report;
 
 class AdminsController extends Controller
@@ -80,8 +81,11 @@ class AdminsController extends Controller
     public function organizations()
     {
         $organizations = OrganizationProfile::latest()->get(); // Add pagination if needed
+        $verifications = OrganizationVerification::all();
+
         return inertia('Admins/Organizations/Index', [
             'organizations' => $organizations,
+            'verifications' => $verifications,
         ]);
     }
 
@@ -118,17 +122,18 @@ class AdminsController extends Controller
         $organization = OrganizationProfile::where('slug', $slug)->firstOrFail();
 
         // Update verification status
-        $verification->status = $request->action === 'approve' ? 'Approved' : 'Rejected';
+        $status = $request->action === 'approve' ? 'Approved' : 'Rejected';
+        $verification->status = $status;
         $verification->comments = $request->comments;
         $verification->verified_at = now();
         $verification->admin_id = auth('admin')->id();
         $verification->save();
 
-        // If approved, update organization verification status
-        // if ($request->action === 'approve') {
-        //     $organization->status = true;
-        //     $organization->save();
-        // }
+        // Send email notification to organization owner
+        if ($organization->user) {
+            Mail::to($organization->user->email)
+                ->send(new OrganizationVerificationMail($verification, $organization, $status));
+        }
 
         return redirect()->back()->with('success', 'Verification status updated successfully.');
     }

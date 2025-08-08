@@ -449,13 +449,17 @@ export default function Projects({
                                             </p>
 
                                             <div className="text-sm text-gray-500 mb-1">
-                                                <span className="font-medium">
-                                                    Start:
-                                                </span>{" "}
-                                                {new Date(
-                                                    project.start_date
-                                                ).toLocaleDateString()}{" "}
-                                                &middot;{" "}
+                                                {project.start_date && (
+                                                    <>
+                                                        <span className="font-medium">
+                                                            Start:
+                                                        </span>{" "}
+                                                        {new Date(
+                                                            project.start_date
+                                                        ).toLocaleDateString()}{" "}
+                                                        &middot;{" "}
+                                                    </>
+                                                )}
                                                 <span className="font-medium">
                                                     Duration:
                                                 </span>{" "}

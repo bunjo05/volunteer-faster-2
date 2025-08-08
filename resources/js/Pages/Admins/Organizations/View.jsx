@@ -1,3 +1,4 @@
+import VerifiedBadge from "@/Components/VerifiedBadge";
 import AdminLayout from "@/Layouts/AdminLayout";
 import { Head, Link } from "@inertiajs/react";
 import {
@@ -114,13 +115,7 @@ export default function View({ organization, organization_verification }) {
                                         className="h-full w-full object-cover"
                                     />
                                 </div>
-                                {organizationVerified && (
-                                    <div className="absolute -bottom-3 -right-3 bg-white rounded-full p-1.5 shadow-md border border-green-200">
-                                        <div className="bg-green-100 rounded-full p-1.5">
-                                            <CheckCircle className="h-5 w-5 text-green-600" />
-                                        </div>
-                                    </div>
-                                )}
+                                {organizationVerified && <VerifiedBadge />}
                             </div>
                             <div className="flex-1 text-center sm:text-left">
                                 <div className="flex items-center justify-center sm:justify-start gap-3">

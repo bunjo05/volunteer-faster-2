@@ -8,7 +8,9 @@ use App\Models\Project;
 use Illuminate\Http\Request;
 use App\Models\ReportCategory;
 use App\Mail\NewContactMessage;
+use App\Models\OrganizationProfile;
 use Illuminate\Support\Facades\Mail;
+use App\Models\OrganizationVerification;
 
 class HomeController extends Controller
 {
@@ -33,8 +35,14 @@ class HomeController extends Controller
     public function projects()
     {
         $projects = Project::where('status', 'Active')
-            ->with(['category', 'subcategory'])
-            ->latest()->get();
+            ->with([
+                'category',
+                'subcategory',
+                'organizationProfile',
+                'organizationProfile.verification'
+            ])
+            ->latest()
+            ->get();
 
         return inertia('Projects/Projects', [
             'projects' => $projects,
@@ -126,5 +134,28 @@ class HomeController extends Controller
         }
 
         return redirect()->back()->with('success', 'Your message has been sent successfully!');
+    }
+
+    public function OrganizationProfile($slug, $organization_profile)
+    {
+        // Get the project with its organization profile and verification
+        $project = Project::where('slug', $slug)
+            ->with(['user.organizationProfile', 'user.organizationProfile.verification'])
+            ->firstOrFail();
+
+        // Verify the organization profile exists and slug matches
+        if (
+            !$project->user->organizationProfile ||
+            $project->user->organizationProfile->slug !== $organization_profile
+        ) {
+            abort(404);
+        }
+
+
+        return inertia('Projects/OrganizationProfile', [
+            'organization' => $project->user->organizationProfile,
+            'project' => $project,
+            'isVerified' => $project->user->organizationProfile->verification?->status === 'Approved',
+        ]);
     }
 }
