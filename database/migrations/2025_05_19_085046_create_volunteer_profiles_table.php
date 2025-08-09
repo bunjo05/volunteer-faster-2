@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('gender');
             $table->string('dob');
             $table->string('country');
-            $table->string('city');
+            $table->string('city')->nullable();
             $table->string('state')->nullable(); // Added state field
             $table->string('postal')->nullable();
             $table->string('phone');
@@ -26,6 +26,12 @@ return new class extends Migration
             $table->string('twitter')->nullable();
             $table->string('instagram')->nullable();
             $table->string('linkedin')->nullable();
+            $table->json('hobbies')->nullable();
+            $table->string('education_status')->nullable();
+            $table->json('skills')->nullable();
+            $table->string('nok')->nullable();
+            $table->string('nok_phone')->nullable();
+            $table->string('nok_relation')->nullable();
             $table->timestamps();
         });
     }

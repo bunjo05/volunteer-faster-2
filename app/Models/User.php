@@ -105,4 +105,22 @@ class User extends Authenticatable
     {
         return $this->hasMany(VolunteerBooking::class)->where('booking_status', 'Completed');
     }
+
+    // In User model
+    // public function followingOrganizations()
+    // {
+    //     return $this->hasMany(VolunteerFollowingOrganization::class, 'user_id');
+    // }
+
+    public function isFollowing(OrganizationProfile $organization)
+    {
+        return $this->followingOrganizations()
+            ->where('organization_id', $organization->id)
+            ->exists();
+    }
+
+    public function followingOrganizations()
+    {
+        return $this->hasMany(VolunteerFollowingOrganization::class, 'user_id');
+    }
 }

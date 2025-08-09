@@ -21,6 +21,7 @@ return new class extends Migration
             $table->string('country')->nullable();
             $table->string('city')->nullable();
             $table->string('state')->nullable();
+            $table->json('required_skills')->nullable();
             $table->text('short_description');
             $table->text('detailed_description');
             $table->integer('min_duration')->nullable();

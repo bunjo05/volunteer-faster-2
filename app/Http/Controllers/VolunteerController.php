@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Chat;
+use Inertia\Inertia;
 use App\Models\Message;
 use App\Models\Payment;
 use App\Models\Project;
@@ -13,10 +14,13 @@ use App\Models\ReportProject;
 use App\Models\VolunteerPoint;
 use App\Models\PointTransaction;
 use App\Models\VolunteerBooking;
+use App\Models\VolunteerProfile;
 use App\Mail\OrganizationReminder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
+use App\Models\VolunteerVerification;
+use Illuminate\Support\Facades\Storage;
 
 class VolunteerController extends Controller
 {
@@ -583,10 +587,131 @@ class VolunteerController extends Controller
     }
     public function profile()
     {
-        return inertia(
-            'Volunteers/Profile',
-            ['points' => $this->getTotalPoints()],
-        );
+        $user = Auth::user();
+        $volunteer = VolunteerProfile::where('user_id', $user->id)->first();
+
+        $verification = $volunteer
+            ? VolunteerVerification::where('volunteer_id', $volunteer->id)->first()
+            : null;
+
+        return Inertia::render('Volunteers/Profile', [
+            'volunteer' => $volunteer,
+            'verification' => $verification, // Changed from volunteer_verification to verification
+            'auth' => [
+                'user' => $user,
+            ],
+        ]);
+    }
+
+    public function verification(VolunteerProfile $volunteer)
+    {
+        $user = Auth::user();
+
+        // Verify the volunteer profile belongs to the authenticated user
+        if ($volunteer->user_id !== $user->id) {
+            abort(403);
+        }
+
+        return Inertia::render('Volunteers/Verification', [
+            'profile' => $volunteer,
+            'auth' => [
+                'user' => $user,
+            ],
+            'volunteer' => $volunteer->id,
+        ]);
+    }
+    public function storeVerification(Request $request, $volunteer_profile)
+    {
+        $volunteerProfile = VolunteerProfile::where('id', $volunteer_profile)->firstOrFail();
+
+        $data = $request->validate([
+            'verification_type' => 'required|string|max:255',
+            'document' => 'required|file|mimes:pdf,jpg,jpeg,png|max:2048',
+        ]);
+
+        // Check if volunteer already has a verification record
+        $existingVerification = VolunteerVerification::where('volunteer_id', $volunteerProfile->id)->first();
+
+        // Store the new document file
+        if ($request->hasFile('document')) {
+            // Delete the old document if it exists
+            if ($existingVerification && $existingVerification->document) {
+                Storage::disk('public')->delete($existingVerification->document);
+            }
+
+            $data['document'] = $request->file('document')->store('verification_document', 'public');
+        }
+
+        // Add the volunteer profile ID to the data
+        $data['volunteer_id'] = $volunteerProfile->id;
+        $data['status'] = 'Pending'; // Reset status to Pending for new submission
+
+        // Update or create the verification record
+        if ($existingVerification) {
+            $existingVerification->update($data);
+        } else {
+            VolunteerVerification::create($data);
+        }
+
+        // Redirect to profile page with success message
+        return redirect()->route('volunteer.profile')->with('success', 'Verification documents submitted successfully!');
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $user = auth()->user();
+
+        $data = $request->validate([
+            'gender' => 'required|string|in:Male,Female,Other',
+            'dob' => 'required|date|before:-18 years',
+            'country' => 'required|string|max:255',
+            'state' => 'nullable|string|max:255',
+            'city' => 'nullable|string|max:255',
+            'postal' => 'nullable|string|max:20',
+            'phone' => 'required|string|max:20',
+            'profile_picture' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'current_profile_picture' => 'nullable|string',
+            'remove_profile_picture' => 'nullable|boolean',
+            'facebook' => 'nullable|string|max:255',
+            'twitter' => 'nullable|string|max:255',
+            'instagram' => 'nullable|string|max:255',
+            'linkedin' => 'nullable|string|max:255',
+            'hobbies' => 'nullable|array',
+            'hobbies.*' => 'string|max:255',
+            'education_status' => 'required|string|max:255',
+            'skills' => 'nullable|array',
+            'skills.*' => 'string|max:255',
+            'nok' => 'required|string|max:255',
+            'nok_phone' => 'required|string|max:20',
+            'nok_relation' => 'required|string|max:255',
+        ]);
+
+        // Find or create the volunteer profile
+        $volunteer = VolunteerProfile::firstOrNew(['user_id' => $user->id]);
+
+        // Handle profile picture upload/removal
+        if ($request->hasFile('profile_picture')) {
+            // Delete old picture if exists
+            if ($volunteer->profile_picture) {
+                Storage::disk('public')->delete($volunteer->profile_picture);
+            }
+            $data['profile_picture'] = $request->file('profile_picture')->store('volunteer/profile_pictures', 'public');
+        } elseif ($request->input('remove_profile_picture', false)) {
+            // Remove picture if requested
+            if ($volunteer->profile_picture) {
+                Storage::disk('public')->delete($volunteer->profile_picture);
+            }
+            $data['profile_picture'] = null;
+        } elseif ($request->filled('current_profile_picture')) {
+            // Keep existing picture if no changes
+            $data['profile_picture'] = $request->input('current_profile_picture');
+        }
+
+        // Update or create the volunteer profile
+        $volunteer->fill($data);
+        $volunteer->save();
+
+        return redirect()->back()->with('success', 'Profile saved successfully.');
     }
 
     public function points()

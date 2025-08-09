@@ -1,12 +1,14 @@
 import VerifiedBadge from "@/Components/VerifiedBadge";
 import GeneralPages from "@/Layouts/GeneralPages";
 import { Link } from "@inertiajs/react";
+import { router } from "@inertiajs/react";
 
 export default function OrganizationProfile({
     organization,
     project,
     auth,
     isVerified,
+    isFollowing, // Add this prop
 }) {
     return (
         <GeneralPages auth={auth || null}>
@@ -73,33 +75,6 @@ export default function OrganizationProfile({
                                 )}
                             </>
                         </div>
-
-                        {/* {organization.website && (
-                            <a
-                                href={organization.website}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors"
-                            >
-                                <svg
-                                    className="w-5 h-5 mr-1"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="1.5"
-                                        d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                                    />
-                                </svg>
-                                {organization.website.replace(
-                                    /^https?:\/\//,
-                                    ""
-                                )}
-                            </a>
-                        )} */}
                     </div>
                 </div>
 
@@ -210,8 +185,52 @@ export default function OrganizationProfile({
 
                     {/* Sidebar */}
                     <div className="space-y-8">
+                        {/* Follow Button */}
                         <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
-                            <button>Follow Organization</button>
+                            {auth.user ? (
+                                isFollowing ? ( // Changed from auth.user.is_following to isFollowing
+                                    <button
+                                        onClick={() => {
+                                            if (
+                                                confirm(
+                                                    "Are you sure you want to unfollow this organization?"
+                                                )
+                                            ) {
+                                                router.delete(
+                                                    route(
+                                                        "organizations.unfollow",
+                                                        organization.id
+                                                    )
+                                                );
+                                            }
+                                        }}
+                                        className="w-full bg-red-100 text-red-700 py-2 px-4 rounded-lg hover:bg-red-200 transition-colors font-medium"
+                                    >
+                                        Unfollow Organization
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() =>
+                                            router.post(
+                                                route(
+                                                    "organizations.follow",
+                                                    organization.id
+                                                )
+                                            )
+                                        }
+                                        className="w-full bg-blue-100 text-blue-700 py-2 px-4 rounded-lg hover:bg-blue-200 transition-colors font-medium"
+                                    >
+                                        Follow Organization
+                                    </button>
+                                )
+                            ) : (
+                                <Link
+                                    href={route("login")}
+                                    className="block w-full bg-blue-100 text-blue-700 py-2 px-4 rounded-lg hover:bg-blue-200 transition-colors text-center font-medium"
+                                >
+                                    Login to Follow
+                                </Link>
+                            )}
                         </div>
 
                         {/* Contact Info */}

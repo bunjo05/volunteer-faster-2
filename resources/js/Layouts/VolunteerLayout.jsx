@@ -70,6 +70,12 @@ export default function VolunteerLayout({ children, auth, points }) {
                     >
                         My Points
                     </SidebarLink>
+                    <SidebarLink
+                        href={route("volunteer.profile")}
+                        icon={StarIcon}
+                    >
+                        Profile
+                    </SidebarLink>
                 </nav>
                 <div className="border-t p-4">
                     <Link

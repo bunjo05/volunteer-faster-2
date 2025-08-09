@@ -6,7 +6,7 @@ export default function VerifiedBadge() {
             <div className="">
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-9 w-9 text-green-500"
+                    className="h-9 w-9 text-green-500 bg-white rounded-full"
                     viewBox="0 0 20 20"
                     fill="currentColor"
                 >

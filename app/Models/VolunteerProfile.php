@@ -23,9 +23,26 @@ class VolunteerProfile extends Model
         'twitter',
         'instagram',
         'linkedin',
+        'hobbies',
+        'education_status',
+        'skills',
+        'nok',
+        'nok_phone',
+        'nok_relation'
     ];
+
+    protected $casts = [
+        'hobbies' => 'array',
+        'skills' => 'array',
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function verification()
+    {
+        return $this->hasOne(VolunteerVerification::class, 'volunteer_id');
     }
 }

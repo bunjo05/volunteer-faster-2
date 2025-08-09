@@ -305,10 +305,10 @@ export default function Projects({
                                             {project.organization_profile
                                                 .verification?.status ===
                                                 "Approved" && (
-                                                <div className="absolute -top-1 -right-1 bg-green-500 text-white rounded-full p-1">
+                                                <div className="absolute -top-1 -right-1 bg-white  rounded-full">
                                                     <svg
                                                         xmlns="http://www.w3.org/2000/svg"
-                                                        className="h-4 w-4"
+                                                        className="h-6 w-6 text-green-500"
                                                         viewBox="0 0 20 20"
                                                         fill="currentColor"
                                                     >

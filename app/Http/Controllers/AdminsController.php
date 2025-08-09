@@ -17,11 +17,14 @@ use App\Models\ReportProject;
 use App\Models\ReportCategory;
 use App\Mail\UserStatusChanged;
 use App\Models\FeaturedProject;
+use App\Models\VolunteerProfile;
 use App\Models\ReportSubcategory;
 use App\Models\OrganizationProfile;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\FeaturedProjectApproved;
 use App\Mail\FeaturedProjectRejected;
+use App\Models\VolunteerVerification;
+use App\Mail\VolunteerVerificationMail;
 use App\Models\OrganizationVerification;
 use Illuminate\Support\Facades\Validator;
 use App\Mail\OrganizationVerificationMail;
@@ -138,6 +141,50 @@ class AdminsController extends Controller
         return redirect()->back()->with('success', 'Verification status updated successfully.');
     }
 
+    // Volunteer Verification
+
+
+    public function volunteerVerifications($id)
+    {
+        $volunteer = VolunteerProfile::where('id', $id)->with('user')->firstOrFail();
+        $verification = VolunteerVerification::where('volunteer_id', $volunteer->id)->first();
+
+        return inertia('Admins/Volunteers/Verify', [
+            'volunteer' => $volunteer,  // Changed from 'organization' to 'volunteer' to match what you're actually returning
+            'verification' => $verification,
+        ]);
+    }
+
+    public function updateVolunteerVerification(Request $request, VolunteerProfile $volunteer, VolunteerVerification $verification)
+    {
+        $request->validate([
+            'action' => 'required|in:approve,reject',
+            'comments' => 'nullable|string|max:1000',
+        ]);
+
+        $status = $request->action === 'approve' ? 'Approved' : 'Rejected';
+
+        $verification->update([
+            'status' => $status,
+            'comments' => $request->comments,
+            'verified_at' => now(),
+            'admin_id' => auth('admin')->id()
+        ]);
+
+        // In your updateVolunteerVerification method
+        if ($volunteer->user) {
+            Mail::to($volunteer->user->email)
+                ->send(new VolunteerVerificationMail(
+                    $verification,
+                    $volunteer,
+                    $status,
+                    $volunteer->user  // Pass the user explicitly
+                ));
+        }
+
+        return redirect()->back()->with('success', 'Verification updated successfully');
+    }
+
     public function updateStatus(Request $request, User $user)
     {
         $validated = Validator::make($request->all(), [
@@ -200,8 +247,15 @@ class AdminsController extends Controller
 
     public function volunteers()
     {
-        return inertia('Admins/Volunteers');
+        $volunteers = VolunteerProfile::with('user')->latest()->get();
+        $verifications = VolunteerVerification::all();
+
+        return inertia('Admins/Volunteers/Volunteers', [
+            'volunteers' => $volunteers,
+            'verifications' => $verifications
+        ]);
     }
+
     public function projects()
     {
         $projects = Project::with(['user', 'organizationProfile']) // eager load user relationship too

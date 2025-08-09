@@ -20,6 +20,7 @@ use App\Http\Controllers\FeaturedProjectController;
 use App\Http\Controllers\Admin\Auth\LoginController;
 use App\Http\Controllers\Auth\OtpVerificationController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\VolunteerFollowOrganization;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/about', [HomeController::class, 'about'])->name('about');
@@ -60,6 +61,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    Route::post('/organizations/{organization}/follow', [VolunteerFollowOrganization::class, 'follow'])
+        ->name('organizations.follow');
+
+    Route::delete('/organizations/{organization}/unfollow', [VolunteerFollowOrganization::class, 'unfollow'])
+        ->name('organizations.unfollow');
 });
 
 Route::get('/auth/google', [SocialAuthController::class, 'redirectToGoogle'])->name('google.login');
@@ -91,6 +98,9 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     Route::get('/organizations/{slug}/verifications', [AdminsController::class, 'organizationVerifications'])->name('admin.organizations.verifications');
     Route::post('/organizations/{slug}/verifications/{verification_id}', [AdminsController::class, 'updateVerification'])
         ->name('admin.organizations.verification.update');
+
+    Route::get('/volunteers/{volunteer}/verifications', [AdminsController::class, 'volunteerVerifications'])->name('admin.volunteers.verifications');
+    Route::post('/volunteers/{volunteer}/verifications/{verification}', [AdminsController::class, 'updateVolunteerVerification'])->name('admin.volunteers.verification.update');
 
     Route::get('/volunteers', [AdminsController::class, 'volunteers'])->name('admin.volunteers');
     Route::get('/projects', [AdminsController::class, 'projects'])->name('admin.projects');
@@ -166,25 +176,24 @@ Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(
     Route::get('/messages', [VolunteerController::class, 'messages'])->name('volunteer.messages');
     Route::patch('/messages/mark-all-read/{senderId}', [VolunteerController::class, 'markAllRead'])
         ->name('volunteer.messages.mark-all-read');
-
     Route::post('/messages', [VolunteerController::class, 'storeMessage'])
         ->name('volunteer.messages.store');
-
-
-
     Route::get('/project', [VolunteerController::class, 'projects'])->name('volunteer.projects');
     Route::post('/send-reminder/{bookingId}', [VolunteerController::class, 'sendReminder'])
         ->name('volunteer.send-reminder');
-
     Route::get('/chat/list', [VolunteerController::class, 'listChats'])->name('volunteer.chat.list');
     Route::post('/chat/new', [VolunteerController::class, 'startNewChat'])->name('volunteer.chat.new');
     Route::get('/chat/{chat}/messages', [VolunteerController::class, 'getMessages'])->name('volunteer.chat.messages');
     Route::post('/chat/{chat}/read', [VolunteerController::class, 'markAsRead'])->name('volunteer.chat.read');
-
     Route::get('/points', [VolunteerController::class, 'points'])->name('volunteer.points');
-
     Route::post('/bookings/{booking}/pay-with-points', [VolunteerController::class, 'payWithPoints'])
         ->name('volunteer.pay-with-points');
+    Route::get('/profile', [VolunteerController::class, 'profile'])->name('volunteer.profile');
+    Route::post('/profile', [VolunteerController::class, 'updateProfile'])->name('volunteer.profile.update');
+    Route::get('/{volunteer}/verification', [VolunteerController::class, 'verification'])
+        ->name('volunteer.verification');
+    Route::post('/{volunteer}/verification', [VolunteerController::class, 'storeVerification'])
+        ->name('volunteer.verification.store');
 });
 
 Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->group(function () {

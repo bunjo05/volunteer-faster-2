@@ -151,6 +151,14 @@ export default function AdminLayout({ children }) {
                         Organizations
                     </Link>
 
+                    <Link
+                        href={route("admin.volunteers")}
+                        className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
+                    >
+                        <Folder size={18} />
+                        Volunteers
+                    </Link>
+
                     {/* Projects Dropdown */}
                     <div className="space-y-1">
                         <button

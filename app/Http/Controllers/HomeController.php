@@ -55,13 +55,24 @@ class HomeController extends Controller
             ->with(['category', 'subcategory', 'galleryImages', 'organizationProfile'])
             ->firstOrFail();
 
+        // Check if user is following the organization
+        $isFollowing = false;
+        if (auth()->check()) {
+            $isFollowing = auth()->user()->followingOrganizations()
+                ->where('organization_id', $project->organizationProfile->id)
+                ->exists();
+        }
+
         // Load report categories with their subcategories
         $reportCategories = ReportCategory::with('subcategories')->get();
+
         return inertia('Projects/ViewProject', [
             'project' => $project,
-            'reportCategories' => $reportCategories, // Add this line
+            'reportCategories' => $reportCategories,
+            'isFollowing' => $isFollowing, // Add this line
         ]);
     }
+
     public function about()
     {
         return inertia('Home/About');
@@ -138,24 +149,33 @@ class HomeController extends Controller
 
     public function OrganizationProfile($slug, $organization_profile)
     {
-        // Get the project with its organization profile and verification
         $project = Project::where('slug', $slug)
             ->with(['user.organizationProfile', 'user.organizationProfile.verification'])
             ->firstOrFail();
 
-        // Verify the organization profile exists and slug matches
-        if (
-            !$project->user->organizationProfile ||
-            $project->user->organizationProfile->slug !== $organization_profile
-        ) {
+        // Check if user exists and has organization profile
+        if (!$project->user || !$project->user->organizationProfile) {
             abort(404);
         }
 
+        // Check if the organization profile slug matches
+        if ($project->user->organizationProfile->slug !== $organization_profile) {
+            abort(404);
+        }
+
+        // Add follow status check
+        $isFollowing = false;
+        if (auth()->check()) {
+            $isFollowing = auth()->user()->followingOrganizations()
+                ->where('organization_id', $project->user->organizationProfile->id)
+                ->exists();
+        }
 
         return inertia('Projects/OrganizationProfile', [
             'organization' => $project->user->organizationProfile,
             'project' => $project,
             'isVerified' => $project->user->organizationProfile->verification?->status === 'Approved',
+            'isFollowing' => $isFollowing,
         ]);
     }
 }
