@@ -121,6 +121,7 @@ class User extends Authenticatable
 
     public function followingOrganizations()
     {
-        return $this->hasMany(VolunteerFollowingOrganization::class, 'user_id');
+        return $this->belongsToMany(OrganizationProfile::class, 'volunteer_following_organizations', 'user_id', 'organization_id')
+            ->withTimestamps();
     }
 }

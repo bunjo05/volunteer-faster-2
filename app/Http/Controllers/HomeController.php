@@ -171,11 +171,15 @@ class HomeController extends Controller
                 ->exists();
         }
 
+        // Get followers count
+        $followersCount = $project->user->organizationProfile->followers()->count();
+
         return inertia('Projects/OrganizationProfile', [
             'organization' => $project->user->organizationProfile,
             'project' => $project,
             'isVerified' => $project->user->organizationProfile->verification?->status === 'Approved',
             'isFollowing' => $isFollowing,
+            'followersCount' => $followersCount, // Add this line
         ]);
     }
 }

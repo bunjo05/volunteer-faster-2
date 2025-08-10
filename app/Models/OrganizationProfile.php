@@ -24,7 +24,6 @@ class OrganizationProfile extends Model
         'instagram',
         'linkedin',
         'youtube',
-        // 'email',
         'description',
         'mission_statement',
         'vision_statement',
@@ -41,8 +40,18 @@ class OrganizationProfile extends Model
     {
         return $this->belongsTo(User::class);
     }
+
     public function verification()
     {
         return $this->hasOne(OrganizationVerification::class, 'organization_profile_id');
+    }
+
+    /**
+     * Get all users who follow this organization.
+     */
+    public function followers()
+    {
+        return $this->belongsToMany(User::class, 'volunteer_following_organizations', 'organization_id', 'user_id')
+            ->withTimestamps();
     }
 }

@@ -61,12 +61,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-
-    Route::post('/organizations/{organization}/follow', [VolunteerFollowOrganization::class, 'follow'])
-        ->name('organizations.follow');
-
-    Route::delete('/organizations/{organization}/unfollow', [VolunteerFollowOrganization::class, 'unfollow'])
-        ->name('organizations.unfollow');
 });
 
 Route::get('/auth/google', [SocialAuthController::class, 'redirectToGoogle'])->name('google.login');
@@ -245,6 +239,12 @@ Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->
 
 // routes/web.php
 Route::middleware('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
+
+    Route::post('/organizations/{organization}/follow', [VolunteerFollowOrganization::class, 'follow'])
+        ->name('organizations.follow');
+    Route::delete('/organizations/{organization}/unfollow', [VolunteerFollowOrganization::class, 'unfollow'])
+        ->name('organizations.unfollow');
+
     // Route::prefix('chat')->group(function () {
     //     Route::get('/', [ChatController::class, 'index']);
     //     Route::post('/', [ChatController::class, 'store'])->name('volunteer.chat.store');
