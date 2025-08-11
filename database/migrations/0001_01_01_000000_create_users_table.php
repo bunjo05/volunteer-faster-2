@@ -19,11 +19,16 @@ return new class extends Migration
             $table->string('password');
             $table->enum('role', ['Volunteer', 'Organization']);
             $table->boolean('is_active')->default(true);
-            $table->enum('status', allowed: ['Active', 'Suspended','Pending']);
+            $table->enum('status', ['Active', 'Suspended', 'Pending']);
             $table->string('otp')->nullable();
             $table->timestamp('otp_expires_at')->nullable();
+            $table->string('referral_code')->unique()->nullable();
+            $table->unsignedBigInteger('referred_by')->nullable();
             $table->rememberToken();
             $table->timestamps();
+
+            // Add foreign key constraint separately
+            $table->foreign('referred_by')->references('id')->on('users');
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
@@ -47,8 +52,11 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
+        Schema::dropIfExists('password_reset_tokens');
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropForeign(['referred_by']);
+        });
+        Schema::dropIfExists('users');
     }
 };

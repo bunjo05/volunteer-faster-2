@@ -5,13 +5,14 @@ import TextInput from "@/Components/TextInput";
 import GuestLayout from "@/Layouts/GuestLayout";
 import { Head, Link, useForm } from "@inertiajs/react";
 
-export default function Register() {
+export default function Register({ referralCode }) {
     const { data, setData, post, processing, errors, reset } = useForm({
         name: "",
         email: "",
         password: "",
         password_confirmation: "",
         role: "",
+        referral_code: referralCode || "",
     });
 
     const submit = (e) => {
@@ -119,6 +120,33 @@ export default function Register() {
                         message={errors.password_confirmation}
                         className="mt-2"
                     />
+                </div>
+
+                {/* Add Referral Code Field */}
+                <div className="mt-4">
+                    <InputLabel
+                        htmlFor="referral_code"
+                        value="Referral Code (optional)"
+                    />
+                    <TextInput
+                        id="referral_code"
+                        name="referral_code"
+                        value={data.referral_code}
+                        className="mt-1 block w-full"
+                        onChange={(e) =>
+                            setData("referral_code", e.target.value)
+                        }
+                    />
+                    <InputError
+                        message={errors.referral_code}
+                        className="mt-2"
+                    />
+                    {data.referral_code && (
+                        <p className="mt-1 text-sm text-gray-600">
+                            Both you and your referrer will receive bonus points
+                            after approval.
+                        </p>
+                    )}
                 </div>
 
                 <div className="mt-4 flex items-center justify-end">

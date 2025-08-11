@@ -4,6 +4,8 @@ import { usePage, useForm, Head, router } from "@inertiajs/react";
 import LocationDropdown from "@/Components/LocationDropdown";
 import {
     CheckCircle,
+    Copy,
+    Check,
     Edit,
     X,
     Trash2,
@@ -326,6 +328,15 @@ export default function Profile({ volunteer, auth, verification }) {
         } catch (error) {
             console.error("Error submitting form:", error);
         }
+    };
+
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(auth.user.referral_code).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000); // hide after 2s
+        });
     };
 
     const volunteerVerified = verification?.status === "Approved";
@@ -855,44 +866,80 @@ export default function Profile({ volunteer, auth, verification }) {
                     <div className="grid grid-cols-1 gap-8">
                         {/* Profile Overview */}
                         <ProfileSection title="Profile Overview">
-                            <div className="flex flex-col md:flex-row gap-8">
+                            <div className="flex flex-col md:flex-row gap-8 p-6 bg-white rounded-xl shadow-sm border border-gray-100">
+                                {/* Profile Picture Section */}
                                 <div className="flex-shrink-0">
                                     {volunteer?.profile_picture ? (
-                                        <div className="relative">
+                                        <div className="relative group">
                                             <img
                                                 src={`/storage/${volunteer.profile_picture}`}
                                                 alt="Profile"
-                                                className="h-40 w-40 rounded-lg object-cover border border-gray-200 shadow-sm"
+                                                className="h-40 w-40 rounded-xl object-cover border border-gray-200 shadow-md transition-transform duration-300 group-hover:scale-105"
                                             />
                                             {volunteerVerified && (
-                                                <div className="absolute -top-2 -right-2 ">
+                                                <div className="absolute -top-2 -right-2 drop-shadow-lg">
                                                     <VerifiedBadge />
                                                 </div>
                                             )}
                                         </div>
                                     ) : (
-                                        <div className="h-40 w-40 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400">
+                                        <div className="h-40 w-40 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors cursor-pointer">
                                             <Upload className="h-10 w-10" />
+                                            <span className="text-xs mt-2">
+                                                Upload Photo
+                                            </span>
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex-1">
-                                    <h2 className="text-2xl font-bold text-gray-900">
-                                        {auth.user.name}
-                                    </h2>
 
-                                    <div className="mt-4 space-y-3">
+                                {/* Profile Details Section */}
+                                <div className="flex-1 space-y-5">
+                                    {/* Name & Referral */}
+                                    <div>
+                                        <h2 className="text-2xl font-semibold text-gray-900">
+                                            {auth.user.name}
+                                        </h2>
+
+                                        <div className="mt-3">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="text-sm font-medium text-gray-500">
+                                                    Referral Code:
+                                                </span>
+                                                <div className="inline-flex items-center px-3 py-1 rounded-lg bg-blue-50 text-blue-700 font-mono text-sm shadow-sm border border-blue-100">
+                                                    {auth.user.referral_code}
+                                                    <button
+                                                        onClick={handleCopy}
+                                                        className="ml-2 text-blue-500 hover:text-blue-700 transition-colors"
+                                                        aria-label="Copy referral code"
+                                                    >
+                                                        {copied ? (
+                                                            <Check className="h-4 w-4 text-green-500" />
+                                                        ) : (
+                                                            <Copy className="h-4 w-4" />
+                                                        )}
+                                                    </button>
+                                                </div>
+                                                {copied && (
+                                                    <span className="text-xs text-green-600 font-medium">
+                                                        Copied!
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Profile Information Grid */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <InfoItem
                                             icon={
                                                 <Calendar className="h-5 w-5 text-gray-400" />
                                             }
                                             label="Date of Birth"
                                             value={
-                                                volunteer?.dob
-                                                    ? new Date(
-                                                          volunteer.dob
-                                                      ).toLocaleDateString()
-                                                    : null
+                                                volunteer?.dob &&
+                                                new Date(
+                                                    volunteer.dob
+                                                ).toLocaleDateString()
                                             }
                                         />
                                         <InfoItem
@@ -900,7 +947,10 @@ export default function Profile({ volunteer, auth, verification }) {
                                                 <Phone className="h-5 w-5 text-gray-400" />
                                             }
                                             label="Phone"
-                                            value={volunteer?.phone}
+                                            value={
+                                                volunteer?.phone ||
+                                                "Not provided"
+                                            }
                                         />
                                         <InfoItem
                                             icon={
@@ -908,19 +958,23 @@ export default function Profile({ volunteer, auth, verification }) {
                                             }
                                             label="Email"
                                             value={auth.user.email}
+                                            isEmail={true}
                                         />
                                         <InfoItem
                                             icon={
                                                 <MapPin className="h-5 w-5 text-gray-400" />
                                             }
                                             label="Location"
-                                            value={[
-                                                volunteer?.city,
-                                                volunteer?.state,
-                                                volunteer?.country,
-                                            ]
-                                                .filter(Boolean)
-                                                .join(", ")}
+                                            value={
+                                                [
+                                                    volunteer?.city,
+                                                    volunteer?.state,
+                                                    volunteer?.country,
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(", ") ||
+                                                "Not specified"
+                                            }
                                         />
                                     </div>
                                 </div>

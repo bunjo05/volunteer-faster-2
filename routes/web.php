@@ -16,11 +16,12 @@ use App\Http\Controllers\VolunteerController;
 use App\Http\Controllers\SocialAuthController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\StripePaymentController;
+use App\Http\Controllers\Admin\ReferralController;
 use App\Http\Controllers\FeaturedProjectController;
 use App\Http\Controllers\Admin\Auth\LoginController;
+use App\Http\Controllers\VolunteerFollowOrganization;
 use App\Http\Controllers\Auth\OtpVerificationController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
-use App\Http\Controllers\VolunteerFollowOrganization;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/about', [HomeController::class, 'about'])->name('about');
@@ -321,5 +322,16 @@ Route::get(
 )->name('contact');
 
 Route::post('/contact-us', [HomeController::class, 'storeContactMessage'])->name('contact.store');
+
+// routes/web.php
+Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
+    Route::get('/referrals', [ReferralController::class, 'index'])->name('admin.referrals.index');
+    Route::post('/referrals/{referral}/approve', [ReferralController::class, 'approve'])->name('admin.referrals.approve');
+    Route::post('/referrals/{referral}/reject', [ReferralController::class, 'reject'])->name('admin.referrals.reject');
+});
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/profile/referrals', [ProfileController::class, 'referrals'])->name('profile.referrals');
+});
 
 require __DIR__ . '/auth.php';

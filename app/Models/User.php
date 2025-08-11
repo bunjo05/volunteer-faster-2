@@ -26,6 +26,8 @@ class User extends Authenticatable
         'role',
         'is_active',
         'status',
+        'referral_code',
+        'referred_by',
     ];
 
     /**
@@ -49,6 +51,41 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($user) {
+            $user->referral_code = self::generateUniqueReferralCode();
+        });
+    }
+
+    public static function generateUniqueReferralCode()
+    {
+        $code = strtoupper(substr(md5(uniqid()), 0, 8));
+
+        while (self::where('referral_code', $code)->exists()) {
+            $code = strtoupper(substr(md5(uniqid()), 0, 8));
+        }
+
+        return $code;
+    }
+
+    public function referrer()
+    {
+        return $this->belongsTo(User::class, 'referred_by');
+    }
+
+    public function referrals()
+    {
+        return $this->hasMany(Referral::class, 'referrer_id');
+    }
+
+    public function referee()
+    {
+        return $this->hasMany(Referral::class, 'referee_id');
     }
 
     public function devices()

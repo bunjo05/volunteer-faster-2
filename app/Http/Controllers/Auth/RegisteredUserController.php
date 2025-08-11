@@ -2,16 +2,17 @@
 
 namespace App\Http\Controllers\Auth;
 
-use App\Http\Controllers\Controller;
 use App\Models\User;
-use Illuminate\Auth\Events\Registered;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Models\Referral;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rules;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Auth\Events\Registered;
 
 class RegisteredUserController extends Controller
 {
@@ -20,7 +21,12 @@ class RegisteredUserController extends Controller
      */
     public function create(): Response
     {
-        return Inertia::render('Auth/Register');
+
+        $referralCode = request()->cookie('referral') ?? request()->query('ref');
+
+        return Inertia::render('Auth/Register', [
+            'referralCode' => $referralCode,
+        ]);
     }
 
     /**
@@ -29,26 +35,49 @@ class RegisteredUserController extends Controller
      * @throws \Illuminate\Validation\ValidationException
      */
     public function store(Request $request): RedirectResponse
-{
-    $request->validate([
-        'name' => 'required|string|max:255',
-        'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
-        'password' => ['required', 'confirmed', Rules\Password::defaults()],
-        'role' => 'required|in:Volunteer,Organization', // ✅ validate role
-    ]);
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|lowercase|email|max:255|unique:' . User::class,
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'role' => 'required|in:Volunteer,Organization',
+            'referral_code' => 'nullable|string|exists:users,referral_code',
+        ]);
 
-    $user = User::create([
-        'name' => $request->name,
-        'email' => $request->email,
-        'password' => Hash::make($request->password),
-        'role' => $request->role,              // ✅ store role
-        'status' => 'Pending',                 // ✅ set default status
-    ]);
+        $userData = [
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'role' => $request->role,
+            'status' => 'Pending',
+        ];
 
-    event(new Registered($user));
+        // Handle referral if code is provided
+        if ($request->referral_code) {
+            $referrer = User::where('referral_code', $request->referral_code)->first();
 
-    Auth::login($user);
+            // Prevent self-referral
+            if ($referrer && $referrer->email !== $request->email) {
+                $userData['referred_by'] = $referrer->id;
+            }
+        }
 
-    return redirect(route('verification.notice', absolute: false));
-}
+        $user = User::create($userData);
+
+        // Create referral record if applicable
+        if ($user->referred_by) {
+            Referral::create([
+                'referrer_id' => $user->referred_by,
+                'referee_id' => $user->id,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+        }
+
+        event(new Registered($user));
+
+        Auth::login($user);
+
+        return redirect(route('verification.notice', absolute: false));
+    }
 }
