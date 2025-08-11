@@ -79,7 +79,7 @@ export default function OrganizationProfile({
                             )}
                         </div>
 
-                        {organization.website && (
+                        {/* {organization.website && (
                             <a
                                 href={
                                     organization.website.startsWith("http")
@@ -108,7 +108,7 @@ export default function OrganizationProfile({
                                     ""
                                 )}
                             </a>
-                        )}
+                        )} */}
                     </div>
                 </div>
 

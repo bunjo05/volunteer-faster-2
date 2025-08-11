@@ -55,6 +55,34 @@ class HomeController extends Controller
             ->with(['category', 'subcategory', 'galleryImages', 'organizationProfile'])
             ->firstOrFail();
 
+        // Initialize suggested projects query
+        $suggestedQuery = Project::where('status', 'Active')
+            ->where('id', '!=', $project->id)
+            ->with(['category', 'organizationProfile']);
+
+        // Check if user is logged in and has volunteer profile with skills
+        if (auth()->check() && auth()->user()->volunteerProfile && !empty(auth()->user()->volunteerProfile->skills)) {
+            $volunteerSkills = auth()->user()->volunteerProfile->skills;
+
+            // Get projects that match any of the volunteer's skills
+            $suggestedQuery->where(function ($query) use ($volunteerSkills) {
+                foreach ($volunteerSkills as $skill) {
+                    $query->orWhereJsonContains('skills', $skill);
+                }
+            });
+        } else {
+            // Fall back to category-based suggestions
+            $suggestedQuery->where(function ($query) use ($project) {
+                $query->where('category_id', $project->category_id)
+                    ->orWhere('subcategory_id', $project->subcategory_id);
+            });
+        }
+
+        $suggestedProjects = $suggestedQuery
+            ->inRandomOrder()
+            ->limit(2)
+            ->get();
+
         // Check if user is following the organization
         $isFollowing = false;
         if (auth()->check()) {
@@ -69,7 +97,8 @@ class HomeController extends Controller
         return inertia('Projects/ViewProject', [
             'project' => $project,
             'reportCategories' => $reportCategories,
-            'isFollowing' => $isFollowing, // Add this line
+            'isFollowing' => $isFollowing,
+            'suggestedProjects' => $suggestedProjects,
         ]);
     }
 

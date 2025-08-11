@@ -66,6 +66,11 @@ class User extends Authenticatable
         return $this->hasOne(OrganizationProfile::class);
     }
 
+    public function volunteerProfile()
+    {
+        return $this->hasOne(VolunteerProfile::class);
+    }
+
     public function project()
     {
         return $this->belongsTo(Project::class);

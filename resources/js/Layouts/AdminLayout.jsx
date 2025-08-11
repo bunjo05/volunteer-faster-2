@@ -11,6 +11,11 @@ import {
     Clock,
     Check,
     X,
+    Settings,
+    CreditCard,
+    HelpCircle,
+    BarChart2,
+    Shield,
 } from "lucide-react";
 import { Link, router, usePage } from "@inertiajs/react";
 import { useState, useEffect, useRef } from "react";
@@ -26,9 +31,97 @@ export default function AdminLayout({ children }) {
     const [unreadCount, setUnreadCount] = useState(0);
     const notificationsRef = useRef(null);
 
+    // Navigation items
+    const navItems = [
+        {
+            name: "Dashboard",
+            href: route("admin.dashboard"),
+            icon: Home,
+        },
+        {
+            name: "Organizations",
+            href: route("admin.organizations"),
+            icon: Users,
+        },
+        {
+            name: "Volunteers",
+            href: route("admin.volunteers"),
+            icon: Users,
+        },
+        {
+            name: "Projects",
+            icon: Folder,
+            subItems: [
+                {
+                    name: "All Projects",
+                    href: route("admin.projects"),
+                },
+                {
+                    name: "Featured Projects",
+                    href: route("admin.featured.projects"),
+                },
+                {
+                    name: "Categories",
+                    href: route("admin.categories"),
+                },
+                {
+                    name: "Subcategories",
+                    href: route("admin.subcategories"),
+                },
+            ],
+        },
+        {
+            name: "Messages",
+            href: route("admin.messages"),
+            icon: MessageSquare,
+        },
+        {
+            name: "Payments",
+            href: route("admin.payments"),
+            icon: CreditCard,
+        },
+        {
+            name: "Chat Support",
+            href: route("chat.index"),
+            icon: HelpCircle,
+        },
+        {
+            name: "Reports",
+            icon: BarChart2,
+            subItems: [
+                {
+                    name: "Project Reports",
+                    href: route("admin.project.reports"),
+                },
+                {
+                    name: "Report Categories",
+                    href: route("admin.report-categories"),
+                },
+                {
+                    name: "Report Subcategories",
+                    href: route("admin.report-subcategories.index"),
+                },
+            ],
+        },
+        {
+            name: "Manage Users",
+            href: route("admin.users"),
+            icon: Shield,
+        },
+        {
+            name: "User Contacts",
+            href: route("admin.contacts.index"),
+            icon: Users,
+        },
+        {
+            name: "Settings",
+            // href: route("admin.settings"),
+            icon: Settings,
+        },
+    ];
+
     useEffect(() => {
         if (window.Echo) {
-            // Listen for new chat requests
             window.Echo.private(`admin.${auth.user.id}`)
                 .listen("NewChatRequest", (data) => {
                     addNotification({
@@ -113,197 +206,111 @@ export default function AdminLayout({ children }) {
     };
 
     return (
-        <div className="flex h-screen bg-gray-100 overflow-hidden">
+        <div className="flex h-screen bg-gray-50 overflow-hidden">
             {/* Sidebar Overlay for Mobile */}
             {sidebarOpen && (
                 <div
-                    className="fixed inset-0 bg-black opacity-30 z-20 lg:hidden"
+                    className="fixed inset-0 bg-black/30 z-20 lg:hidden"
                     onClick={() => setSidebarOpen(false)}
                 ></div>
             )}
 
             {/* Sidebar */}
             <aside
-                className={`fixed z-30 inset-y-0 left-0 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out
+                className={`fixed z-30 inset-y-0 left-0 w-64 bg-indigo-700 text-white shadow-lg transform transition-transform duration-300 ease-in-out
                 ${
                     sidebarOpen ? "translate-x-0" : "-translate-x-full"
                 } lg:translate-x-0 lg:static lg:inset-0`}
             >
-                <div className="h-16 flex items-center justify-center border-b">
-                    <span className="font-bold text-xl text-indigo-600">
-                        Admin Panel
-                    </span>
+                <div className="h-16 flex items-center justify-center border-b border-indigo-600">
+                    <span className="font-bold text-xl">Admin Panel</span>
                 </div>
-                <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-                    <Link
-                        href={route("admin.dashboard")}
-                        className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                    >
-                        <Home size={18} />
-                        Dashboard
-                    </Link>
-
-                    <Link
-                        href={route("admin.organizations")}
-                        className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                    >
-                        <Folder size={18} />
-                        Organizations
-                    </Link>
-
-                    <Link
-                        href={route("admin.volunteers")}
-                        className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                    >
-                        <Folder size={18} />
-                        Volunteers
-                    </Link>
-
-                    {/* Projects Dropdown */}
-                    <div className="space-y-1">
-                        <button
-                            onClick={() => setProjectsOpen(!projectsOpen)}
-                            className="flex items-center justify-between w-full text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                        >
-                            <div className="flex items-center gap-3">
-                                <Folder size={18} />
-                                <span>Projects</span>
-                            </div>
-                            {projectsOpen ? (
-                                <ChevronDown size={16} />
+                <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+                    {navItems.map((item) => (
+                        <div key={item.name}>
+                            {item.href ? (
+                                <Link
+                                    href={item.href}
+                                    className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-indigo-600 transition-colors"
+                                    activeClassName="bg-indigo-800"
+                                >
+                                    <item.icon size={18} />
+                                    {item.name}
+                                </Link>
                             ) : (
-                                <ChevronRight size={16} />
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            if (item.name === "Projects") {
+                                                setProjectsOpen(!projectsOpen);
+                                            } else if (
+                                                item.name === "Reports"
+                                            ) {
+                                                setReportsOpen(!reportsOpen);
+                                            }
+                                        }}
+                                        className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-indigo-600 transition-colors"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <item.icon size={18} />
+                                            <span>{item.name}</span>
+                                        </div>
+                                        {item.name === "Projects" ? (
+                                            projectsOpen ? (
+                                                <ChevronDown size={16} />
+                                            ) : (
+                                                <ChevronRight size={16} />
+                                            )
+                                        ) : item.name === "Reports" ? (
+                                            reportsOpen ? (
+                                                <ChevronDown size={16} />
+                                            ) : (
+                                                <ChevronRight size={16} />
+                                            )
+                                        ) : null}
+                                    </button>
+                                    {(item.name === "Projects" &&
+                                        projectsOpen) ||
+                                    (item.name === "Reports" && reportsOpen) ? (
+                                        <div className="pl-8 space-y-1 mt-1">
+                                            {item.subItems.map((subItem) => (
+                                                <Link
+                                                    key={subItem.name}
+                                                    href={subItem.href}
+                                                    className="block px-3 py-2 rounded-lg hover:bg-indigo-600 transition-colors"
+                                                    activeClassName="bg-indigo-800"
+                                                >
+                                                    {subItem.name}
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    ) : null}
+                                </>
                             )}
-                        </button>
-                        {projectsOpen && (
-                            <div className="pl-8 space-y-1">
-                                <Link
-                                    href={route("admin.projects")}
-                                    className="block text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                                >
-                                    All Projects
-                                </Link>
-                                <Link
-                                    href={route("admin.featured.projects")}
-                                    className="block text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                                >
-                                    Featured Projects
-                                </Link>
-                                <Link
-                                    href={route("admin.categories")}
-                                    className="block text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                                >
-                                    Categories
-                                </Link>
-                                <Link
-                                    href={route("admin.subcategories")}
-                                    className="block text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                                >
-                                    Subcategories
-                                </Link>
-                            </div>
-                        )}
-                    </div>
+                        </div>
+                    ))}
 
-                    <Link
-                        href={route("admin.messages")}
-                        className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                    >
-                        <MessageSquare size={18} />
-                        Messages
-                    </Link>
-
-                    <Link
-                        href={route("admin.payments")}
-                        className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                    >
-                        <MessageSquare size={18} />
-                        Payments
-                    </Link>
-
-                    <Link
-                        href={route("chat.index")}
-                        className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                    >
-                        <MessageSquare size={18} />
-                        Chat Support
-                    </Link>
-
-                    {/* Reports Dropdown */}
-                    <div className="space-y-1">
-                        <button
-                            onClick={() => setReportsOpen(!reportsOpen)}
-                            className="flex items-center justify-between w-full text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
+                    <div className="mt-4 pt-4 border-t border-indigo-600">
+                        <Link
+                            href={route("logout")}
+                            method="post"
+                            as="button"
+                            className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-indigo-600 transition-colors"
                         >
-                            <div className="flex items-center gap-3">
-                                <Folder size={18} />
-                                <span>Reports</span>
-                            </div>
-                            {reportsOpen ? (
-                                <ChevronDown size={16} />
-                            ) : (
-                                <ChevronRight size={16} />
-                            )}
-                        </button>
-                        {reportsOpen && (
-                            <div className="pl-8 space-y-1">
-                                <Link
-                                    href={route("admin.project.reports")}
-                                    className="block text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                                >
-                                    Project Reports
-                                </Link>
-                                <Link
-                                    href={route("admin.report-categories")}
-                                    className="block text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                                >
-                                    Report Categories
-                                </Link>
-                                <Link
-                                    href={route(
-                                        "admin.report-subcategories.index"
-                                    )}
-                                    className="block text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                                >
-                                    Report Subcategories
-                                </Link>
-                            </div>
-                        )}
+                            <LogOut size={18} />
+                            Logout
+                        </Link>
                     </div>
-                    <Link
-                        href={route("admin.users")}
-                        className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                    >
-                        <Users size={18} />
-                        Manage Users
-                    </Link>
-                    <Link
-                        href={route("admin.contacts.index")}
-                        className="flex items-center gap-3 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg"
-                    >
-                        <Users size={18} />
-                        User Contacts
-                    </Link>
-
-                    <Link
-                        href={route("logout")}
-                        method="post"
-                        as="button"
-                        className="flex items-center gap-3 text-red-600 hover:bg-red-100 px-3 py-2 rounded-lg mt-auto"
-                    >
-                        <LogOut size={18} />
-                        Logout
-                    </Link>
                 </nav>
             </aside>
 
             {/* Main Content Area */}
-            <div className="flex flex-col flex-1">
+            <div className="flex flex-col flex-1 overflow-hidden">
                 {/* Top Bar */}
-                <header className="h-16 bg-white shadow px-4 sm:px-6 flex items-center justify-between">
+                <header className="h-16 bg-white shadow-sm px-4 sm:px-6 flex items-center justify-between">
                     {/* Mobile Menu Button */}
                     <button
-                        className="lg:hidden text-gray-600"
+                        className="lg:hidden text-gray-600 hover:text-gray-900"
                         onClick={() => setSidebarOpen(!sidebarOpen)}
                     >
                         <Menu size={24} />
@@ -320,7 +327,7 @@ export default function AdminLayout({ children }) {
                                     setNotificationsOpen(!notificationsOpen);
                                     markAsRead();
                                 }}
-                                className="p-1 rounded-full text-gray-600 hover:text-gray-900 focus:outline-none"
+                                className="p-1 rounded-full text-gray-600 hover:text-gray-900 focus:outline-none relative"
                             >
                                 <Bell className="h-6 w-6" />
                                 {unreadCount > 0 && (
@@ -332,10 +339,10 @@ export default function AdminLayout({ children }) {
 
                             {/* Notification Dropdown */}
                             {notificationsOpen && (
-                                <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg overflow-hidden z-50">
+                                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl overflow-hidden z-50 border border-gray-200">
                                     <div className="py-1">
-                                        <div className="px-4 py-2 border-b flex justify-between items-center bg-gray-50">
-                                            <h3 className="font-medium">
+                                        <div className="px-4 py-3 border-b flex justify-between items-center bg-gray-50">
+                                            <h3 className="font-medium text-gray-900">
                                                 Notifications
                                             </h3>
                                             <button
@@ -361,21 +368,21 @@ export default function AdminLayout({ children }) {
                                                             className={`px-4 py-3 ${
                                                                 !notification.read
                                                                     ? "bg-blue-50"
-                                                                    : ""
-                                                            }`}
+                                                                    : "bg-white"
+                                                            } hover:bg-gray-50 transition-colors`}
                                                         >
                                                             {notification.type ===
                                                                 "chat_request" && (
                                                                 <div>
                                                                     <div className="flex items-start">
-                                                                        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
+                                                                        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium mr-3">
                                                                             {notification.user?.name?.charAt(
                                                                                 0
                                                                             ) ||
                                                                                 "U"}
                                                                         </div>
                                                                         <div className="flex-1">
-                                                                            <p className="text-sm font-medium">
+                                                                            <p className="text-sm font-medium text-gray-900">
                                                                                 New
                                                                                 Chat
                                                                                 Request
@@ -387,41 +394,41 @@ export default function AdminLayout({ children }) {
                                                                                     ?.name ||
                                                                                     "User"}
                                                                             </p>
-                                                                            <div className="flex items-center mt-1 text-xs text-gray-500">
+                                                                            <div className="flex items-center mt-1 text-xs">
                                                                                 {notification.status ===
                                                                                     "pending" && (
-                                                                                    <Clock className="h-3 w-3 mr-1" />
+                                                                                    <>
+                                                                                        <Clock className="h-3 w-3 mr-1 text-yellow-500" />
+                                                                                        <span className="text-yellow-600">
+                                                                                            Pending
+                                                                                        </span>
+                                                                                    </>
                                                                                 )}
                                                                                 {notification.status ===
                                                                                     "accepted" && (
-                                                                                    <Check className="h-3 w-3 mr-1 text-green-500" />
+                                                                                    <>
+                                                                                        <Check className="h-3 w-3 mr-1 text-green-500" />
+                                                                                        <span className="text-green-600">
+                                                                                            Accepted
+                                                                                        </span>
+                                                                                    </>
                                                                                 )}
                                                                                 {notification.status ===
                                                                                     "declined" && (
-                                                                                    <X className="h-3 w-3 mr-1 text-red-500" />
+                                                                                    <>
+                                                                                        <X className="h-3 w-3 mr-1 text-red-500" />
+                                                                                        <span className="text-red-600">
+                                                                                            Declined
+                                                                                        </span>
+                                                                                    </>
                                                                                 )}
-                                                                                {
-                                                                                    notification.status
-                                                                                }
                                                                             </div>
                                                                         </div>
                                                                     </div>
 
                                                                     {notification.status ===
                                                                         "pending" && (
-                                                                        <div className="mt-2 flex justify-end space-x-2">
-                                                                            <button
-                                                                                onClick={() =>
-                                                                                    handleAcceptChat(
-                                                                                        notification
-                                                                                            .chat
-                                                                                            .id
-                                                                                    )
-                                                                                }
-                                                                                className="px-3 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700"
-                                                                            >
-                                                                                Accept
-                                                                            </button>
+                                                                        <div className="mt-3 flex justify-end space-x-2">
                                                                             <button
                                                                                 onClick={() =>
                                                                                     handleDeclineChat(
@@ -430,9 +437,21 @@ export default function AdminLayout({ children }) {
                                                                                             .id
                                                                                     )
                                                                                 }
-                                                                                className="px-3 py-1 bg-gray-200 text-gray-700 text-xs rounded hover:bg-gray-300"
+                                                                                className="px-3 py-1.5 bg-gray-200 text-gray-700 text-xs rounded-md hover:bg-gray-300 transition-colors"
                                                                             >
                                                                                 Decline
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() =>
+                                                                                    handleAcceptChat(
+                                                                                        notification
+                                                                                            .chat
+                                                                                            .id
+                                                                                    )
+                                                                                }
+                                                                                className="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-md hover:bg-indigo-700 transition-colors"
+                                                                            >
+                                                                                Accept
                                                                             </button>
                                                                         </div>
                                                                     )}
@@ -449,11 +468,9 @@ export default function AdminLayout({ children }) {
                         </div>
 
                         <div className="flex items-center gap-2">
-                            <img
-                                src="/images/admin-avatar.png"
-                                alt="Admin"
-                                className="w-8 h-8 rounded-full object-cover"
-                            />
+                            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium">
+                                {auth.user.name.charAt(0)}
+                            </div>
                             <span className="hidden sm:block text-sm font-medium text-gray-700">
                                 {auth.user.name}
                             </span>
@@ -462,8 +479,8 @@ export default function AdminLayout({ children }) {
                 </header>
 
                 {/* Page Content */}
-                <main className="p-4 sm:p-6 bg-gray-50 flex-1 overflow-y-auto">
-                    {children}
+                <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-gray-50">
+                    <div className="max-w-7xl mx-auto">{children}</div>
                 </main>
             </div>
         </div>

@@ -235,6 +235,8 @@ Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->
 
     Route::post('/{organization_profile}/verification', [OrganizationController::class, 'storeVerification'])
         ->name('organization.verification.store');
+
+    Route::get('/{volunteer_profile}', [OrganizationController::class, 'volunteerProfile'])->name('organization.volunteer.profile');
 });
 
 // routes/web.php

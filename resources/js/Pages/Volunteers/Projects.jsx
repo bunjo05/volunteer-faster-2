@@ -276,6 +276,16 @@ export default function Projects({ auth, payments, points, totalPoints }) {
         }
     };
 
+    const calculateDepositAmount = () => {
+        const totalAmount = calculateTotalAmount(
+            activeBooking.start_date,
+            activeBooking.end_date,
+            activeBooking.project?.fees || 0,
+            activeBooking.number_of_travellers
+        );
+        return totalAmount * 0.2; // 20% deposit
+    };
+
     return (
         <VolunteerLayout auth={auth}>
             {/* Success Notification */}
@@ -537,7 +547,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                         Payment Information
                                                     </h3>
                                                     <div className="space-y-4">
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                                             <div className="bg-white p-4 rounded-lg border border-gray-200">
                                                                 <h4 className="text-sm font-medium text-gray-700 mb-1">
                                                                     Total Amount
@@ -555,22 +565,85 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                     ).toLocaleString()}
                                                                 </p>
                                                             </div>
+
+                                                            {/* Deposit Fee Section */}
+                                                            <div
+                                                                className={`bg-white p-4 rounded-lg border ${
+                                                                    !hasPaidDeposit()
+                                                                        ? "bg-yellow-50 border-yellow-200"
+                                                                        : "border-gray-200"
+                                                                }`}
+                                                            >
+                                                                <h4 className="text-sm font-medium text-gray-700 mb-1">
+                                                                    Deposit Fee{" "}
+                                                                    {hasPaidDeposit() &&
+                                                                        "(Paid)"}
+                                                                </h4>
+                                                                <p
+                                                                    className={`text-xl font-semibold ${
+                                                                        !hasPaidDeposit()
+                                                                            ? "text-yellow-800"
+                                                                            : "text-gray-900"
+                                                                    }`}
+                                                                >
+                                                                    $
+                                                                    {calculateDepositAmount().toLocaleString()}
+                                                                </p>
+                                                                {!hasPaidDeposit() && (
+                                                                    <p className="text-xs text-yellow-600 mt-1">
+                                                                        20%
+                                                                        deposit
+                                                                        required
+                                                                        to
+                                                                        confirm
+                                                                        booking
+                                                                    </p>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Updated Amount Paid/Remaining Balance Section */}
                                                             {activeBooking
                                                                 ?.payments
                                                                 ?.length >
                                                                 0 && (
                                                                 <div className="bg-white p-4 rounded-lg border border-gray-200">
                                                                     <h4 className="text-sm font-medium text-gray-700 mb-1">
-                                                                        Amount
-                                                                        Paid
+                                                                        {hasPaidDeposit()
+                                                                            ? "Remaining Balance"
+                                                                            : "Amount Paid"}
                                                                     </h4>
-                                                                    <p className="text-xl font-semibold text-gray-900">
+                                                                    <p
+                                                                        className={`text-xl font-semibold ${
+                                                                            hasPaidDeposit() &&
+                                                                            calculateRemainingBalance() >
+                                                                                0
+                                                                                ? "text-yellow-800"
+                                                                                : "text-gray-900"
+                                                                        }`}
+                                                                    >
                                                                         $
-                                                                        {calculateTotalPaid().toLocaleString()}
+                                                                        {hasPaidDeposit()
+                                                                            ? calculateRemainingBalance().toLocaleString()
+                                                                            : calculateTotalPaid().toLocaleString()}
                                                                     </p>
+                                                                    {hasPaidDeposit() &&
+                                                                        calculateRemainingBalance() >
+                                                                            0 && (
+                                                                            <p className="text-xs text-yellow-600 mt-1">
+                                                                                Balance
+                                                                                must
+                                                                                be
+                                                                                paid
+                                                                                before
+                                                                                project
+                                                                                start
+                                                                                date
+                                                                            </p>
+                                                                        )}
                                                                 </div>
                                                             )}
                                                         </div>
+
                                                         {activeBooking?.payments
                                                             ?.length > 0 && (
                                                             <div>
@@ -629,11 +702,11 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                 </div>
                                                             </div>
                                                         )}
+
                                                         {!shouldHidePayButton() &&
                                                             calculateRemainingBalance() >
                                                                 0 && (
                                                                 <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                                                                    {/* Show Pay Deposit Fee button only if deposit hasn't been paid */}
                                                                     {!hasPaidDeposit() && (
                                                                         <button
                                                                             onClick={() =>
@@ -647,26 +720,10 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                             Deposit
                                                                             Fee
                                                                             ($
-                                                                            {Math.round(
-                                                                                calculateTotalAmount(
-                                                                                    activeBooking.start_date,
-                                                                                    activeBooking.end_date,
-                                                                                    activeBooking
-                                                                                        .project
-                                                                                        ?.fees ||
-                                                                                        0,
-                                                                                    activeBooking.number_of_travellers
-                                                                                ) *
-                                                                                    0.2
-                                                                            )}
+                                                                            {calculateDepositAmount().toLocaleString()}
                                                                             )
                                                                         </button>
                                                                     )}
-
-                                                                    {/* Show Pay with Points button only if:
-                            - deposit has been paid
-                            - points payment hasn't succeeded
-                            - no existing points transaction for this booking */}
 
                                                                     {activeBooking
                                                                         .project
@@ -700,6 +757,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                     )}
                                                                 </div>
                                                             )}
+
                                                         {hasPointsTransaction(
                                                             activeBooking
                                                         ) && (

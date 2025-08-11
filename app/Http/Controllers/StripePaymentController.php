@@ -205,8 +205,8 @@ class StripePaymentController extends Controller
                 (int)$booking->number_of_travellers
             );
 
-            // Calculate 10% deposit
-            $depositAmount = $fullAmount * 0.1;
+            // Calculate 20% deposit
+            $depositAmount = $fullAmount * 0.2;
 
             Stripe::setApiKey(config('services.stripe.secret'));
 
@@ -216,7 +216,7 @@ class StripePaymentController extends Controller
                     'price_data' => [
                         'currency' => 'usd',
                         'product_data' => [
-                            'name' => $booking->project->title . ' (10% Deposit)',
+                            'name' => $booking->project->title . ' (20% Deposit)',
                             'description' => 'Deposit for volunteer project booking',
                         ],
                         'unit_amount' => round($depositAmount * 100), // Amount in cents

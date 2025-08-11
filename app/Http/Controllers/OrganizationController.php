@@ -50,12 +50,12 @@ class OrganizationController extends Controller
     {
         $user = Auth::user();
 
-        // Get bookings with eager loading and filtering
         $bookings = VolunteerBooking::with([
             'project' => function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             },
-            'user',
+            'user.volunteerProfile',
+            'user.volunteerProfile.verification', // Add this to load verification
             'payments',
             'pointTransactions' => function ($query) use ($user) {
                 $query->where('organization_id', $user->id)
@@ -68,7 +68,7 @@ class OrganizationController extends Controller
             ->latest()
             ->get()
             ->filter(function ($booking) {
-                return $booking->project !== null; // Ensure project exists
+                return $booking->project !== null;
             });
 
         return Inertia::render('Organizations/Bookings', [
@@ -97,6 +97,22 @@ class OrganizationController extends Controller
                     'volunteer' => [
                         'name' => $booking->user->name,
                         'email' => $booking->user->email,
+                        'volunteer_profile' => $booking->user->volunteerProfile ? [
+                            'id' => $booking->user->volunteerProfile->id,
+                            'gender' => $booking->user->volunteerProfile->gender,
+                            'dob' => $booking->user->volunteerProfile->dob,
+                            'country' => $booking->user->volunteerProfile->country,
+                            'city' => $booking->user->volunteerProfile->city,
+                            'phone' => $booking->user->volunteerProfile->phone,
+                            'profile_picture' => $booking->user->volunteerProfile->profile_picture,
+                            'education_status' => $booking->user->volunteerProfile->education_status,
+                            'skills' => $booking->user->volunteerProfile->skills,
+                            'hobbies' => $booking->user->volunteerProfile->hobbies,
+                            'nok' => $booking->user->volunteerProfile->nok,
+                            'nok_phone' => $booking->user->volunteerProfile->nok_phone,
+                            'nok_relation' => $booking->user->volunteerProfile->nok_relation,
+                            'verification_status' => $booking->user->volunteerProfile->verification?->status,
+                        ] : null
                     ],
                     'project' => [
                         'title' => $booking->project->title,
@@ -502,6 +518,8 @@ class OrganizationController extends Controller
             'activities' => 'required|string',
             'suitable' => 'nullable|array',
             'suitable.*' => 'string|in:Adults,Students,Families,Retirees',
+            'skills' => 'nullable|array',
+            'skills*' => 'string|in:',
             'availability_months' => 'required|array',
             'availability_months.*' => 'string|in:January,February,March,April,May,June,July,August,September,October,November,December',
             'start_date' => 'nullable|date',
@@ -537,6 +555,9 @@ class OrganizationController extends Controller
         if (!$slugChanged && $isEdit) {
             $data['slug'] = $project->slug;
         }
+
+        $data = $request->validate($rules);
+        $data['skills'] = $request->input('skills', []);
 
         $data['user_id'] = Auth::id();
         $data['status'] = $isEdit ? $project->status : 'Pending';

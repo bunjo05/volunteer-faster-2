@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { Dialog } from "@headlessui/react";
+import VerifiedBadge from "@/Components/VerifiedBadge";
 
 export default function Bookings({ bookings: initialBookings }) {
     const [bookings, setBookings] = useState(initialBookings);
@@ -30,6 +31,18 @@ export default function Bookings({ bookings: initialBookings }) {
     const [selectedStatus, setSelectedStatus] = useState(null);
     const [selectedBookingId, setSelectedBookingId] = useState(null);
 
+    const [isVolunteerModalOpen, setIsVolunteerModalOpen] = useState(false);
+    const [selectedVolunteer, setSelectedVolunteer] = useState(null);
+
+    const openVolunteerModal = (volunteer) => {
+        setSelectedVolunteer(volunteer);
+        setIsVolunteerModalOpen(true);
+    };
+
+    const closeVolunteerModal = () => {
+        setIsVolunteerModalOpen(false);
+        setSelectedVolunteer(null);
+    };
     const statusColors = {
         Pending: "bg-amber-100 text-amber-800",
         Approved: "bg-emerald-100 text-emerald-800",
@@ -128,6 +141,16 @@ export default function Bookings({ bookings: initialBookings }) {
         return activeBooking.payments.some(
             (payment) => payment.status === "deposit_paid"
         );
+    };
+
+    const calculateDepositAmount = () => {
+        const totalAmount = calculateTotalAmount(
+            activeBooking.start_date,
+            activeBooking.end_date,
+            activeBooking.project?.fees || 0,
+            activeBooking.number_of_travellers
+        );
+        return totalAmount * 0.2; // 20% deposit
     };
 
     return (
@@ -308,30 +331,113 @@ export default function Bookings({ bookings: initialBookings }) {
                                         <div className="flex-1 overflow-y-auto p-6">
                                             <div className="grid grid-cols-1 gap-3">
                                                 {/* Volunteer Details */}
-                                                <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                                                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4 flex items-center">
-                                                        <User className="w-4 h-4 mr-2" />
-                                                        Volunteer Information
-                                                    </h3>
-                                                    <div className="space-y-4">
-                                                        <div className="flex items-start gap-4">
-                                                            <div className="flex items-center justify-center h-11 w-11 rounded-xl bg-blue-100 text-blue-600 flex-shrink-0">
-                                                                <User className="w-5 h-5" />
+                                                <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
+                                                    <div className="flex items-center mb-4">
+                                                        <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-blue-50 text-blue-600 mr-3">
+                                                            <User className="w-5 h-5" />
+                                                        </div>
+                                                        <h3 className="text-lg font-semibold text-gray-800">
+                                                            Volunteer
+                                                            Information
+                                                        </h3>
+                                                    </div>
+
+                                                    <div className="flex items-start gap-4 p-3 bg-gray-50 rounded-lg">
+                                                        <div className="flex-shrink-0">
+                                                            <div className="flex items-center justify-center h-14 w-14 rounded-xl bg-blue-100 text-blue-600">
+                                                                <User className="w-6 h-6" />
                                                             </div>
-                                                            <div>
-                                                                <h4 className="font-medium text-gray-700 mb-1">
-                                                                    Name
-                                                                </h4>
-                                                                <p className="text-gray-600">
+                                                        </div>
+
+                                                        <div className="flex-1 min-w-0 space-y-2">
+                                                            <div className="flex items-center flex-wrap gap-2">
+                                                                <h4 className="text-lg font-medium text-gray-900">
                                                                     {
                                                                         activeBooking
                                                                             .volunteer
                                                                             .name
                                                                     }
-                                                                </p>
+                                                                </h4>
+
+                                                                {activeBooking
+                                                                    .volunteer
+                                                                    .volunteer_profile
+                                                                    ?.verification_status ===
+                                                                    "Approved" && (
+                                                                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 rounded-full px-3 py-1 border border-emerald-100">
+                                                                        <svg
+                                                                            xmlns="http://www.w3.org/2000/svg"
+                                                                            className="h-3.5 w-3.5 flex-shrink-0"
+                                                                            viewBox="0 0 20 20"
+                                                                            fill="currentColor"
+                                                                        >
+                                                                            <path
+                                                                                fillRule="evenodd"
+                                                                                d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                                                clipRule="evenodd"
+                                                                            />
+                                                                        </svg>
+                                                                        Verified
+                                                                        Volunteer
+                                                                    </span>
+                                                                )}
                                                             </div>
+
+                                                            {hasDepositPaid() && (
+                                                                <div className="space-y-1">
+                                                                    <div className="flex items-center text-gray-600">
+                                                                        <Mail className="h-4 w-4 mr-2 text-gray-400" />
+                                                                        <span className="truncate">
+                                                                            {
+                                                                                activeBooking
+                                                                                    .volunteer
+                                                                                    .email
+                                                                            }
+                                                                        </span>
+                                                                    </div>
+                                                                    {activeBooking
+                                                                        .volunteer
+                                                                        .volunteer_profile
+                                                                        ?.phone && (
+                                                                        <div className="flex items-center text-gray-600">
+                                                                            <svg
+                                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                                className="h-4 w-4 mr-2 text-gray-400"
+                                                                                viewBox="0 0 20 20"
+                                                                                fill="currentColor"
+                                                                            >
+                                                                                <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                                                                            </svg>
+                                                                            <span>
+                                                                                {
+                                                                                    activeBooking
+                                                                                        .volunteer
+                                                                                        .volunteer_profile
+                                                                                        .phone
+                                                                                }
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
+
+                                                    {activeBooking.volunteer
+                                                        .volunteer_profile && (
+                                                        <button
+                                                            onClick={() =>
+                                                                openVolunteerModal(
+                                                                    activeBooking.volunteer
+                                                                )
+                                                            }
+                                                            className="mt-4 w-full flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                                                        >
+                                                            <User className="h-4 w-4 mr-2" />
+                                                            View Full Volunteer
+                                                            Profile
+                                                        </button>
+                                                    )}
                                                 </div>
 
                                                 {/* Booking Details */}
@@ -446,6 +552,7 @@ export default function Bookings({ bookings: initialBookings }) {
                                                 </div>
 
                                                 {/* Payment Information */}
+
                                                 <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                                                     <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
                                                         Payment Information
@@ -478,21 +585,53 @@ export default function Bookings({ bookings: initialBookings }) {
                                                             </div>
                                                         </div>
 
-                                                        {/* Amount Paid */}
-                                                        <div className="bg-gray-50 p-4 rounded-lg">
+                                                        {/* Amount Paid / Deposit Due */}
+                                                        <div
+                                                            className={`p-4 rounded-lg ${
+                                                                hasDepositPaid()
+                                                                    ? "bg-gray-50"
+                                                                    : "bg-red-50"
+                                                            }`}
+                                                        >
                                                             <div className="flex items-center gap-3">
-                                                                <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
+                                                                <div
+                                                                    className={`flex items-center justify-center h-10 w-10 rounded-full ${
+                                                                        hasDepositPaid()
+                                                                            ? "bg-blue-100 text-blue-600"
+                                                                            : "bg-red-100 text-red-600"
+                                                                    } flex-shrink-0`}
+                                                                >
                                                                     <DollarSign className="w-4 h-4" />
                                                                 </div>
                                                                 <div>
                                                                     <h4 className="text-sm font-medium text-gray-500">
-                                                                        Amount
-                                                                        Paid
+                                                                        {hasDepositPaid()
+                                                                            ? "Amount Paid"
+                                                                            : "Deposit Amount to be paid"}
                                                                     </h4>
-                                                                    <p className="text-lg font-semibold text-gray-800">
+                                                                    <p
+                                                                        className={`text-lg font-semibold ${
+                                                                            hasDepositPaid()
+                                                                                ? "text-gray-800"
+                                                                                : "text-red-800"
+                                                                        }`}
+                                                                    >
                                                                         $
-                                                                        {calculateTotalPaid().toLocaleString()}
+                                                                        {hasDepositPaid()
+                                                                            ? calculateTotalPaid().toLocaleString()
+                                                                            : calculateDepositAmount().toLocaleString()}
                                                                     </p>
+                                                                    {!hasDepositPaid() && (
+                                                                        <p className="text-xs text-red-600 mt-1">
+                                                                            Deposit
+                                                                            payment
+                                                                            is
+                                                                            required
+                                                                            to
+                                                                            confirm
+                                                                            booking
+                                                                        </p>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -913,6 +1052,179 @@ export default function Bookings({ bookings: initialBookings }) {
                     )}
                 </div>
             </section>
+            <Dialog
+                open={isVolunteerModalOpen}
+                onClose={closeVolunteerModal}
+                className="relative z-50"
+            >
+                <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+                <div className="fixed inset-0 flex items-center justify-center p-4">
+                    <Dialog.Panel className="w-full max-w-2xl rounded-xl bg-white shadow-xl max-h-[90vh] overflow-y-auto">
+                        {selectedVolunteer && (
+                            <div className="p-6">
+                                <div className="flex justify-between items-start mb-6">
+                                    <Dialog.Title className="text-2xl font-bold text-gray-900">
+                                        Volunteer Details
+                                    </Dialog.Title>
+                                    <button
+                                        onClick={closeVolunteerModal}
+                                        className="text-gray-500 hover:text-gray-700"
+                                    >
+                                        <X className="h-6 w-6" />
+                                    </button>
+                                </div>
+
+                                <div className="flex flex-col md:flex-row gap-6">
+                                    {/* Left Column */}
+                                    <div className="md:w-1/3">
+                                        <div className="flex flex-col items-center relative">
+                                            <img
+                                                src={
+                                                    selectedVolunteer
+                                                        .volunteer_profile
+                                                        ?.profile_picture
+                                                        ? `/storage/${selectedVolunteer.volunteer_profile.profile_picture}`
+                                                        : "/images/default-profile.jpg"
+                                                }
+                                                alt={selectedVolunteer.name}
+                                                className="w-32 h-32 rounded-full object-cover border-4 border-white shadow mb-4"
+                                            />
+                                            {selectedVolunteer.volunteer_profile
+                                                ?.verification_status ===
+                                                "Approved" && (
+                                                <div className="absolute top-0 right-[155px] md:right-10 bg-white rounded-full p-1 shadow-md">
+                                                    <VerifiedBadge className="h-5 w-5" />
+                                                </div>
+                                            )}
+                                            <h3 className="text-xl font-semibold text-gray-900 mt-2">
+                                                {selectedVolunteer.name}
+                                            </h3>
+                                        </div>
+
+                                        <div className="mt-6 space-y-4">
+                                            {selectedVolunteer.volunteer_profile
+                                                ?.gender && (
+                                                <div>
+                                                    <h4 className="text-sm font-medium text-gray-500">
+                                                        Gender
+                                                    </h4>
+                                                    <p className="text-gray-900">
+                                                        {
+                                                            selectedVolunteer
+                                                                .volunteer_profile
+                                                                .gender
+                                                        }
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {selectedVolunteer.volunteer_profile
+                                                ?.dob && (
+                                                <div>
+                                                    <h4 className="text-sm font-medium text-gray-500">
+                                                        Date of Birth
+                                                    </h4>
+                                                    <p className="text-gray-900">
+                                                        {new Date(
+                                                            selectedVolunteer.volunteer_profile.dob
+                                                        ).toLocaleDateString()}
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {selectedVolunteer.volunteer_profile
+                                                ?.city && (
+                                                <div>
+                                                    <h4 className="text-sm font-medium text-gray-500">
+                                                        Location
+                                                    </h4>
+                                                    <p className="text-gray-900">
+                                                        {
+                                                            selectedVolunteer
+                                                                .volunteer_profile
+                                                                .city
+                                                        }
+                                                        ,{" "}
+                                                        {
+                                                            selectedVolunteer
+                                                                .volunteer_profile
+                                                                .country
+                                                        }
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Right Column */}
+                                    <div className="md:w-2/3">
+                                        {/* Skills */}
+                                        {selectedVolunteer.volunteer_profile
+                                            ?.skills?.length > 0 && (
+                                            <div className="mb-6">
+                                                <h4 className="text-sm font-medium text-gray-700 mb-2">
+                                                    Skills
+                                                </h4>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {selectedVolunteer.volunteer_profile.skills.map(
+                                                        (skill, index) => (
+                                                            <span
+                                                                key={index}
+                                                                className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                                                            >
+                                                                {skill}
+                                                            </span>
+                                                        )
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Education */}
+                                        {selectedVolunteer.volunteer_profile
+                                            ?.education_status && (
+                                            <div className="mb-6">
+                                                <h4 className="text-sm font-medium text-gray-700 mb-2">
+                                                    Education
+                                                </h4>
+                                                <p className="text-gray-900">
+                                                    {
+                                                        selectedVolunteer
+                                                            .volunteer_profile
+                                                            .education_status
+                                                    }
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {/* Hobbies */}
+                                        {selectedVolunteer.volunteer_profile
+                                            ?.hobbies?.length > 0 && (
+                                            <div>
+                                                <h4 className="text-sm font-medium text-gray-700 mb-2">
+                                                    Hobbies & Interests
+                                                </h4>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {selectedVolunteer.volunteer_profile.hobbies.map(
+                                                        (hobby, index) => (
+                                                            <span
+                                                                key={index}
+                                                                className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800"
+                                                            >
+                                                                {hobby}
+                                                            </span>
+                                                        )
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </Dialog.Panel>
+                </div>
+            </Dialog>
         </OrganizationLayout>
     );
 }

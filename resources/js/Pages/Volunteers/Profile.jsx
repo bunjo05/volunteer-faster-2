@@ -18,6 +18,7 @@ import {
     Users, // Add this import
 } from "lucide-react";
 import VerifiedBadge from "@/Components/VerifiedBadge";
+import VolunteerSkillsDropdown from "@/Components/VolunteerSkillsDropdown";
 
 // Enhanced reusable form components
 const FormInput = ({
@@ -695,41 +696,19 @@ export default function Profile({ volunteer, auth, verification }) {
                         </ProfileSection>
 
                         <ProfileSection title="Education & Skills">
-                            <FormInput
-                                label="Education Status"
-                                name="education_status"
-                                value={data.education_status}
-                                onChange={handleInputChange}
-                                error={errors.education_status}
-                                placeholder="High School, College, University, other"
-                            />
+                            <div className="md:col-span-1">
+                                <VolunteerSkillsDropdown
+                                    label="Skills"
+                                    multiple={true}
+                                    onSkillsChange={(skills) =>
+                                        setData("skills", skills)
+                                    }
+                                    initialSelectedSkills={data.skills || []}
+                                    required={false}
+                                />
+                            </div>
 
-                            <FormMultiSelect
-                                label="Hobbies & Interests"
-                                name="hobbies"
-                                options={[
-                                    { value: "Reading", label: "Reading" },
-                                    { value: "Sports", label: "Sports" },
-                                    { value: "Music", label: "Music" },
-                                    { value: "Travel", label: "Travel" },
-                                    { value: "Cooking", label: "Cooking" },
-                                    {
-                                        value: "Photography",
-                                        label: "Photography",
-                                    },
-                                    { value: "Gardening", label: "Gardening" },
-                                    { value: "Painting", label: "Painting" },
-                                    { value: "Hiking", label: "Hiking" },
-                                    { value: "Dancing", label: "Dancing" },
-                                ]}
-                                selectedValues={data.hobbies || []}
-                                onChange={(e) =>
-                                    setData("hobbies", e.target.value)
-                                }
-                                error={errors.hobbies}
-                            />
-
-                            <FormMultiSelect
+                            {/* <FormMultiSelect
                                 label="Skills"
                                 name="skills"
                                 options={[
@@ -784,6 +763,40 @@ export default function Profile({ volunteer, auth, verification }) {
                                     setData("skills", e.target.value)
                                 }
                                 error={errors.skills}
+                            /> */}
+
+                            <FormInput
+                                label="Education Status"
+                                name="education_status"
+                                value={data.education_status}
+                                onChange={handleInputChange}
+                                error={errors.education_status}
+                                placeholder="High School, College, University, other"
+                            />
+
+                            <FormMultiSelect
+                                label="Hobbies & Interests"
+                                name="hobbies"
+                                options={[
+                                    { value: "Reading", label: "Reading" },
+                                    { value: "Sports", label: "Sports" },
+                                    { value: "Music", label: "Music" },
+                                    { value: "Travel", label: "Travel" },
+                                    { value: "Cooking", label: "Cooking" },
+                                    {
+                                        value: "Photography",
+                                        label: "Photography",
+                                    },
+                                    { value: "Gardening", label: "Gardening" },
+                                    { value: "Painting", label: "Painting" },
+                                    { value: "Hiking", label: "Hiking" },
+                                    { value: "Dancing", label: "Dancing" },
+                                ]}
+                                selectedValues={data.hobbies || []}
+                                onChange={(e) =>
+                                    setData("hobbies", e.target.value)
+                                }
+                                error={errors.hobbies}
                             />
                         </ProfileSection>
 
@@ -913,6 +926,39 @@ export default function Profile({ volunteer, auth, verification }) {
                                 </div>
                             </div>
                         </ProfileSection>
+
+                        {/* Hobbies & Skills */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {volunteer?.hobbies?.length > 0 && (
+                                <ProfileSection title="Hobbies & Interests">
+                                    <div className="flex flex-wrap gap-2">
+                                        {volunteer.hobbies.map((hobby) => (
+                                            <span
+                                                key={hobby}
+                                                className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                                            >
+                                                {hobby}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </ProfileSection>
+                            )}
+
+                            {volunteer?.skills?.length > 0 && (
+                                <ProfileSection title="Skills">
+                                    <div className="flex flex-wrap gap-2">
+                                        {volunteer.skills.map((skill) => (
+                                            <span
+                                                key={skill}
+                                                className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
+                                            >
+                                                {skill}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </ProfileSection>
+                            )}
+                        </div>
 
                         {/* Social Media */}
                         {(volunteer?.facebook ||
@@ -1067,39 +1113,6 @@ export default function Profile({ volunteer, auth, verification }) {
                                 </div>
                             </ProfileSection>
                         )}
-
-                        {/* Hobbies & Skills */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            {volunteer?.hobbies?.length > 0 && (
-                                <ProfileSection title="Hobbies & Interests">
-                                    <div className="flex flex-wrap gap-2">
-                                        {volunteer.hobbies.map((hobby) => (
-                                            <span
-                                                key={hobby}
-                                                className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                                            >
-                                                {hobby}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </ProfileSection>
-                            )}
-
-                            {volunteer?.skills?.length > 0 && (
-                                <ProfileSection title="Skills">
-                                    <div className="flex flex-wrap gap-2">
-                                        {volunteer.skills.map((skill) => (
-                                            <span
-                                                key={skill}
-                                                className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
-                                            >
-                                                {skill}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </ProfileSection>
-                            )}
-                        </div>
 
                         {/* Next of Kin */}
                         {(volunteer?.nok ||

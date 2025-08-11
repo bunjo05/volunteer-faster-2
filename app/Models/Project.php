@@ -40,11 +40,13 @@ class Project extends Model
         'user_id',
         'request_for_approval',
         'point_exchange', // Added point exchange column
+        'skills'
     ];
 
     protected $casts = [
         'suitable' => 'array',
         'availability_months' => 'array',
+        'skills' => 'array',
         'min_duration' => 'integer',
         'max_duration' => 'integer',
     ];

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useForm, Head } from "@inertiajs/react";
 import OrganizationLayout from "@/Layouts/OrganizationLayout";
 import LocationDropdown from "@/Components/LocationDropdown";
+import VolunteerSkillsDropdown from "@/Components/VolunteerSkillsDropdown";
 
 // Reusable form components
 const FormInput = ({
@@ -10,7 +11,6 @@ const FormInput = ({
     name,
     value,
     onChange,
-    // required,
     error,
     validate, // Add new prop for validation function
     className = "",
@@ -316,7 +316,7 @@ export default function ProjectForm({
         activities: project?.activities || "",
         suitable: project?.suitable || [],
         availability_months: project?.availability_months || [],
-
+        skills: project?.skills || [], // Add skills array
         gallery_images: [],
         existing_gallery_images: isEdit
             ? project?.gallery_images?.map((img) => img.id)
@@ -409,7 +409,7 @@ export default function ProjectForm({
                 "activities",
                 "suitable",
                 "availability_months",
-                "point_exchange",
+                // "point_exchange",
             ],
         },
         { label: "Media & Dates", fields: ["gallery_images", "start_date"] },
@@ -606,6 +606,7 @@ export default function ProjectForm({
         formData.append("country", data.country);
         formData.append("state", data.state);
         formData.append("city", data.city);
+        formData.append("skills", data.skills);
         formData.append("short_description", data.short_description);
         formData.append("detailed_description", data.detailed_description);
         formData.append("min_duration", data.min_duration);
@@ -699,6 +700,21 @@ export default function ProjectForm({
         let isValid = true;
 
         currentStepFields.forEach((field) => {
+            // Skip validation for Paid project fields if project type is Free
+            if (
+                data.type_of_project === "Free" &&
+                [
+                    "fees",
+                    "includes",
+                    "excludes",
+                    "category_of_charge",
+                    // "point_exchange",
+                ].includes(field)
+            ) {
+                clearErrors(field);
+                return;
+            }
+
             if (
                 !data[field] ||
                 (Array.isArray(data[field]) && data[field].length === 0)
@@ -935,6 +951,18 @@ export default function ProjectForm({
                             {showError("country")}
                             {showError("state")}
                             {showError("city")}
+
+                            <VolunteerSkillsDropdown
+                                label="Required Skills"
+                                multiple={true}
+                                onSkillsChange={(skills) =>
+                                    setData("skills", skills)
+                                }
+                                initialSelectedSkills={data.skills || []}
+                                required={false}
+                                maxHeight="300px"
+                            />
+
                             <FormTextarea
                                 label="Short Description"
                                 name="short_description"
