@@ -270,6 +270,10 @@ Route::middleware('volunteer')->middleware(['check.role:Volunteer', 'auth'])->gr
         Route::post('/', [ChatController::class, 'store'])->name('volunteer.chat.store');
         Route::post('/{chat}/read', [ChatController::class, 'markAsRead']);
     });
+
+    // Route::get('/volunteer/points/total', [VolunteerController::class, 'getTotalPoints'])
+    //     // ->middleware(['auth', 'verified'])
+    //     ->name('volunteer.points.total');
 });
 
 

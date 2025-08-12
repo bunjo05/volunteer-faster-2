@@ -198,14 +198,21 @@ class VolunteerController extends Controller
         $user = Auth::user();
 
         // Get total earned points (credits)
-        $earnedPoints = PointTransaction::where('user_id', $user->id)
+        $earnedOtherPoints = PointTransaction::where('user_id', $user->id)
             ->where('type', 'credit')
             ->sum('points');
+
+        $earnedVolunteerPoints = VolunteerPoint::where('user_id', $user->id)
+            ->sum('points_earned');
+
+        $earnedPoints = $earnedOtherPoints + $earnedVolunteerPoints;
 
         // Get total spent points (debits)
         $spentPoints = PointTransaction::where('user_id', $user->id)
             ->where('type', 'debit')
             ->sum('points');
+
+        // $totalPoints = $earnedPoints - $spentPoints;
 
         return $earnedPoints - $spentPoints;
     }
@@ -720,7 +727,7 @@ class VolunteerController extends Controller
     {
         $user = Auth::user();
 
-        // Get all point transactions ordered by date
+        // Get all point transactions
         $transactions = PointTransaction::with(['booking.project'])
             ->where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
@@ -728,6 +735,7 @@ class VolunteerController extends Controller
             ->map(function ($transaction) {
                 return [
                     'id' => $transaction->id,
+                    'source' => 'transaction', // identify type
                     'type' => $transaction->type,
                     'points' => $transaction->points,
                     'description' => $transaction->description,
@@ -736,16 +744,73 @@ class VolunteerController extends Controller
                 ];
             });
 
+        // Get volunteer points
+        $volunteerPoints = VolunteerPoint::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($vp) {
+                return [
+                    'id' => $vp->id,
+                    'booking' => $vp->booking, // identify type
+                    'type' => 'credit',
+                    'points' => $vp->points_earned,
+                    'description' => $vp->notes ?? 'Points earned through volunteering',
+                    'created_at' => $vp->created_at,
+                ];
+            });
+
+        // Merge and sort by date (descending)
+        $history = $transactions
+            ->merge($volunteerPoints)
+            ->sortByDesc('created_at')
+            ->values(); // reindex
+
         return inertia('Volunteers/Points', [
             'auth' => [
                 'user' => $user->toArray(),
             ],
             'points' => [
                 'total' => $this->getTotalPoints(),
-                'history' => $transactions,
+                'history' => $history,
             ]
         ]);
     }
+
+
+    // public function points()
+    // {
+    //     $user = Auth::user();
+
+    //     // Get all point transactions ordered by date
+    //     $transactions = PointTransaction::with(['booking.project'])
+    //         ->where('user_id', $user->id)
+    //         ->orderBy('created_at', 'desc')
+    //         ->get()
+    //         ->map(function ($transaction) {
+    //             return [
+    //                 'id' => $transaction->id,
+    //                 'type' => $transaction->type,
+    //                 'points' => $transaction->points,
+    //                 'description' => $transaction->description,
+    //                 'created_at' => $transaction->created_at,
+    //                 'booking' => $transaction->booking,
+    //             ];
+    //         });
+
+    //     $volunteerPoints = VolunteerPoint::where('user_id', $user->id);
+
+
+    //     return inertia('Volunteers/Points', [
+    //         'auth' => [
+    //             'user' => $user->toArray(),
+    //         ],
+    //         'points' => [
+    //             'total' => $this->getTotalPoints(),
+    //             'history' => $transactions,
+    //             'volunteerPoints' => $volunteerPoints,
+    //         ]
+    //     ]);
+    // }
 
     // Add these methods to VolunteerController
     public function calculatePointsValue($points)

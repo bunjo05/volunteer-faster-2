@@ -14,6 +14,7 @@ import {
     StarIcon,
 } from "lucide-react";
 import classNames from "classnames";
+import VolunteerPoints from "@/Components/VolunteerPoints";
 
 export default function VolunteerLayout({ children, auth, points }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -115,6 +116,7 @@ export default function VolunteerLayout({ children, auth, points }) {
                 </div>
                 <main className="p-6">{children}</main>
                 {/* Floating Points Button */}
+                {/* <VolunteerPoints initialPoints={points} /> */}
                 {/* {auth?.user && <TotalPoints points={totalPoints} />} */}
                 <FloatingChat auth={auth} /> {/* Pass auth prop directly */}
             </div>
