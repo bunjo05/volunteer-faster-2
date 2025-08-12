@@ -14,8 +14,8 @@ return new class extends Migration
         Schema::create('point_transactions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('organization_id')->constrained('users')->onDelete('cascade');
-            $table->foreignId('booking_id')->constrained('volunteer_bookings')->onDelete('cascade');
+            $table->foreignId('organization_id')->nullable()->constrained('users')->onDelete('cascade');
+            $table->foreignId('booking_id')->nullable()->constrained('volunteer_bookings')->onDelete('cascade');
             $table->integer('points');
             $table->string('type'); // 'debit' or 'credit'
             $table->text('description')->nullable();

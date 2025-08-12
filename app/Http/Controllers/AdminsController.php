@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\Project;
 
 use App\Models\Category;
+use App\Models\Referral;
 use App\Mail\ContactReply;
 use App\Models\Subcategory;
 use Illuminate\Http\Request;
@@ -19,6 +20,7 @@ use App\Mail\UserStatusChanged;
 use App\Models\FeaturedProject;
 use App\Models\VolunteerProfile;
 use App\Models\ReportSubcategory;
+use App\Services\ReferralService;
 use App\Models\OrganizationProfile;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\FeaturedProjectApproved;
@@ -642,5 +644,52 @@ class AdminsController extends Controller
         $contact->update(['is_suspended' => $validated['is_suspended']]);
 
         return redirect()->back()->with('success', 'Message status updated successfully.');
+    }
+
+    protected $referralService;
+
+    public function __construct(ReferralService $referralService)
+    {
+        $this->referralService = $referralService;
+    }
+
+    public function userReferral()
+    {
+        $referrals = Referral::with(['referrer', 'referee'])
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
+        return Inertia::render('Admins/Referral', [
+            'referrals' => $referrals,
+        ]);
+    }
+
+    // app/Http/Controllers/AdminsController.php
+
+    public function approve(Referral $referral)
+    {
+        $this->referralService->approveReferral($referral);
+
+        return redirect()->route('admin.referrals.index')
+            ->with('toast', [
+                'title' => 'Success',
+                'message' => 'Referral approved and points awarded.',
+                'type' => 'success'
+            ]);
+    }
+
+    public function reject(Referral $referral, Request $request)
+    {
+        $validated = $request->validate([
+            'reason' => 'nullable|string|max:255'
+        ]);
+
+        $this->referralService->rejectReferral($referral, $validated['reason'] ?? '');
+
+        return redirect()->route('admin.referrals.index')
+            ->with('toast', [
+                'title' => 'Success',
+                'message' => 'Referral rejected.',
+                'type' => 'success'
+            ]);
     }
 }

@@ -25,7 +25,7 @@ export default function Points({ auth, points }) {
                             </h3>
                             <p className="text-sm text-blue-700">
                                 {points.history && points.history.length > 0
-                                    ? `You've earned and spent points from ${points.history.length} transactions.`
+                                    ? `You've made ${points.history.length} point transactions.`
                                     : "You haven't made any point transactions yet."}
                             </p>
                         </div>
@@ -38,19 +38,19 @@ export default function Points({ auth, points }) {
                                             scope="col"
                                             className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                                         >
+                                            Date
+                                        </th>
+                                        <th
+                                            scope="col"
+                                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                        >
                                             Type
                                         </th>
                                         <th
                                             scope="col"
                                             className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                                         >
-                                            Project
-                                        </th>
-                                        <th
-                                            scope="col"
-                                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                        >
-                                            Dates
+                                            Description
                                         </th>
                                         <th
                                             scope="col"
@@ -62,76 +62,76 @@ export default function Points({ auth, points }) {
                                             scope="col"
                                             className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                                         >
-                                            Date
+                                            Balance
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {points.history &&
                                     points.history.length > 0 ? (
-                                        points.history.map((point) => (
-                                            <tr key={point.id}>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                    <span
-                                                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                                            point.type ===
-                                                            "earned"
-                                                                ? "bg-green-100 text-green-800"
-                                                                : "bg-red-100 text-red-800"
-                                                        }`}
-                                                    >
-                                                        {point.type === "earned"
-                                                            ? "Earned"
-                                                            : "Spent"}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                    {point.booking?.project
-                                                        ?.title || "N/A"}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {point.booking ? (
-                                                        <>
+                                        points.history.map(
+                                            (transaction, index) => {
+                                                // Calculate running balance
+                                                const balance = points.history
+                                                    .slice(0, index + 1)
+                                                    .reduce((acc, t) => {
+                                                        return t.type ===
+                                                            "credit"
+                                                            ? acc + t.points
+                                                            : acc - t.points;
+                                                    }, 0);
+
+                                                return (
+                                                    <tr key={transaction.id}>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                             {format(
                                                                 new Date(
-                                                                    point.booking.start_date
-                                                                ),
-                                                                "MMM d, yyyy"
-                                                            )}{" "}
-                                                            -{" "}
-                                                            {format(
-                                                                new Date(
-                                                                    point.booking.end_date
+                                                                    transaction.created_at
                                                                 ),
                                                                 "MMM d, yyyy"
                                                             )}
-                                                        </>
-                                                    ) : (
-                                                        "N/A"
-                                                    )}
-                                                </td>
-                                                <td
-                                                    className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                                                        point.type === "earned"
-                                                            ? "text-green-600"
-                                                            : "text-red-600"
-                                                    }`}
-                                                >
-                                                    {point.type === "earned"
-                                                        ? "+"
-                                                        : "-"}
-                                                    {point.points_earned}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {format(
-                                                        new Date(
-                                                            point.created_at
-                                                        ),
-                                                        "MMM d, yyyy"
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <span
+                                                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                                    transaction.type ===
+                                                                    "credit"
+                                                                        ? "bg-green-100 text-green-800"
+                                                                        : "bg-red-100 text-red-800"
+                                                                }`}
+                                                            >
+                                                                {transaction.type ===
+                                                                "credit"
+                                                                    ? "Credit"
+                                                                    : "Debit"}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-sm text-gray-500">
+                                                            {
+                                                                transaction.description
+                                                            }
+                                                        </td>
+                                                        <td
+                                                            className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
+                                                                transaction.type ===
+                                                                "credit"
+                                                                    ? "text-green-600"
+                                                                    : "text-red-600"
+                                                            }`}
+                                                        >
+                                                            {transaction.type ===
+                                                            "credit"
+                                                                ? "+"
+                                                                : "-"}
+                                                            {transaction.points}
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                            {balance}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            }
+                                        )
                                     ) : (
                                         <tr>
                                             <td

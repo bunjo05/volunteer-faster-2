@@ -164,6 +164,11 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
 
     // Route::post('/contacts/{contact}/toggle-suspension', [AdminsController::class, 'toggleContactSuspension'])
     //     ->name('admin.contacts.toggle-suspension');
+
+    // Referral
+    Route::get('/referrals', [AdminsController::class, 'userReferral'])->name('admin.referrals.index');
+    Route::post('/referrals/{referral}/approve', [AdminsController::class, 'approve'])->name('admin.referrals.approve');
+    Route::post('/referrals/{referral}/reject', [AdminsController::class, 'reject'])->name('admin.referrals.reject');
 });
 
 Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
@@ -324,14 +329,14 @@ Route::get(
 Route::post('/contact-us', [HomeController::class, 'storeContactMessage'])->name('contact.store');
 
 // routes/web.php
-Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
-    Route::get('/referrals', [ReferralController::class, 'index'])->name('admin.referrals.index');
-    Route::post('/referrals/{referral}/approve', [ReferralController::class, 'approve'])->name('admin.referrals.approve');
-    Route::post('/referrals/{referral}/reject', [ReferralController::class, 'reject'])->name('admin.referrals.reject');
-});
+// Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
+//     Route::get('/referrals', [ReferralController::class, 'index'])->name('admin.referrals.index');
+//     Route::post('/referrals/{referral}/approve', [ReferralController::class, 'approve'])->name('admin.referrals.approve');
+//     Route::post('/referrals/{referral}/reject', [ReferralController::class, 'reject'])->name('admin.referrals.reject');
+// });
 
-Route::middleware(['auth'])->group(function () {
-    Route::get('/profile/referrals', [ProfileController::class, 'referrals'])->name('profile.referrals');
-});
+// Route::middleware(['auth'])->group(function () {
+//     Route::get('/profile/referrals', [ProfileController::class, 'referrals'])->name('profile.referrals');
+// });
 
 require __DIR__ . '/auth.php';

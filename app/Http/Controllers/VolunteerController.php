@@ -193,23 +193,19 @@ class VolunteerController extends Controller
     }
 
     // Add this method to your controller
-    protected function getTotalPoints()
+    public function getTotalPoints()
     {
         $user = Auth::user();
 
-        // Get total earned points from VolunteerPoints
-        $earnedPoints = VolunteerPoint::where('user_id', $user->id)
-            ->sum('points_earned');
+        // Get total earned points (credits)
+        $earnedPoints = PointTransaction::where('user_id', $user->id)
+            ->where('type', 'credit')
+            ->sum('points');
 
-        // Get total spent points from PointTransactions (debits)
+        // Get total spent points (debits)
         $spentPoints = PointTransaction::where('user_id', $user->id)
             ->where('type', 'debit')
             ->sum('points');
-
-        // If there are no debit transactions, just return the earned points
-        if ($spentPoints === null || $spentPoints == 0) {
-            return $earnedPoints;
-        }
 
         return $earnedPoints - $spentPoints;
     }
@@ -718,42 +714,21 @@ class VolunteerController extends Controller
     {
         $user = Auth::user();
 
-        $earnedPoints = VolunteerPoint::with(['booking.project'])
+        // Get all point transactions ordered by date
+        $transactions = PointTransaction::with(['booking.project'])
             ->where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
-            ->get();
-
-        $spentPoints = PointTransaction::with(['booking.project'])
-            ->where('user_id', $user->id)
-            ->where('type', 'debit')
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        // Combine earned and spent points into a single history array
-        $history = collect();
-
-        foreach ($earnedPoints as $point) {
-            $history->push([
-                'id' => $point->id,
-                'type' => 'earned',
-                'points_earned' => $point->points_earned,
-                'booking' => $point->booking,
-                'created_at' => $point->created_at,
-            ]);
-        }
-
-        foreach ($spentPoints as $transaction) {
-            $history->push([
-                'id' => $transaction->id,
-                'type' => 'spent',
-                'points_earned' => $transaction->points,
-                'booking' => $transaction->booking,
-                'created_at' => $transaction->created_at,
-            ]);
-        }
-
-        // Sort history by created_at in descending order
-        $history = $history->sortByDesc('created_at')->values()->all();
+            ->get()
+            ->map(function ($transaction) {
+                return [
+                    'id' => $transaction->id,
+                    'type' => $transaction->type,
+                    'points' => $transaction->points,
+                    'description' => $transaction->description,
+                    'created_at' => $transaction->created_at,
+                    'booking' => $transaction->booking,
+                ];
+            });
 
         return inertia('Volunteers/Points', [
             'auth' => [
@@ -761,10 +736,11 @@ class VolunteerController extends Controller
             ],
             'points' => [
                 'total' => $this->getTotalPoints(),
-                'history' => $history,
+                'history' => $transactions,
             ]
         ]);
     }
+
     // Add these methods to VolunteerController
     public function calculatePointsValue($points)
     {
@@ -815,40 +791,32 @@ class VolunteerController extends Controller
             ], 400);
         }
 
-        // Get the organization (project owner) ID
-        $organizationId = $booking->project->user_id;
+        $organization = $booking->project->user;
 
         DB::beginTransaction();
         try {
-            // 1. Create payment record
-            // Payment::create([
-            //     'user_id' => $user->id,
-            //     'booking_id' => $booking->id,
-            //     'amount' => $remainingBalance,
-            //     'status' => 'points_paid',
-            //     'payment_method' => 'points',
-            //     'transaction_id' => 'POINTS-' . uniqid()
-            // ]);
+            // 1. Create payment record (if you're tracking payments separately)
+            // Payment::create([...]);
 
             // 2. Deduct points from volunteer (debit transaction)
-            PointTransaction::create([
-                'user_id' => $user->id,
-                'organization_id' => $organizationId,
-                'booking_id' => $booking->id,
-                'points' => $pointsNeeded,
-                'type' => 'debit',
-                'description' => 'Points used for booking payment for project: ' . $booking->project->title
-            ]);
+            $this->createPointTransaction(
+                $user->id,
+                $organization->id,
+                $booking->id,
+                $pointsNeeded,
+                'debit',
+                'Points used for booking payment for project: ' . $booking->project->title
+            );
 
             // 3. Add points to organization (credit transaction)
-            PointTransaction::create([
-                'user_id' => $organizationId, // The organization receiving the points
-                'organization_id' => $organizationId,
-                'booking_id' => $booking->id,
-                'points' => $pointsNeeded,
-                'type' => 'credit',
-                'description' => 'Points received from volunteer for project: ' . $booking->project->title
-            ]);
+            $this->createPointTransaction(
+                $organization->id,
+                $organization->id,
+                $booking->id,
+                $pointsNeeded,
+                'credit',
+                'Points received from volunteer for project: ' . $booking->project->title
+            );
 
             DB::commit();
 
@@ -863,6 +831,18 @@ class VolunteerController extends Controller
                 'message' => 'Payment failed: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    protected function createPointTransaction($userId, $organizationId, $bookingId, $points, $type, $description)
+    {
+        return PointTransaction::create([
+            'user_id' => $userId,
+            'organization_id' => $organizationId,
+            'booking_id' => $bookingId,
+            'points' => $points,
+            'type' => $type,
+            'description' => $description,
+        ]);
     }
     protected function deductPoints($user, $points, $booking)
     {

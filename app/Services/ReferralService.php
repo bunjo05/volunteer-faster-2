@@ -1,6 +1,5 @@
 <?php
 
-// app/Services/ReferralService.php
 namespace App\Services;
 
 use App\Models\Referral;
@@ -19,24 +18,36 @@ class ReferralService
                 'referee_points' => $refereePoints,
             ]);
 
-            // Award points to referrer
-            PointTransaction::create([
-                'user_id' => $referral->referrer_id,
-                'points' => $referrerPoints,
-                'type' => 'credit',
-                'description' => 'Referral bonus for referring ' . $referral->referee->email,
-            ]);
+            // Award points to referrer (credit)
+            $this->createPointTransaction(
+                $referral->referrer_id,
+                $referrerPoints,
+                'credit',
+                'Referral bonus for referring ' . $referral->referee->email
+            );
 
-            // Award points to referee
-            PointTransaction::create([
-                'user_id' => $referral->referee_id,
-                'points' => $refereePoints,
-                'type' => 'credit',
-                'description' => 'Sign-up bonus via referral from ' . $referral->referrer->email,
-            ]);
+            // Award points to referee (credit)
+            $this->createPointTransaction(
+                $referral->referee_id,
+                $refereePoints,
+                'credit',
+                'Sign-up bonus via referral from ' . $referral->referrer->email
+            );
 
             return $referral;
         });
+    }
+
+    protected function createPointTransaction($userId, $points, $type, $description)
+    {
+        return PointTransaction::create([
+            'user_id' => $userId,
+            'organization_id' => null, // Not applicable for referrals
+            'booking_id' => null, // Not applicable for referrals
+            'points' => $points,
+            'type' => $type,
+            'description' => $description,
+        ]);
     }
 
     public function rejectReferral(Referral $referral, $reason = '')
