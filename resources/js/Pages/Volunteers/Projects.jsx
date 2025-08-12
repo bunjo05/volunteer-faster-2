@@ -192,12 +192,12 @@ export default function Projects({ auth, payments, points, totalPoints }) {
     const [showPointsPaymentModal, setShowPointsPaymentModal] = useState(false);
     // const [userPoints, setUserPoints] = useState(initialPoints || 0);
     // Simplify points state management
-    const [userPoints, setUserPoints] = useState(points || 0);
+    const [userPoints, setUserPoints] = useState(totalPoints || 0);
     const [isProcessingPoints, setIsProcessingPoints] = useState(false);
     const [pointsError, setPointsError] = useState(null);
 
     const [pointsState, setPointsState] = useState({
-        balance: points || 0, // Changed from initialPoints to points
+        balance: totalPoints || 0, // Changed from initialPoints to points
         isLoading: false,
         error: null,
     });
@@ -206,10 +206,10 @@ export default function Projects({ auth, payments, points, totalPoints }) {
     useEffect(() => {
         setPointsState((prev) => ({
             ...prev,
-            balance: points || 0,
+            balance: totalPoints || 0,
             error: null,
         }));
-    }, [points]);
+    }, [totalPoints]);
 
     // Clear error after 5 seconds
     useEffect(() => {
@@ -220,11 +220,11 @@ export default function Projects({ auth, payments, points, totalPoints }) {
     }, [pointsError]);
 
     const handlePayWithPoints = async () => {
-        const pointsNeeded = Math.ceil(calculateRemainingBalance() / 1);
-        if (totalPoints < pointsNeeded) {
+        const pointsNeeded = Math.ceil(calculateRemainingBalance() / 0.5); // 1 point = $0.50
+        if (pointsState.balance < pointsNeeded) {
             setPointsState((prev) => ({
                 ...prev,
-                error: "You don't have enough points",
+                error: `You don't have enough points (needed: ${pointsNeeded}, available: ${pointsState.balance})`,
             }));
             return;
         }
@@ -356,6 +356,9 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                             onClick={() => {
                                                 setActiveBooking(booking);
                                                 setPointsPaymentSuccess(false);
+                                                setShowPointsPaymentModal(
+                                                    false
+                                                );
                                             }}
                                         >
                                             <div className="flex justify-between items-start">
@@ -896,6 +899,56 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                     </div>
                 )}
             </div>
+
+            {showPointsPaymentModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-lg w-full max-w-md">
+                        <div className="p-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">
+                                Pay with Points
+                            </h3>
+                            <p className="text-gray-600 mb-4">
+                                You're about to pay $
+                                {calculateRemainingBalance().toLocaleString()}
+                                using your points. This will use{" "}
+                                {Math.ceil(
+                                    calculateRemainingBalance() / 0.5
+                                )}{" "}
+                                points.
+                            </p>
+                            <p className="text-sm text-gray-500 mb-4">
+                                Current points balance: {pointsState.balance}
+                            </p>
+                            {pointsState.error && (
+                                <p className="text-red-500 text-sm mb-4">
+                                    {pointsState.error}
+                                </p>
+                            )}
+                            <div className="mt-4 flex justify-end space-x-3">
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setShowPointsPaymentModal(false)
+                                    }
+                                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handlePayWithPoints}
+                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg"
+                                    disabled={pointsState.isLoading}
+                                >
+                                    {pointsState.isLoading
+                                        ? "Processing..."
+                                        : "Confirm Payment"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </VolunteerLayout>
     );
 }

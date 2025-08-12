@@ -2,7 +2,7 @@ import OrganizationLayout from "@/Layouts/OrganizationLayout";
 import { useState, useEffect } from "react";
 import { usePage, useForm, Head, router } from "@inertiajs/react";
 import LocationDropdown from "@/Components/LocationDropdown";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, Users, Copy, User, Check } from "lucide-react";
 import VerifiedBadge from "@/Components/VerifiedBadge";
 
 // Reusable form components (copied from the first example)
@@ -347,6 +347,15 @@ export default function Profile({
 
     const handlePrevStep = () => {
         setStep((prev) => Math.max(prev - 1, 1));
+    };
+
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(auth.user.referral_code).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000); // hide after 2s
+        });
     };
 
     const organizationVerified =
@@ -1016,6 +1025,30 @@ export default function Profile({
                                         <h2 className="text-2xl font-bold text-gray-900">
                                             {org.name}
                                         </h2>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className="text-sm font-medium text-gray-500">
+                                                Referral Code:
+                                            </span>
+                                            <div className="inline-flex items-center px-3 py-1 rounded-lg bg-blue-50 text-blue-700 font-mono text-sm shadow-sm border border-blue-100">
+                                                {auth.user.referral_code}
+                                                <button
+                                                    onClick={handleCopy}
+                                                    className="ml-2 text-blue-500 hover:text-blue-700 transition-colors"
+                                                    aria-label="Copy referral code"
+                                                >
+                                                    {copied ? (
+                                                        <Check className="h-4 w-4 text-green-500" />
+                                                    ) : (
+                                                        <Copy className="h-4 w-4" />
+                                                    )}
+                                                </button>
+                                            </div>
+                                            {copied && (
+                                                <span className="text-xs text-green-600 font-medium">
+                                                    Copied!
+                                                </span>
+                                            )}
+                                        </div>
                                         <div className="mt-2 flex items-center">
                                             <svg
                                                 className="w-5 h-5 text-gray-500 mr-1"

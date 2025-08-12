@@ -302,11 +302,17 @@ class VolunteerController extends Controller
         $earnedPoints = VolunteerPoint::where('user_id', $user->id)
             ->sum('points_earned');
 
+        $earnedReferralPoints = PointTransaction::where('user_id', $user->id)
+            ->where('type', 'credit')
+            ->sum('points');
+
+        $grandEarnedPoints = $earnedPoints + $earnedReferralPoints;
+
         $spentPoints = PointTransaction::where('user_id', $user->id)
             ->where('type', 'debit')
             ->sum('points');
 
-        $totalPoints = $earnedPoints - $spentPoints;
+        $totalPoints = $grandEarnedPoints - $spentPoints;
 
         return inertia('Volunteers/Projects', [
             'bookings' => $bookings,

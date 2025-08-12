@@ -1,7 +1,26 @@
 import GeneralPages from "@/Layouts/GeneralPages";
 import { useState, useEffect, useRef } from "react";
 import { Link, useForm } from "@inertiajs/react";
-// import  from "@inertiajs/react";
+
+import {
+    FacebookShareButton,
+    TwitterShareButton,
+    WhatsappShareButton,
+    EmailShareButton,
+    LinkedinShareButton,
+} from "react-share";
+import {
+    FacebookIcon,
+    TwitterIcon,
+    WhatsappIcon,
+    EmailIcon,
+    LinkedinIcon,
+} from "react-share";
+
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+import { ClipboardDocumentIcon } from "@heroicons/react/24/outline";
 
 export default function ViewProject({
     project,
@@ -17,6 +36,19 @@ export default function ViewProject({
 
     // Add this to check for volunteer profile
     const hasVolunteerProfile = auth.user?.volunteerProfile !== null;
+
+    // useEffect(() => {
+    //     // Initialize toast container
+    //     toast.configure();
+    // }, []);
+
+    // Add this function to get the project image URL
+    const getProjectImageUrl = () => {
+        if (gallery.length > 0) {
+            return `${window.location.origin}/storage/${gallery[0].image_path}`;
+        }
+        return `${window.location.origin}/images/placeholder.jpg`;
+    };
 
     const { data, setData, post, processing, errors } = useForm({
         project_id: project.id,
@@ -562,6 +594,184 @@ export default function ViewProject({
                             )}
                         </div>
                     </section>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mt-4">
+                        <h3 className="text-xl font-bold text-gray-800 mb-3">
+                            Share This Opportunity
+                        </h3>
+
+                        {/* Social Share Buttons */}
+                        <div className="flex flex-wrap justify-center gap-3 mb-4">
+                            <FacebookShareButton
+                                url={window.location.href}
+                                quote={`Check out this volunteer opportunity: ${project.title}`}
+                                hashtag="#Volunteer"
+                                className="transition-transform hover:scale-110"
+                            >
+                                <div className="flex flex-col items-center">
+                                    <FacebookIcon size={40} round />
+                                    <span className="text-xs mt-1 text-gray-600">
+                                        Facebook
+                                    </span>
+                                </div>
+                            </FacebookShareButton>
+
+                            <TwitterShareButton
+                                url={window.location.href}
+                                title={`Check out this volunteer opportunity: ${project.title}`}
+                                hashtags={["Volunteer", "Opportunity"]}
+                                className="transition-transform hover:scale-110"
+                            >
+                                <div className="flex flex-col items-center">
+                                    <TwitterIcon size={40} round />
+                                    <span className="text-xs mt-1 text-gray-600">
+                                        Twitter
+                                    </span>
+                                </div>
+                            </TwitterShareButton>
+
+                            <WhatsappShareButton
+                                url={window.location.href}
+                                title={`Check out this volunteer opportunity: ${project.title}`}
+                                description={`${project.short_description}`}
+                                separator=":: "
+                                className="transition-transform hover:scale-110"
+                            >
+                                <div className="flex flex-col items-center">
+                                    <WhatsappIcon size={40} round />
+                                    <span className="text-xs mt-1 text-gray-600">
+                                        WhatsApp
+                                    </span>
+                                </div>
+                            </WhatsappShareButton>
+
+                            <EmailShareButton
+                                url={window.location.href}
+                                subject={`Volunteer Opportunity: ${project.title}`}
+                                body={`I thought you might be interested in this volunteer opportunity:\n\n${
+                                    project.title
+                                }\n\n${project.detailed_description?.substring(
+                                    0,
+                                    100
+                                )}...\n\n`}
+                                className="transition-transform hover:scale-110"
+                            >
+                                <div className="flex flex-col items-center">
+                                    <EmailIcon size={40} round />
+                                    <span className="text-xs mt-1 text-gray-600">
+                                        Email
+                                    </span>
+                                </div>
+                            </EmailShareButton>
+
+                            <LinkedinShareButton
+                                url={window.location.href}
+                                title={project.title}
+                                summary={project.detailed_description?.substring(
+                                    0,
+                                    200
+                                )}
+                                source="Volunteer Platform"
+                                className="transition-transform hover:scale-110"
+                            >
+                                <div className="flex flex-col items-center">
+                                    <LinkedinIcon size={40} round />
+                                    <span className="text-xs mt-1 text-gray-600">
+                                        LinkedIn
+                                    </span>
+                                </div>
+                            </LinkedinShareButton>
+                        </div>
+
+                        {/* Direct Link Sharing */}
+                        <div className="mt-4">
+                            <h4 className="text-sm font-medium text-gray-700 mb-2">
+                                Share direct link:
+                            </h4>
+                            <div className="flex items-center">
+                                <input
+                                    type="text"
+                                    readOnly
+                                    value={window.location.href}
+                                    className="flex-1 border border-gray-300 rounded-l-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(
+                                            window.location.href
+                                        );
+                                        // toast.success(
+                                        //     "Project link copied to clipboard!",
+                                        //     {
+                                        //         position: "top-center",
+                                        //         autoClose: 3000,
+                                        //         hideProgressBar: false,
+                                        //         closeOnClick: true,
+                                        //         pauseOnHover: true,
+                                        //     }
+                                        // );
+                                    }}
+                                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-r-md text-sm flex items-center"
+                                    title="Copy link"
+                                >
+                                    <ClipboardDocumentIcon className="h-4 w-4" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Referral Link (for logged-in users) */}
+                        {/* {auth.user && (
+                                <div className="mt-4">
+                                    <h4 className="text-sm font-medium text-gray-700 mb-2">
+                                        Share with your referral code:
+                                    </h4>
+                                    <div className="flex items-center">
+                                        <input
+                                            type="text"
+                                            readOnly
+                                            value={`${
+                                                window.location.origin
+                                            }/refer/${
+                                                auth.user.referral_code
+                                            }?redirect=${encodeURIComponent(
+                                                window.location.pathname
+                                            )}`}
+                                            className="flex-1 border border-gray-300 rounded-l-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        <button
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(
+                                                    `${
+                                                        window.location.origin
+                                                    }/refer/${
+                                                        auth.user.referral_code
+                                                    }?redirect=${encodeURIComponent(
+                                                        window.location.pathname
+                                                    )}`
+                                                );
+                                                toast.success(
+                                                    "Referral link copied to clipboard!",
+                                                    {
+                                                        position: "top-center",
+                                                        autoClose: 3000,
+                                                        hideProgressBar: false,
+                                                        closeOnClick: true,
+                                                        pauseOnHover: true,
+                                                    }
+                                                );
+                                            }}
+                                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-r-md text-sm flex items-center"
+                                            title="Copy referral link"
+                                        >
+                                            <ClipboardDocumentIcon className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                    <p className="mt-2 text-xs text-gray-500">
+                                        Earn points when friends sign up through
+                                        your link!
+                                    </p>
+                                </div>
+                            )} */}
+                    </div>
                     {/* Suggested Projects Section */}
                     {suggestedProjects && suggestedProjects.length > 0 && (
                         <section className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">

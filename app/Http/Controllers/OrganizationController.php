@@ -12,6 +12,7 @@ use Illuminate\Support\Str;
 use App\Models\GalleryImage;
 use Illuminate\Http\Request;
 use App\Mail\BookingCompleted;
+use App\Models\PointTransaction;
 use App\Models\VolunteerBooking;
 use App\Models\OrganizationProfile;
 use App\Mail\ProjectReviewRequested;
@@ -767,19 +768,71 @@ class OrganizationController extends Controller
         return response()->json(['message' => 'Gallery image deleted successfully.']);
     }
 
+    public function getTotalPoints()
+    {
+        $user = Auth::user();
+
+        // Get total earned points (credits)
+        $earnedPoints = PointTransaction::where('user_id', $user->id)
+            ->where('type', 'credit')
+            ->sum('points');
+
+        // Get total spent points (debits)
+        $spentPoints = PointTransaction::where('user_id', $user->id)
+            ->where('type', 'debit')
+            ->sum('points');
+
+        return $earnedPoints - $spentPoints;
+    }
+
+
     public function points()
     {
         $user = Auth::user();
-        $pointsService = new VolunteerPointsService();
 
-        return Inertia::render('Organizations/Points', [
+        // Get all point transactions where organization received points (credits)
+        $transactions = PointTransaction::with([
+            'user.volunteerProfile',
+            'booking.project',
+            'user' // Ensure user relationship is loaded
+        ])
+            ->where('user_id', $user->id)
+            ->where('type', 'credit')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($transaction) {
+                return [
+                    'id' => $transaction->id,
+                    'points' => $transaction->points,
+                    'description' => $transaction->description,
+                    'created_at' => $transaction->created_at,
+                    'user' => [
+                        'name' => $transaction->user?->name,
+                        'email' => $transaction->user?->email,
+                        'volunteer_profile' => $transaction->user?->volunteerProfile
+                    ],
+                    'booking' => $transaction->booking ? [
+                        'start_date' => $transaction->booking->start_date,
+                        'end_date' => $transaction->booking->end_date,
+                        'project' => $transaction->booking->project
+                    ] : null
+                ];
+            });
+
+        // Calculate total points (only credits count for user)
+        $totalPoints = PointTransaction::where('user_id', $user->id)
+            ->where('type', 'credit')
+            ->sum('points');
+
+        return inertia('Organizations/Points', [
             'auth' => [
                 'user' => $user->toArray(),
             ],
-            'totalPoints' => $pointsService->getTotalPointsForOrganization($user->id),
-            'pointsHistory' => $pointsService->getPointsHistoryForOrganization($user->id),
+            'totalPoints' => $totalPoints,
+            'pointsHistory' => $transactions
         ]);
     }
+
 
     public function verification()
     {

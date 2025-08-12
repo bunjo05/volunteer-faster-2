@@ -2,7 +2,35 @@ import OrganizationLayout from "@/Layouts/OrganizationLayout";
 import { Head } from "@inertiajs/react";
 import { format } from "date-fns";
 
-export default function Points({ auth, totalPoints, pointsHistory }) {
+// Helper function to partially mask emails in text
+const maskEmails = (text) => {
+    if (!text) return text;
+
+    // Regular expression to match email addresses
+    const emailRegex = /([a-zA-Z0-9._-]+)@([a-zA-Z0-9._-]+\.[a-zA-Z]{2,})/g;
+
+    return text.replace(emailRegex, (match, username, domain) => {
+        // Keep first 2 characters and last character before @
+        const keepChars = 2;
+        const visibleStart = username.substring(0, keepChars);
+        const visibleEnd =
+            username.length > keepChars + 1
+                ? username.substring(username.length - 1)
+                : "";
+
+        // Mask the middle part with **
+        const maskedMiddle =
+            username.length > keepChars + 1
+                ? "**"
+                : username.length > keepChars
+                ? "*"
+                : "";
+
+        return `${visibleStart}${maskedMiddle}${visibleEnd}@${domain}`;
+    });
+};
+
+export default function Points({ auth, totalPoints = 0, pointsHistory = [] }) {
     return (
         <OrganizationLayout auth={auth}>
             <Head title="Organization Points" />
@@ -24,7 +52,7 @@ export default function Points({ auth, totalPoints, pointsHistory }) {
                                 Total Points: {totalPoints}
                             </h3>
                             <p className="text-sm text-blue-700">
-                                {pointsHistory.length > 0
+                                {pointsHistory && pointsHistory.length > 0
                                     ? `You've received points from ${pointsHistory.length} transactions.`
                                     : "You haven't received any points yet."}
                             </p>
@@ -34,40 +62,26 @@ export default function Points({ auth, totalPoints, pointsHistory }) {
                             <table className="min-w-full divide-y divide-gray-300">
                                 <thead className="bg-gray-50">
                                     <tr>
-                                        <th
-                                            scope="col"
-                                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                        >
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Date
                                         </th>
-                                        <th
-                                            scope="col"
-                                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                        >
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Points
                                         </th>
-                                        <th
-                                            scope="col"
-                                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                        >
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             From Volunteer
                                         </th>
-                                        <th
-                                            scope="col"
-                                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                        >
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Project
                                         </th>
-                                        <th
-                                            scope="col"
-                                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                        >
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Description
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {pointsHistory.length > 0 ? (
+                                    {pointsHistory &&
+                                    pointsHistory.length > 0 ? (
                                         pointsHistory.map((transaction) => (
                                             <tr key={transaction.id}>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -87,10 +101,10 @@ export default function Points({ auth, totalPoints, pointsHistory }) {
                                                     {transaction.user
                                                         ?.email && (
                                                         <div className="text-xs text-gray-400">
-                                                            {
+                                                            {maskEmails(
                                                                 transaction.user
                                                                     .email
-                                                            }
+                                                            )}
                                                         </div>
                                                     )}
                                                 </td>
@@ -100,24 +114,29 @@ export default function Points({ auth, totalPoints, pointsHistory }) {
                                                         "N/A"}
                                                     {transaction.booking && (
                                                         <div className="text-xs text-gray-400">
-                                                            {format(
-                                                                new Date(
-                                                                    transaction.booking.start_date
-                                                                ),
-                                                                "MMM d, yyyy"
-                                                            )}{" "}
-                                                            -{" "}
-                                                            {format(
-                                                                new Date(
-                                                                    transaction.booking.end_date
-                                                                ),
-                                                                "MMM d, yyyy"
-                                                            )}
+                                                            {transaction.booking
+                                                                .start_date &&
+                                                                format(
+                                                                    new Date(
+                                                                        transaction.booking.start_date
+                                                                    ),
+                                                                    "MMM d, yyyy"
+                                                                )}{" "}
+                                                            {transaction.booking
+                                                                .end_date &&
+                                                                `- ${format(
+                                                                    new Date(
+                                                                        transaction.booking.end_date
+                                                                    ),
+                                                                    "MMM d, yyyy"
+                                                                )}`}
                                                         </div>
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-gray-500">
-                                                    {transaction.description}
+                                                    {maskEmails(
+                                                        transaction.description
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))
