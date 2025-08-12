@@ -2,6 +2,34 @@ import VolunteerLayout from "@/Layouts/VolunteerLayout";
 import { Head } from "@inertiajs/react";
 import { format } from "date-fns";
 
+// Helper function to partially mask emails in text
+const maskEmails = (text) => {
+    if (!text) return text;
+
+    // Regular expression to match email addresses
+    const emailRegex = /([a-zA-Z0-9._-]+)@([a-zA-Z0-9._-]+\.[a-zA-Z]{2,})/g;
+
+    return text.replace(emailRegex, (match, username, domain) => {
+        // Keep first 2 characters and last character before @
+        const keepChars = 2;
+        const visibleStart = username.substring(0, keepChars);
+        const visibleEnd =
+            username.length > keepChars + 1
+                ? username.substring(username.length - 1)
+                : "";
+
+        // Mask the middle part with **
+        const maskedMiddle =
+            username.length > keepChars + 1
+                ? "**"
+                : username.length > keepChars
+                ? "*"
+                : "";
+
+        return `${visibleStart}${maskedMiddle}${visibleEnd}@${domain}`;
+    });
+};
+
 export default function Points({ auth, points }) {
     return (
         <VolunteerLayout auth={auth}>
@@ -107,9 +135,9 @@ export default function Points({ auth, points }) {
                                                             </span>
                                                         </td>
                                                         <td className="px-6 py-4 text-sm text-gray-500">
-                                                            {
+                                                            {maskEmails(
                                                                 transaction.description
-                                                            }
+                                                            )}
                                                         </td>
                                                         <td
                                                             className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
