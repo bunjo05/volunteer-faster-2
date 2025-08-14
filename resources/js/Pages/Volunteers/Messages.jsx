@@ -2,7 +2,11 @@ import VolunteerLayout from "@/Layouts/VolunteerLayout";
 import { usePage, router } from "@inertiajs/react";
 import { useState, useEffect, useCallback, useRef } from "react";
 
-export default function Messages({ auth: propAuth }) {
+export default function Messages({
+    // messages: initialMessages,
+    receiverId,
+    auth: propAuth,
+}) {
     const { messages: initialMessages = [], auth } = usePage().props;
     const [groupedMessages, setGroupedMessages] = useState({});
     const [selectedConversationId, setSelectedConversationId] = useState(null);
@@ -68,84 +72,10 @@ export default function Messages({ auth: propAuth }) {
     // };
 
     useEffect(() => {
-        if (!window.Echo) {
-            // Initialize Echo only once
-            window.Echo = new Echo({
-                broadcaster: "pusher",
-                key: process.env.MIX_PUSHER_APP_KEY,
-                cluster: process.env.MIX_PUSHER_APP_CLUSTER,
-                forceTLS: true,
-                authEndpoint: "/broadcasting/auth",
-                auth: {
-                    headers: {
-                        "X-CSRF-TOKEN": document.querySelector(
-                            'meta[name="csrf-token"]'
-                        ).content,
-                    },
-                },
-            });
-        }
-
-        const userId = auth.user.id;
-
-        window.Echo.private(`chat.${userId}`).listen(".new.message", (data) => {
-            const newMessage = data.message;
-
-            setGroupedMessages((prev) => {
-                const updated = { ...prev };
-                const senderId =
-                    newMessage.sender_id === userId
-                        ? newMessage.receiver_id
-                        : newMessage.sender_id;
-
-                if (updated[senderId]) {
-                    updated[senderId] = {
-                        ...updated[senderId],
-                        messages: [...updated[senderId].messages, newMessage],
-                        latestMessage: newMessage,
-                        unreadCount:
-                            newMessage.receiver_id === userId
-                                ? (updated[senderId].unreadCount || 0) + 1
-                                : updated[senderId].unreadCount,
-                        // Update payment status if included in message
-                        project: newMessage.project_id
-                            ? {
-                                  ...updated[senderId].project,
-                                  has_payment: newMessage.has_payment || false,
-                              }
-                            : updated[senderId].project,
-                    };
-                } else {
-                    updated[senderId] = {
-                        sender: {
-                            id: senderId,
-                            name: newMessage.sender.name || "Unknown",
-                            email: newMessage.sender.email || "",
-                        },
-                        project: newMessage.project_id
-                            ? {
-                                  id: newMessage.project_id,
-                                  type_of_project:
-                                      newMessage.project?.type_of_project,
-                                  has_payment: newMessage.has_payment || false,
-                              }
-                            : null,
-                        messages: [newMessage],
-                        latestMessage: newMessage,
-                        unreadCount: newMessage.receiver_id === userId ? 1 : 0,
-                    };
-                }
-
-                return updated;
-            });
+        window.Echo.private(`chat.${receiverId}`).listen("MessageSent", (e) => {
+            setMessages((prev) => [...prev, e.message]);
         });
-
-        return () => {
-            if (window.Echo) {
-                window.Echo.leave(`chat.${userId}`);
-            }
-        };
-    }, [auth.user.id, selectedConversationId]);
+    }, [receiverId]);
 
     // In your useEffect for initializing grouped messages:
     useEffect(() => {

@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { loadStripe } from "@stripe/stripe-js";
+import { Button } from "@headlessui/react";
+import Review from "@/Components/Review";
 
 const statusIcons = {
     Approved: CheckCircle2,
@@ -820,17 +822,12 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                         View Full Project
                                                         Details
                                                     </Link>
-                                                    {/* <button
-                                                        onClick={() =>
-                                                            setShowMessageModal(
-                                                                true
-                                                            )
+
+                                                    <Review
+                                                        activeBooking={
+                                                            activeBooking
                                                         }
-                                                        className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg"
-                                                    >
-                                                        <MessageCircle className="w-4 h-4 mr-2" />
-                                                        Message Project Owner
-                                                    </button> */}
+                                                    />
                                                 </div>
                                             </div>
                                         </div>

@@ -108,4 +108,15 @@ class Project extends Model
     {
         return $this->featuredProjects()->where('is_active', true)->exists();
     }
+
+    public function updateAverageRating()
+    {
+        $this->average_rating = $this->reviews()->avg('rating');
+        $this->save();
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(ProjectRemark::class);
+    }
 }

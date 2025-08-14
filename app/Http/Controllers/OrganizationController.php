@@ -341,21 +341,7 @@ class OrganizationController extends Controller
 
         $user = Auth::user();
         $project = $request->project_id ? Project::find($request->project_id) : null;
-
-        // Determine booking_id logic:
-        // - If volunteer is sending first message, leave booking_id empty
-        // - If organization is replying, get booking_id from previous message
-        // - If volunteer is replying, get booking_id from previous message
-        $bookingId = null;
-        if ($request->reply_to) {
-            $originalMessage = Message::find($request->reply_to);
-            $bookingId = $originalMessage->booking_id;
-        } else if ($project) {
-            $booking = VolunteerBooking::where('project_id', $project->id)
-                ->where('user_id', $request->receiver_id)
-                ->first();
-            $bookingId = $booking ? $booking->id : null;
-        }
+        $booking = $request->booking_id ? VolunteerBooking::find($request->booking_id) : null;
 
 
         // Check if this is a paid project conversation
@@ -401,13 +387,14 @@ class OrganizationController extends Controller
             'message' => $filteredMessage,
             'status' => 'Unread',
             'reply_to' => $request->reply_to,
-            'project_id' => $request->project_id,
-            'booking_id' => $bookingId, // Add booking_id to the message
+            'project_id' => $project ? $project->id : null,
+            'booking_id' => $booking ? $booking->id : null,
         ]);
 
-        $message->load(['sender', 'receiver', 'originalMessage.sender']);
+        // Load relationships before broadcasting
+        $message->load(['sender', 'receiver', 'originalMessage.sender', 'project', 'booking']);
 
-        broadcast(new NewMessage($message))->toOthers();
+        // Single broadcast call
         broadcast(new NewMessage($message))->toOthers();
 
         return back()->with([

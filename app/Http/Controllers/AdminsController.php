@@ -692,4 +692,27 @@ class AdminsController extends Controller
                 'type' => 'success'
             ]);
     }
+
+    public function Reviews(Request $request)
+    {
+        $reviews = ProjectRemark::with(['project', 'user', 'admin'])->latest()->get();
+
+        return inertia('Admins/Remarks', [
+            'reviews' => $reviews
+        ]);
+    }
+
+    public function updateReviewStatus(Request $request, ProjectRemark $review)
+    {
+        $validated = $request->validate([
+            'status' => 'required|in:Pending,Resolved,Rejected'
+        ]);
+
+        $review->update([
+            'status' => $validated['status'],
+            'admin_id' => auth('admin')->id()
+        ]);
+
+        return redirect()->back()->with('success', 'Review status updated successfully.');
+    }
 }

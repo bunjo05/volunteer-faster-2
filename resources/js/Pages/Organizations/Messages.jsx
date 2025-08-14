@@ -2,7 +2,11 @@ import OrganizationLayout from "@/Layouts/OrganizationLayout";
 import { usePage, router } from "@inertiajs/react";
 import { useState, useEffect, useCallback, useRef } from "react";
 
-export default function Messages() {
+export default function Messages({
+    // messages: initialMessages,
+    receiverId,
+    auth: propAuth,
+}) {
     const { messages: initialMessages = [], auth } = usePage().props;
     const [groupedMessages, setGroupedMessages] = useState({});
     const [selectedConversationId, setSelectedConversationId] = useState(null);
@@ -164,102 +168,43 @@ export default function Messages() {
     };
 
     useEffect(() => {
-        if (!window.Echo) {
-            // Initialize Echo only once
-            window.Echo = new Echo({
-                broadcaster: "pusher",
-                key: process.env.MIX_PUSHER_APP_KEY,
-                cluster: process.env.MIX_PUSHER_APP_CLUSTER,
-                forceTLS: true,
-                authEndpoint: "/broadcasting/auth",
-                auth: {
-                    headers: {
-                        "X-CSRF-TOKEN": document.querySelector(
-                            'meta[name="csrf-token"]'
-                        ).content,
-                    },
-                },
-            });
-        }
-
-        const userId = auth.user.id;
-
-        window.Echo.private(`chat.${userId}`).listen(".new.message", (data) => {
-            const newMessage = data.message;
-
-            setGroupedMessages((prev) => {
-                const updated = { ...prev };
-                const senderId =
-                    newMessage.sender_id === userId
-                        ? newMessage.receiver_id
-                        : newMessage.sender_id;
-
-                // Create composite key with project_id if available
-                const key = newMessage.project_id
-                    ? `${senderId}-${newMessage.project_id}`
-                    : senderId;
-
-                if (updated[key]) {
-                    updated[key] = {
-                        ...updated[key],
-                        messages: [...updated[key].messages, newMessage],
-                        latestMessage: newMessage,
-                        unreadCount:
-                            newMessage.receiver_id === userId
-                                ? (updated[key].unreadCount || 0) + 1
-                                : updated[key].unreadCount,
-                    };
-                } else {
-                    updated[key] = {
-                        sender: {
-                            id: senderId,
-                            name: newMessage.sender.name || "Unknown",
-                            email: newMessage.sender.email || "",
-                        },
-                        project: newMessage.project_id
-                            ? {
-                                  id: newMessage.project_id,
-                                  type_of_project:
-                                      newMessage.project?.type_of_project,
-                                  has_payment: newMessage.project?.has_payment,
-                              }
-                            : null,
-                        messages: [newMessage],
-                        latestMessage: newMessage,
-                        unreadCount: newMessage.receiver_id === userId ? 1 : 0,
-                        key: key,
-                    };
-                }
-
-                return updated;
-            });
+        window.Echo.private(`chat.${receiverId}`).listen("MessageSent", (e) => {
+            setMessages((prev) => [...prev, e.message]);
         });
-
-        return () => {
-            if (window.Echo) {
-                window.Echo.leave(`chat.${userId}`);
-            }
-        };
-    }, [auth.user.id, selectedConversationId]);
+    }, [receiverId]);
 
     const handleSendMessage = (e) => {
         e.preventDefault();
 
         if (!newMessage.trim() || !selectedConversationId) return;
 
-        // Get project from selected conversation
+        // Get the current conversation
         const currentConversation = groupedMessages[selectedConversationId];
-        const projectId =
-            currentConversation?.project?.id ||
-            (isReplying ? replyToMessage.project_id : null);
 
-        // Get booking_id from reply or find booking between org and volunteer
+        // Determine receiver ID
+        const receiverId = currentConversation.sender.id;
+
+        // Filter the message content
+        const { cleanedText, hasRestrictedContent } = filterContent(
+            newMessage,
+            isPaidProject,
+            hasPayment
+        );
+
+        if (hasRestrictedContent) {
+            setContentWarning(true);
+            setNewMessage(cleanedText);
+            return;
+        }
+
+        // Get project and booking info
+        const projectId = currentConversation?.project?.id || null;
         let bookingId = null;
+
         if (isReplying) {
             bookingId = replyToMessage.booking_id;
         } else if (projectId) {
-            // Find the volunteer's booking for this project
-            const volunteerId = selectedConversation.sender.id;
+            // Find booking between org and volunteer if available
             bookingId = currentConversation?.booking?.id || null;
         }
 
@@ -295,18 +240,19 @@ export default function Messages() {
 
                     setGroupedMessages((prev) => {
                         const updated = { ...prev };
+                        const conversationKey = receiverId;
 
-                        if (updated[receiverId]) {
-                            updated[receiverId] = {
-                                ...updated[receiverId],
+                        if (updated[conversationKey]) {
+                            updated[conversationKey] = {
+                                ...updated[conversationKey],
                                 messages: [
-                                    ...updated[receiverId].messages,
+                                    ...updated[conversationKey].messages,
                                     newMsg,
                                 ],
                                 latestMessage: newMsg,
                             };
                         } else {
-                            updated[receiverId] = {
+                            updated[conversationKey] = {
                                 sender: {
                                     id: receiverId,
                                     name:
@@ -326,6 +272,7 @@ export default function Messages() {
             }
         );
     };
+
     // const selectedConversation = selectedConversationId
     //     ? groupedMessages[selectedConversationId]
     //     : null;
@@ -390,16 +337,17 @@ export default function Messages() {
 
                                             return (
                                                 <li
-                                                    key={conversation.key} // Use the composite key
+                                                    key={conversation.sender.id} // Use sender.id as key
                                                     className={`py-3 px-4 hover:bg-gray-50 cursor-pointer transition-colors ${
                                                         selectedConversationId ===
-                                                        conversation.key
+                                                        conversation.sender.id
                                                             ? "bg-blue-50 border-l-4 border-blue-500"
                                                             : ""
                                                     }`}
                                                     onClick={() =>
                                                         handleConversationClick(
-                                                            conversation.key
+                                                            conversation.sender
+                                                                .id
                                                         )
                                                     }
                                                 >
@@ -603,7 +551,7 @@ export default function Messages() {
                                         {selectedConversation.messages.map(
                                             (message) => (
                                                 <div
-                                                    key={message.id}
+                                                    key={message.id} // Make sure this is unique
                                                     ref={(el) =>
                                                         (messageRefs.current[
                                                             message.id

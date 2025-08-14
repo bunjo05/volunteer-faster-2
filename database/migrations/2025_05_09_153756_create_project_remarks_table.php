@@ -13,10 +13,13 @@ return new class extends Migration
     {
         Schema::create('project_remarks', function (Blueprint $table) {
             $table->id();
-             $table->foreignId('project_id')->constrained()->onDelete('cascade');
-            $table->foreignId('admin_id')->constrained('admins')->onDelete('cascade');
-            $table->text('remark');
-            $table->enum('status', ['Rejected', 'Resolved'])->nullable();
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('project_id')->constrained()->onDelete('cascade');
+            $table->foreignId('booking_id')->constrained('volunteer_bookings')->onDelete('cascade');
+            $table->foreignId('admin_id')->nullable()->constrained('admins')->onDelete('cascade');
+            $table->text('comment')->nullable();
+            $table->integer('rating');
+            $table->enum('status', ['Rejected', 'Resolved', 'Pending'])->nullable();
             $table->timestamps();
         });
     }

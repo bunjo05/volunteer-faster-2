@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Chat;
+use App\Models\ProjectRemark;
 use Inertia\Inertia;
 use App\Models\Message;
 use App\Models\Payment;
@@ -491,7 +492,10 @@ class VolunteerController extends Controller
             'booking_id' => $booking ? $booking->id : null,
         ]);
 
+        // Load relationships before broadcasting
+        $message->load(['sender', 'receiver', 'originalMessage.sender', 'project', 'booking']);
 
+        // Single broadcast call
         broadcast(new NewMessage($message))->toOthers();
 
         return back()->with([
@@ -939,5 +943,56 @@ class VolunteerController extends Controller
             'type' => 'credit',
             'description' => 'Points received from volunteer'
         ]);
+    }
+
+
+    // Rating
+    // Add this to your VolunteerController
+    public function storeReview(Request $request)
+    {
+        $validated = $request->validate([
+            'project_id' => 'required|exists:projects,id',
+            'booking_id' => 'required|exists:volunteer_bookings,id',
+            'rating' => 'required|integer|between:1,5',
+            'comment' => 'nullable|string|max:1000',
+            'status' => 'nullable|string'
+        ]);
+
+        $user = Auth::user();
+
+        // Verify booking belongs to user
+        $booking = VolunteerBooking::where('id', $validated['booking_id'])
+            ->where('user_id', $user->id)
+            ->firstOrFail();
+
+        // Verify project matches booking
+        if ($booking->project_id != $validated['project_id']) {
+            return back()->with('error', 'Invalid project for this booking');
+        }
+
+        // Verify booking is completed
+        if ($booking->booking_status !== 'Completed') {
+            return back()->with('error', 'You can only review completed projects');
+        }
+
+        // Check for existing review
+        if (ProjectRemark::where('user_id', $user->id)
+            ->where('project_id', $validated['project_id'])
+            ->exists()
+        ) {
+            return back()->with('error', 'You have already reviewed this project');
+        }
+
+        // Create review
+        ProjectRemark::create([
+            'user_id' => Auth::id(),
+            'project_id' => $validated['project_id'],
+            'booking_id' => $validated['booking_id'],
+            'rating' => $validated['rating'],
+            'comment' => $validated['comment'],
+            'status' => 'Pending'
+        ]);
+
+        return back()->with('success', 'Thank you for your review!');
     }
 }

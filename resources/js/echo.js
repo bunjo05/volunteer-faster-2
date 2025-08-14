@@ -1,15 +1,15 @@
-// resources/js/echo.js
 import Echo from "laravel-echo";
 import Pusher from "pusher-js";
 
 window.Pusher = Pusher;
 
 window.Echo = new Echo({
-    broadcaster: "pusher",
-    key: import.meta.env.VITE_PUSHER_APP_KEY,
-    cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER,
-    forceTLS: true,
-    encrypted: true,
+    broadcaster: "reverb",
+    key: import.meta.env.VITE_REVERB_APP_KEY,
+    wsHost: window.location.hostname,
+    wsPort: import.meta.env.VITE_REVERB_PORT ?? 8080,
+    forceTLS: false,
+    enabledTransports: ["ws", "wss"],
     authEndpoint: "/broadcasting/auth",
     auth: {
         headers: {
@@ -18,5 +18,4 @@ window.Echo = new Echo({
             Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
     },
-    enabledTransports: ["ws", "wss"],
 });

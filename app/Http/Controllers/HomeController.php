@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use App\Models\ReportCategory;
 use App\Mail\NewContactMessage;
 use App\Models\OrganizationProfile;
+use App\Models\ProjectRemarkComment;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use App\Models\OrganizationVerification;
 
@@ -52,7 +54,16 @@ class HomeController extends Controller
     public function viewProject($slug)
     {
         $project = Project::where('slug', $slug)
-            ->with(['category', 'subcategory', 'galleryImages', 'organizationProfile'])
+            ->with([
+                'category',
+                'subcategory',
+                'galleryImages',
+                'organizationProfile',
+                'projectRemarks' => function ($query) {
+                    $query->where('status', 'Resolved')
+                        ->with(['user', 'admin', 'comments.user']);
+                }
+            ])
             ->firstOrFail();
 
         // Initialize suggested projects query
@@ -210,5 +221,27 @@ class HomeController extends Controller
             'isFollowing' => $isFollowing,
             'followersCount' => $followersCount, // Add this line
         ]);
+    }
+
+    public function storeReviews(Request $request)
+    {
+        $validated = $request->validate([
+            'comment' => 'required|string|max:2000',
+            'project_remark_id' => 'required|exists:project_remarks,id',
+            'parent_id' => 'nullable|exists:project_remark_comments,id'
+        ]);
+
+        $comment = ProjectRemarkComment::create([
+            'user_id' => Auth::id(),
+            'project_remark_id' => $validated['project_remark_id'],
+            'parent_id' => $validated['parent_id'],
+            'comment' => $validated['comment'],
+            'is_approved' => true
+        ]);
+
+        // Load the comment with user and any relationships needed for the frontend
+        $comment->load('user');
+
+        return back()->with('success', 'Comment posted successfully!');
     }
 }

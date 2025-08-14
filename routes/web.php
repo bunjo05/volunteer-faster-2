@@ -59,6 +59,11 @@ Route::get('/dashboard', function () {
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+
+    Route::post('/project-remark-comments', [HomeController::class, 'storeReviews'])
+        // ->middleware(['auth'])
+        ->name('project.remark.comments.store');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -169,6 +174,11 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     Route::get('/referrals', [AdminsController::class, 'userReferral'])->name('admin.referrals.index');
     Route::post('/referrals/{referral}/approve', [AdminsController::class, 'approve'])->name('admin.referrals.approve');
     Route::post('/referrals/{referral}/reject', [AdminsController::class, 'reject'])->name('admin.referrals.reject');
+
+    Route::get('/reviews', [AdminsController::class, 'Reviews'])
+        ->name('admin.reviews');
+    Route::put('/reviews/{review}/status', [AdminsController::class, 'updateReviewStatus'])
+        ->name('admin.reviews.update-status');
 });
 
 Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
@@ -194,6 +204,9 @@ Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(
         ->name('volunteer.verification');
     Route::post('/{volunteer}/verification', [VolunteerController::class, 'storeVerification'])
         ->name('volunteer.verification.store');
+
+    Route::post('/reviews', [VolunteerController::class, 'storeReview'])
+        ->name('volunteer.reviews.stores');
 });
 
 Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->group(function () {
