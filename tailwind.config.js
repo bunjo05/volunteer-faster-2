@@ -18,5 +18,12 @@ export default {
         },
     },
 
-    plugins: [forms, require("@shrutibalasa/tailwind-grid-auto-fit")],
+    plugins: [
+        forms,
+        require("@shrutibalasa/tailwind-grid-auto-fit"),
+        require("daisyui"),
+    ],
+    daisyui: {
+        themes: ["light"], // force light theme
+    },
 };

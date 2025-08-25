@@ -7,24 +7,39 @@ import {
     FolderOpenIcon,
     ChatBubbleBottomCenterTextIcon,
     PlusCircleIcon,
+    CheckBadgeIcon,
+    // BanIcon,
 } from "@heroicons/react/24/solid";
 
-export default function Dashboard() {
-    const { projectsCount, projectStatusCount, messagesCount, recentMessages } =
-        usePage().props;
+export default function Dashboard({ auth }) {
+    const {
+        projectsCount,
+        projectStatusCount,
+        messagesCount = 0,
+        recentMessages = [],
+    } = usePage().props;
+
+    // Calculate total projects from status counts to ensure accuracy
+    const calculatedTotal = Object.values(projectStatusCount).reduce(
+        (sum, count) => sum + count,
+        0
+    );
+    const displayCount = projectsCount > 0 ? projectsCount : calculatedTotal;
 
     return (
-        <OrganizationLayout>
+        <OrganizationLayout auth={auth}>
             <div className="p-6 space-y-8 max-w-7xl mx-auto">
-                <h1 className="text-4xl font-extrabold text-gray-800">
-                    👋 Welcome to Your Organization Dashboard
-                </h1>
+                {auth?.user?.name && (
+                    <p className="text-4xl text-base-content/70 mt-1">
+                        👋 Welcome back, {auth.user.name}
+                    </p>
+                )}
 
                 {/* Stats Overview */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
                     <StatCard
                         title="Total Projects"
-                        value={projectsCount}
+                        value={displayCount}
                         icon={
                             <FolderOpenIcon className="w-8 h-8 text-blue-500" />
                         }
@@ -32,7 +47,7 @@ export default function Dashboard() {
                     />
                     <StatCard
                         title="Approved"
-                        value={projectStatusCount.approved}
+                        value={projectStatusCount.approved || 0}
                         icon={
                             <CheckCircleIcon className="w-8 h-8 text-green-500" />
                         }
@@ -40,17 +55,57 @@ export default function Dashboard() {
                     />
                     <StatCard
                         title="Pending"
-                        value={projectStatusCount.pending}
+                        value={projectStatusCount.pending || 0}
                         icon={<ClockIcon className="w-8 h-8 text-yellow-500" />}
                         color="text-yellow-500"
                     />
                     <StatCard
                         title="Rejected"
-                        value={projectStatusCount.rejected}
+                        value={projectStatusCount.rejected || 0}
                         icon={<XCircleIcon className="w-8 h-8 text-red-500" />}
                         color="text-red-600"
                     />
+                    <StatCard
+                        title="Completed"
+                        value={projectStatusCount.completed || 0}
+                        icon={
+                            <CheckBadgeIcon className="w-8 h-8 text-purple-500" />
+                        }
+                        color="text-purple-600"
+                    />
                 </div>
+
+                {/* Status Summary */}
+                {/* <div className="bg-white p-6 shadow rounded-xl">
+                    <h3 className="text-lg font-semibold mb-4">
+                        Project Status Summary
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        {Object.entries(projectStatusCount).map(
+                            ([status, count]) => (
+                                <div
+                                    key={status}
+                                    className="text-center p-4 bg-gray-50 rounded-lg"
+                                >
+                                    <div className="text-2xl font-bold text-gray-800">
+                                        {count}
+                                    </div>
+                                    <div className="text-sm text-gray-600 capitalize">
+                                        {status}
+                                    </div>
+                                    <div className="text-xs text-gray-400 mt-1">
+                                        {displayCount > 0
+                                            ? Math.round(
+                                                  (count / displayCount) * 100
+                                              )
+                                            : 0}
+                                        %
+                                    </div>
+                                </div>
+                            )
+                        )}
+                    </div>
+                </div> */}
 
                 {/* Messages & Quick Actions */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -127,6 +182,13 @@ export default function Dashboard() {
                         >
                             <ChatBubbleBottomCenterTextIcon className="w-5 h-5" />
                             Go to Messages
+                        </Link>
+                        <Link
+                            href="/organization/projects"
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                        >
+                            <FolderOpenIcon className="w-5 h-5" />
+                            View All Projects
                         </Link>
                     </div>
                 </div>

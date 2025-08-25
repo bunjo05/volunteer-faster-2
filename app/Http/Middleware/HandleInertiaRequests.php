@@ -34,6 +34,7 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'stripeKey' => env('VITE_STRIPE_KEY'),
         ];
     }
 }

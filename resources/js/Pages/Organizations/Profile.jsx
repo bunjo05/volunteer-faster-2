@@ -362,7 +362,7 @@ export default function Profile({
         organization_verification?.status === "Approved";
 
     return (
-        <OrganizationLayout>
+        <OrganizationLayout auth={auth}>
             <Head title="Organization Profile" />
 
             <section className="max-w-6xl mx-auto bg-white rounded-xl shadow-sm overflow-hidden">

@@ -8,6 +8,7 @@ use App\Models\Project;
 use Illuminate\Http\Request;
 use App\Models\ReportCategory;
 use App\Mail\NewContactMessage;
+use App\Models\FeaturedProject;
 use App\Models\OrganizationProfile;
 use App\Models\ProjectRemarkComment;
 use Illuminate\Support\Facades\Auth;
@@ -18,11 +19,19 @@ class HomeController extends Controller
 {
     public function index()
     {
+        // Check for any expired featured projects
+        FeaturedProject::checkAllExpirations();
+
         $featuredProjects = Project::whereHas('featuredProjects', function ($query) {
             $query->where('status', 'approved')
-                ->where('is_active', 1);
+                ->where('is_active', true)
+                ->where('end_date', '>', now()); // Add this condition
         })
-            ->with(['category', 'subcategory', 'featuredProjects'])
+            ->with(['category', 'subcategory', 'featuredProjects' => function ($query) {
+                $query->where('status', 'approved')
+                    ->where('is_active', true)
+                    ->where('end_date', '>', now());
+            }])
             ->latest()
             ->get();
 
@@ -61,7 +70,11 @@ class HomeController extends Controller
                 'organizationProfile',
                 'projectRemarks' => function ($query) {
                     $query->where('status', 'Resolved')
-                        ->with(['user', 'admin', 'comments.user']);
+                        ->with(['user', 'admin', 'comments' => function ($q) {
+                            $q->with(['user', 'replies' => function ($q) {
+                                $q->with('user');
+                            }]);
+                        }]);
                 }
             ])
             ->firstOrFail();

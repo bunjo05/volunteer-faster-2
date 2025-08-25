@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('receiver_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('project_id')->nullable()->constrained()->onDelete('cascade');
             $table->foreignId('booking_id')->nullable()->constrained('volunteer_bookings')->onDelete('cascade');
-            $table->string('message');
+            $table->text('message');
             $table->enum('status', ['Unread', 'Read'])->default('Unread');
             $table->foreignId('reply_to')->nullable()->constrained('messages')->onDelete('set null');
             $table->timestamps();

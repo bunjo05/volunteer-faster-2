@@ -33,17 +33,18 @@ class OrganizationController extends Controller
             ->with('category', 'subcategory')
             ->latest()
             ->get();
-        // $messages = Message::where('receiver_id', $user->id)->latest()->take(3)->get();
 
         return inertia('Organizations/Dashboard', [
             'projectsCount' => $projects->count(),
             'projectStatusCount' => [
-                'approved' => $projects->where('booking_status', 'Approved')->count(),
-                'pending' => $projects->where('booking_status', 'Pending')->count(),
-                'rejected' => $projects->where('booking_status', 'Rejected')->count(),
-                'completed' => $projects->where('booking_status', 'Completed')->count(),
-                'cancelled' => $projects->where('booking_status', 'Cancelled')->count(),
+                'approved' => $projects->where('status', 'Active')->count(),
+                'pending' => $projects->where('status', 'Pending')->count(),
+                'rejected' => $projects->where('status', 'Rejected')->count(),
+                'completed' => $projects->where('status', 'Completed')->count(),
+                'cancelled' => $projects->where('status', 'Cancelled')->count(),
             ],
+            'messagesCount' => 0, // Add this if you have messages
+            'recentMessages' => [], // Add this if you have messages
         ]);
     }
 

@@ -2,7 +2,7 @@ import OrganizationLayout from "@/Layouts/OrganizationLayout";
 import React, { useState } from "react";
 import { router, useForm, usePage } from "@inertiajs/react";
 
-export default function Verification() {
+export default function Verification({ auth }) {
     const { organization_profile } = usePage().props;
 
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -25,7 +25,7 @@ export default function Verification() {
     };
 
     return (
-        <OrganizationLayout>
+        <OrganizationLayout auth={auth}>
             <div className="max-w-2xl p-8 mx-auto bg-white rounded-lg shadow-sm border border-gray-100">
                 <div className="mb-8 text-center">
                     <h2 className="text-2xl font-bold text-gray-800">

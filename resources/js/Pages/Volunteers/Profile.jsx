@@ -18,6 +18,7 @@ import {
     ChevronDown,
     User,
     Users, // Add this import
+    AlertCircle,
 } from "lucide-react";
 import VerifiedBadge from "@/Components/VerifiedBadge";
 import VolunteerSkillsDropdown from "@/Components/VolunteerSkillsDropdown";
@@ -239,6 +240,7 @@ export default function Profile({ volunteer, auth, verification }) {
     const [image, setImage] = useState(null);
     const [newProfilePicture, setNewProfilePicture] = useState(null);
     const [showSuccess, setShowSuccess] = useState(false);
+    const [showProfileIncomplete, setShowProfileIncomplete] = useState(false); // Added state for notification
 
     const { errors } = usePage().props;
     const { data, setData, post, processing, reset } = useForm({
@@ -264,6 +266,13 @@ export default function Profile({ volunteer, auth, verification }) {
         remove_profile_picture: false,
     });
 
+    // Check if profile is incomplete on component mount
+    useEffect(() => {
+        if (!volunteer) {
+            setShowProfileIncomplete(true);
+        }
+    }, [volunteer]);
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setData(name, value);
@@ -272,12 +281,19 @@ export default function Profile({ volunteer, auth, verification }) {
     const handleEditClick = () => {
         setIsEditing(true);
         setShowSuccess(false);
+        setShowProfileIncomplete(false); // Hide notification when editing
     };
 
     const handleVerifyClick = () => {
+        // Check if volunteer profile exists before proceeding
+        if (!volunteer) {
+            setShowProfileIncomplete(true);
+            return;
+        }
+
         router.visit(
             route("volunteer.verification", {
-                volunteer: volunteer.id, // Changed from vol.id to volunteer.id
+                volunteer: volunteer.id,
             })
         );
     };
@@ -400,6 +416,37 @@ export default function Profile({ volunteer, auth, verification }) {
                         </div>
                     )}
                 </div>
+
+                {/* Profile Incomplete Notification */}
+                {showProfileIncomplete && (
+                    <div className="mb-6 rounded-md bg-yellow-50 p-4">
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                <AlertCircle className="h-5 w-5 text-yellow-400" />
+                            </div>
+                            <div className="ml-3">
+                                <p className="text-sm font-medium text-yellow-800">
+                                    Please complete your profile information
+                                    before verifying your account.
+                                </p>
+                            </div>
+                            <div className="ml-auto pl-3">
+                                <div className="-mx-1.5 -my-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setShowProfileIncomplete(false)
+                                        }
+                                        className="inline-flex rounded-md bg-yellow-50 p-1.5 text-yellow-500 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:ring-offset-2 focus:ring-offset-yellow-50"
+                                    >
+                                        <span className="sr-only">Dismiss</span>
+                                        <X className="h-5 w-5" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Success and error messages */}
                 {showSuccess && (
@@ -865,8 +912,8 @@ export default function Profile({ volunteer, auth, verification }) {
                 ) : (
                     <div className="grid grid-cols-1 gap-8">
                         {/* Profile Overview */}
-                        <ProfileSection title="Profile Overview">
-                            <div className="flex flex-col md:flex-row gap-8 p-6 bg-white rounded-xl shadow-sm border border-gray-100">
+                        <ProfileSection>
+                            <div className="flex flex-col md:flex-row gap-6">
                                 {/* Profile Picture Section */}
                                 <div className="flex-shrink-0">
                                     {volunteer?.profile_picture ? (
@@ -874,16 +921,16 @@ export default function Profile({ volunteer, auth, verification }) {
                                             <img
                                                 src={`/storage/${volunteer.profile_picture}`}
                                                 alt="Profile"
-                                                className="h-40 w-40 rounded-xl object-cover border border-gray-200 shadow-md transition-transform duration-300 group-hover:scale-105"
+                                                className="h-40 w-40 rounded-box object-cover border border-base-200 shadow-sm transition-transform duration-300 group-hover:scale-105"
                                             />
                                             {volunteerVerified && (
-                                                <div className="absolute -top-2 -right-2 drop-shadow-lg">
+                                                <div className="absolute -top-2 -right-2">
                                                     <VerifiedBadge />
                                                 </div>
                                             )}
                                         </div>
                                     ) : (
-                                        <div className="h-40 w-40 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors cursor-pointer">
+                                        <div className="h-40 w-40 bg-base-200 rounded-box border-2 border-dashed border-base-300 flex flex-col items-center justify-center text-gray-400 hover:bg-base-300 transition-colors cursor-pointer">
                                             <Upload className="h-10 w-10" />
                                             <span className="text-xs mt-2">
                                                 Upload Photo
@@ -893,10 +940,10 @@ export default function Profile({ volunteer, auth, verification }) {
                                 </div>
 
                                 {/* Profile Details Section */}
-                                <div className="flex-1 space-y-5">
+                                <div className="flex-1 space-y-4">
                                     {/* Name & Referral */}
                                     <div>
-                                        <h2 className="text-2xl font-semibold text-gray-900">
+                                        <h2 className="text-2xl font-semibold">
                                             {auth.user.name}
                                         </h2>
 
@@ -905,22 +952,22 @@ export default function Profile({ volunteer, auth, verification }) {
                                                 <span className="text-sm font-medium text-gray-500">
                                                     Referral Code:
                                                 </span>
-                                                <div className="inline-flex items-center px-3 py-1 rounded-lg bg-blue-50 text-blue-700 font-mono text-sm shadow-sm border border-blue-100">
+                                                <div className="badge badge-outline font-mono">
                                                     {auth.user.referral_code}
                                                     <button
                                                         onClick={handleCopy}
-                                                        className="ml-2 text-blue-500 hover:text-blue-700 transition-colors"
+                                                        className="ml-2"
                                                         aria-label="Copy referral code"
                                                     >
                                                         {copied ? (
-                                                            <Check className="h-4 w-4 text-green-500" />
+                                                            <Check className="h-4 w-4 text-success" />
                                                         ) : (
                                                             <Copy className="h-4 w-4" />
                                                         )}
                                                     </button>
                                                 </div>
                                                 {copied && (
-                                                    <span className="text-xs text-green-600 font-medium">
+                                                    <span className="text-xs text-success">
                                                         Copied!
                                                     </span>
                                                 )}
@@ -958,7 +1005,6 @@ export default function Profile({ volunteer, auth, verification }) {
                                             }
                                             label="Email"
                                             value={auth.user.email}
-                                            isEmail={true}
                                         />
                                         <InfoItem
                                             icon={
@@ -982,14 +1028,14 @@ export default function Profile({ volunteer, auth, verification }) {
                         </ProfileSection>
 
                         {/* Hobbies & Skills */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {volunteer?.hobbies?.length > 0 && (
                                 <ProfileSection title="Hobbies & Interests">
                                     <div className="flex flex-wrap gap-2">
                                         {volunteer.hobbies.map((hobby) => (
                                             <span
                                                 key={hobby}
-                                                className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                                                className="badge badge-primary"
                                             >
                                                 {hobby}
                                             </span>
@@ -1004,7 +1050,7 @@ export default function Profile({ volunteer, auth, verification }) {
                                         {volunteer.skills.map((skill) => (
                                             <span
                                                 key={skill}
-                                                className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
+                                                className="badge badge-secondary"
                                             >
                                                 {skill}
                                             </span>

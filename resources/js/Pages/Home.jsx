@@ -3,7 +3,7 @@ import { Link } from "@inertiajs/react";
 import CountUp from "react-countup";
 import { useInView } from "react-intersection-observer";
 import { useEffect, useRef, useState } from "react";
-import { useSwipeable } from "react-swipeable"; // Add this import at the top
+import { useSwipeable } from "react-swipeable";
 
 export default function Home({ projects, auth }) {
     const testimonials = [
@@ -44,11 +44,18 @@ export default function Home({ projects, auth }) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
+    const [testimonialIndex, setTestimonialIndex] = useState(0);
 
-    // Add swipe handlers
     const swipeHandlers = useSwipeable({
         onSwipedLeft: () => handleNext(),
         onSwipedRight: () => handlePrev(),
+        preventDefaultTouchmoveEvent: true,
+        trackMouse: true,
+    });
+
+    const testimonialSwipeHandlers = useSwipeable({
+        onSwipedLeft: () => handleTestimonialNext(),
+        onSwipedRight: () => handleTestimonialPrev(),
         preventDefaultTouchmoveEvent: true,
         trackMouse: true,
     });
@@ -60,7 +67,6 @@ export default function Home({ projects, auth }) {
             );
         }) || [];
 
-    // Update your auto-advance useEffect to handle mobile
     useEffect(() => {
         if (featuredProjects.length <= getVisibleSlides() || isHovered) return;
 
@@ -79,13 +85,24 @@ export default function Home({ projects, auth }) {
         return () => clearInterval(interval);
     }, [featuredProjects.length, currentIndex, isHovered]);
 
-    // Helper function to get visible slides based on screen size
+    useEffect(() => {
+        const interval = setInterval(() => {
+            handleTestimonialNext();
+        }, 4000);
+
+        return () => clearInterval(interval);
+    }, []);
+
     const getVisibleSlides = () => {
-        if (typeof window === "undefined") return 3; // SSR fallback
+        if (typeof window === "undefined") return 3;
         return window.innerWidth < 768 ? 1 : window.innerWidth < 1024 ? 2 : 3;
     };
 
-    // Update your handleNext and handlePrev functions
+    const getVisibleTestimonials = () => {
+        if (typeof window === "undefined") return 3;
+        return window.innerWidth < 768 ? 1 : window.innerWidth < 1024 ? 2 : 3;
+    };
+
     const handlePrev = () => {
         if (featuredProjects.length <= getVisibleSlides()) return;
         setIsTransitioning(true);
@@ -106,6 +123,24 @@ export default function Home({ projects, auth }) {
         }, 500);
     };
 
+    const handleTestimonialPrev = () => {
+        setTestimonialIndex((prev) => {
+            if (prev === 0) {
+                return testimonials.length - getVisibleTestimonials();
+            }
+            return Math.max(0, prev - 1);
+        });
+    };
+
+    const handleTestimonialNext = () => {
+        setTestimonialIndex((prev) => {
+            if (prev >= testimonials.length - getVisibleTestimonials()) {
+                return 0;
+            }
+            return prev + 1;
+        });
+    };
+
     const goToSlide = (index) => {
         setIsTransitioning(true);
         setTimeout(() => {
@@ -114,38 +149,41 @@ export default function Home({ projects, auth }) {
         }, 500);
     };
 
+    const goToTestimonial = (index) => {
+        setTestimonialIndex(index);
+    };
+
     return (
         <GeneralPages auth={auth}>
-            {/* Hero Section - Reduced padding and tighter spacing */}
+            {/* Hero Section */}
             <section
-                className="relative bg-cover bg-center bg-no-repeat h-screen min-h-[600px] flex items-center justify-center bg-fixed"
+                className="hero min-h-screen"
                 style={{
                     backgroundImage:
                         "linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('/hero.jpg')",
                 }}
             >
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-900/80 via-blue-700/60 to-blue-600/50 z-10"></div>
-
-                <div className="relative z-20 container mx-auto px-6 lg:px-12 text-center">
-                    <div className="max-w-3xl mx-auto">
-                        <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight text-white mb-4">
-                            <span className="text-yellow-300">Discover</span>{" "}
+                <div className="hero-overlay bg-opacity-60 bg-gradient-to-br from-blue-900/80 via-blue-700/60 to-blue-600/50"></div>
+                <div className="hero-content text-center text-neutral-content">
+                    <div className="max-w-3xl">
+                        <h1 className="mb-5 text-4xl sm:text-5xl md:text-6xl font-bold">
+                            <span className="text-green-300">Discover</span>{" "}
                             meaningful volunteer opportunities
                         </h1>
-                        <p className="text-white text-lg md:text-xl mb-8 opacity-90">
+                        <p className="mb-8 text-lg md:text-xl opacity-90">
                             Join a global community of changemakers creating
                             lasting impact.
                         </p>
-                        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                        <div className="flex flex-col sm:flex-row gap-4 justify-center">
                             <Link
                                 href="/register"
-                                className="bg-yellow-400 hover:bg-yellow-300 text-blue-900 px-6 py-3 rounded-full font-bold shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105"
+                                className="btn btn-primary text-white hover:bg-yellow-300 shadow-md hover:shadow-lg transform hover:scale-105 transition-all"
                             >
                                 Join as Volunteer
                             </Link>
                             <Link
                                 href="/register"
-                                className="px-6 py-3 rounded-full border-2 border-white text-white font-bold hover:bg-white/10 transition-all duration-300 hover:scale-105"
+                                className="btn btn-outline text-white border-white hover:bg-white/10 hover:border-white transform hover:scale-105 transition-all"
                             >
                                 Register Organization
                             </Link>
@@ -154,10 +192,10 @@ export default function Home({ projects, auth }) {
                 </div>
             </section>
 
-            {/* Trusted By - More compact */}
-            <section className="bg-gray-50 py-8 px-6">
-                <div className="max-w-6xl mx-auto">
-                    <p className="text-gray-500 text-xs uppercase mb-4 tracking-wider text-center font-medium">
+            {/* Trusted By */}
+            <section className="py-8 bg-base-200">
+                <div className="container mx-auto px-6">
+                    <p className="text-center text-sm uppercase mb-6 tracking-wider text-base-content/70">
                         Trusted by leading organizations
                     </p>
                     <div className="flex flex-wrap justify-center items-center gap-8 opacity-90">
@@ -179,14 +217,14 @@ export default function Home({ projects, auth }) {
                 </div>
             </section>
 
-            {/* Explore by Cause - Tighter layout */}
-            <section className="py-16 bg-white px-6">
-                <div className="max-w-6xl mx-auto">
+            {/* Explore by Cause */}
+            <section className="py-16 bg-base-100">
+                <div className="container mx-auto px-6">
                     <div className="text-center mb-12">
-                        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+                        <h2 className="text-3xl md:text-4xl font-bold mb-3">
                             Find Your Passion
                         </h2>
-                        <p className="text-gray-600 max-w-2xl mx-auto">
+                        <p className="text-base-content/70 max-w-2xl mx-auto">
                             Explore volunteer opportunities across these
                             categories
                         </p>
@@ -218,26 +256,28 @@ export default function Home({ projects, auth }) {
                             <Link
                                 key={i}
                                 href={`/projects?category=${cat.name}`}
-                                className="bg-gradient-to-br from-blue-50 to-white hover:from-blue-100 p-6 rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-100"
+                                className="card bg-gradient-to-br from-base-200 to-base-100 hover:from-primary/10 border border-base-300 hover:border-primary/30 transition-all hover:shadow-lg"
                             >
-                                <div className="text-5xl mb-4 text-center">
-                                    {cat.icon}
+                                <div className="card-body items-center text-center">
+                                    <div className="text-5xl mb-4">
+                                        {cat.icon}
+                                    </div>
+                                    <h3 className="card-title text-primary">
+                                        {cat.name}
+                                    </h3>
+                                    <p className="text-base-content/70">
+                                        {cat.description}
+                                    </p>
                                 </div>
-                                <h3 className="text-xl font-semibold text-blue-800 mb-2 text-center">
-                                    {cat.name}
-                                </h3>
-                                <p className="text-gray-600 text-sm text-center">
-                                    {cat.description}
-                                </p>
                             </Link>
                         ))}
                     </div>
                 </div>
             </section>
 
-            {/* Stats Counter - More refined */}
-            <section className="bg-gradient-to-r from-blue-700 to-blue-900 py-16 text-white">
-                <div className="max-w-6xl mx-auto px-6">
+            {/* Stats Counter */}
+            <section className="py-16 bg-gradient-to-r from-primary to-secondary text-primary-content">
+                <div className="container mx-auto px-6">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
                         {[
                             { label: "Volunteers", count: 8423, icon: "👥" },
@@ -252,30 +292,30 @@ export default function Home({ projects, auth }) {
                                 <div
                                     key={i}
                                     ref={ref}
-                                    className="p-4 rounded-lg bg-white/10 backdrop-blur-sm"
+                                    className="card bg-base-100/10 backdrop-blur-sm"
                                 >
-                                    <div className="text-3xl mb-2">
-                                        {stat.icon}
+                                    <div className="card-body">
+                                        <div className="text-3xl mb-2">
+                                            {stat.icon}
+                                        </div>
+                                        <div className="text-4xl font-bold mb-1">
+                                            {inView ? (
+                                                <CountUp
+                                                    end={stat.count}
+                                                    duration={2.5}
+                                                    separator=","
+                                                    enableScrollSpy
+                                                    scrollSpyOnce
+                                                />
+                                            ) : (
+                                                "0"
+                                            )}
+                                            <span className="text-accent">
+                                                +
+                                            </span>
+                                        </div>
+                                        <p className="text-lg">{stat.label}</p>
                                     </div>
-                                    <div className="text-4xl font-bold mb-1">
-                                        {inView ? (
-                                            <CountUp
-                                                end={stat.count}
-                                                duration={2.5}
-                                                separator=","
-                                                enableScrollSpy
-                                                scrollSpyOnce
-                                            />
-                                        ) : (
-                                            "0"
-                                        )}
-                                        <span className="text-yellow-300">
-                                            +
-                                        </span>
-                                    </div>
-                                    <p className="text-lg text-blue-100">
-                                        {stat.label}
-                                    </p>
                                 </div>
                             );
                         })}
@@ -283,14 +323,14 @@ export default function Home({ projects, auth }) {
                 </div>
             </section>
 
-            {/* Featured Volunteer Projects - Streamlined */}
-            <section className="py-16 bg-gray-50 px-4 sm:px-6">
-                <div className="max-w-6xl mx-auto">
+            {/* Featured Volunteer Projects */}
+            <section className="py-16 bg-base-200">
+                <div className="container mx-auto px-4 sm:px-6">
                     <div className="text-center mb-12">
-                        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+                        <h2 className="text-3xl md:text-4xl font-bold mb-3">
                             Featured Projects
                         </h2>
-                        <p className="text-gray-600 max-w-2xl mx-auto">
+                        <p className="text-base-content/70 max-w-2xl mx-auto">
                             Handpicked opportunities making real impact
                         </p>
                     </div>
@@ -323,13 +363,8 @@ export default function Home({ projects, auth }) {
                                             key={project.id}
                                             className="w-full md:w-1/2 lg:w-1/3 flex-shrink-0 px-2 sm:px-3"
                                         >
-                                            <div className="group bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden relative h-full border border-gray-200">
-                                                {/* Project card content remains the same */}
-                                                <div className="absolute top-4 left-4 bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900 px-3 py-1 rounded-full text-xs font-bold z-10 shadow-sm">
-                                                    Featured
-                                                </div>
-
-                                                <div className="relative h-64 w-full overflow-hidden">
+                                            <div className="card bg-base-100 shadow-sm hover:shadow-md transition-all h-full group">
+                                                <figure className="relative h-64 overflow-hidden">
                                                     <img
                                                         src={
                                                             project.featured_image
@@ -340,32 +375,26 @@ export default function Home({ projects, auth }) {
                                                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                                                     />
                                                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
-                                                    <div className="absolute bottom-0 left-0 w-full p-5">
-                                                        <h3 className="text-xl font-bold text-white mb-1">
-                                                            {project.title}
-                                                        </h3>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-xs text-white/90 font-medium bg-blue-600/30 px-2 py-1 rounded-full">
-                                                                {
-                                                                    project
-                                                                        .category
-                                                                        ?.name
-                                                                }
-                                                            </span>
-                                                        </div>
+                                                    <div className="badge badge-primary absolute top-4 left-4 z-10 shadow-sm">
+                                                        Featured
                                                     </div>
-                                                </div>
-
-                                                <div className="p-5">
-                                                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                                                </figure>
+                                                <div className="card-body">
+                                                    <h3 className="card-title">
+                                                        {project.title}
+                                                    </h3>
+                                                    <div className="badge badge-outline">
+                                                        {project.category?.name}
+                                                    </div>
+                                                    <p className="line-clamp-2 text-base-content/70">
                                                         {
                                                             project.short_description
                                                         }
                                                     </p>
-                                                    <div className="flex justify-between items-center">
-                                                        <div className="flex items-center gap-1">
+                                                    <div className="card-actions justify-between items-center mt-4">
+                                                        <div className="flex items-center gap-1 text-sm">
                                                             <svg
-                                                                className="w-4 h-4 text-gray-400"
+                                                                className="w-4 h-4"
                                                                 fill="none"
                                                                 stroke="currentColor"
                                                                 viewBox="0 0 24 24"
@@ -383,14 +412,14 @@ export default function Home({ projects, auth }) {
                                                                     d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                                                                 ></path>
                                                             </svg>
-                                                            <span className="text-xs text-gray-500">
+                                                            <span>
                                                                 {project.location ||
                                                                     "Multiple locations"}
                                                             </span>
                                                         </div>
                                                         <Link
                                                             href={`/projects/${project.slug}`}
-                                                            className="text-blue-600 hover:text-blue-800 font-medium text-xs flex items-center gap-1"
+                                                            className="link link-primary text-sm flex items-center gap-1"
                                                         >
                                                             View Details
                                                             <svg
@@ -415,27 +444,14 @@ export default function Home({ projects, auth }) {
                                 </div>
                             </div>
 
-                            {/* Navigation arrows */}
                             {featuredProjects.length > getVisibleSlides() && (
                                 <>
                                     <button
                                         onClick={handlePrev}
                                         disabled={currentIndex === 0}
-                                        className="hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-blue-800 w-10 h-10 rounded-full shadow-md items-center justify-center z-10 transition-all hover:scale-110 disabled:opacity-30 disabled:cursor-not-allowed"
+                                        className="hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 btn btn-circle btn-sm btn-primary shadow-md z-10 hover:scale-110 transition-transform disabled:opacity-30 disabled:cursor-not-allowed"
                                     >
-                                        <svg
-                                            className="w-6 h-6"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth="2"
-                                                d="M15 19l-7-7 7-7"
-                                            />
-                                        </svg>
+                                        ❮
                                     </button>
                                     <button
                                         onClick={handleNext}
@@ -444,26 +460,13 @@ export default function Home({ projects, auth }) {
                                             featuredProjects.length -
                                                 getVisibleSlides()
                                         }
-                                        className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-blue-800 w-10 h-10 rounded-full shadow-md items-center justify-center z-10 transition-all hover:scale-110 disabled:opacity-30 disabled:cursor-not-allowed"
+                                        className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 btn btn-circle btn-sm btn-primary shadow-md z-10 hover:scale-110 transition-transform disabled:opacity-30 disabled:cursor-not-allowed"
                                     >
-                                        <svg
-                                            className="w-6 h-6"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth="2"
-                                                d="M9 5l7 7-7 7"
-                                            />
-                                        </svg>
+                                        ❯
                                     </button>
                                 </>
                             )}
 
-                            {/* Mobile navigation dots */}
                             <div className="flex justify-center mt-6 sm:hidden">
                                 {Array.from({
                                     length: Math.ceil(
@@ -476,128 +479,171 @@ export default function Home({ projects, auth }) {
                                         onClick={() => goToSlide(index)}
                                         className={`w-3 h-3 mx-1 rounded-full transition-all ${
                                             index === currentIndex
-                                                ? "bg-blue-600 w-6"
-                                                : "bg-gray-300"
+                                                ? "bg-primary w-6"
+                                                : "bg-base-content/20"
                                         }`}
-                                        aria-label={`Go to slide ${index + 1}`}
                                     />
                                 ))}
                             </div>
                         </div>
                     ) : (
-                        <div className="text-center py-8 bg-white rounded-xl shadow-sm max-w-2xl mx-auto">
-                            <p className="text-gray-600 mb-4">
-                                Currently no featured projects available.
-                            </p>
-                            <Link
-                                href="/projects/create"
-                                className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium text-sm"
-                            >
-                                Suggest a Project
-                                <svg
-                                    className="w-4 h-4 ml-1"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
+                        <div className="card bg-base-100 shadow-sm max-w-2xl mx-auto">
+                            <div className="card-body text-center">
+                                <p className="text-base-content/70 mb-4">
+                                    Currently no featured projects available.
+                                </p>
+                                <Link
+                                    href="/projects/create"
+                                    className="link link-primary"
                                 >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M9 5l7 7-7 7"
-                                    ></path>
-                                </svg>
-                            </Link>
+                                    Suggest a Project
+                                </Link>
+                            </div>
                         </div>
                     )}
 
                     <div className="text-center mt-12">
                         <Link
                             href="/projects"
-                            className="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-full font-bold shadow-md hover:shadow-lg transition-all"
+                            className="btn btn-primary shadow-md hover:shadow-lg"
                         >
                             Browse All Projects
-                            <svg
-                                className="w-4 h-4 ml-2"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M9 5l7 7-7 7"
-                                ></path>
-                            </svg>
                         </Link>
                     </div>
                 </div>
             </section>
 
-            {/* Testimonials - More compact */}
-            <section className="py-16 bg-white px-6">
-                <div className="max-w-6xl mx-auto">
+            {/* Testimonials - Show 3 at a time */}
+            <section className="py-16 bg-base-100 overflow-hidden">
+                <div className="container mx-auto px-6">
                     <div className="text-center mb-12">
-                        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+                        <h2 className="text-3xl md:text-4xl font-bold mb-3">
                             Volunteer Stories
                         </h2>
-                        <p className="text-gray-600 max-w-2xl mx-auto">
+                        <p className="text-base-content/70 max-w-2xl mx-auto">
                             Hear from people who've transformed lives
                         </p>
                     </div>
 
-                    <div
-                        ref={scrollRef}
-                        className="flex gap-6 overflow-x-auto pb-6 scroll-smooth"
-                    >
-                        {testimonials.map((t, i) => (
-                            <div key={i} className="flex-shrink-0 w-80">
-                                <div className="bg-gradient-to-br from-blue-50 to-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all h-full">
-                                    <div className="flex items-center mb-4">
-                                        <img
-                                            src={t.avatar}
-                                            alt={t.name}
-                                            className="w-10 h-10 rounded-full object-cover border border-white shadow-sm"
-                                        />
-                                        <div className="ml-3">
-                                            <h4 className="font-bold text-gray-900">
-                                                {t.name}
-                                            </h4>
-                                            <p className="text-xs text-blue-600">
-                                                {t.role}
-                                            </p>
+                    <div className="relative" {...testimonialSwipeHandlers}>
+                        <div className="overflow-hidden">
+                            <div
+                                className="flex transition-transform duration-500 ease-in-out"
+                                style={{
+                                    transform: `translateX(-${
+                                        testimonialIndex *
+                                        (100 / getVisibleTestimonials())
+                                    }%)`,
+                                }}
+                            >
+                                {testimonials.map((testimonial, index) => (
+                                    <div
+                                        key={index}
+                                        className="w-full flex-shrink-0 px-4"
+                                        style={{
+                                            width: `${
+                                                100 / getVisibleTestimonials()
+                                            }%`,
+                                        }}
+                                    >
+                                        <div className="card bg-base-200 shadow-md hover:shadow-lg transition-all h-full">
+                                            <div className="card-body items-center text-center">
+                                                <div className="flex items-center mb-4">
+                                                    <div className="avatar">
+                                                        <div className="w-12 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
+                                                            <img
+                                                                src={
+                                                                    testimonial.avatar
+                                                                }
+                                                                alt={
+                                                                    testimonial.name
+                                                                }
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="ml-3">
+                                                        <h4 className="font-bold">
+                                                            {testimonial.name}
+                                                        </h4>
+                                                        <p className="text-sm text-primary">
+                                                            {testimonial.role}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <p className="italic text-base-content/80 mb-4">
+                                                    "{testimonial.quote}"
+                                                </p>
+                                                <div className="rating rating-sm">
+                                                    {[...Array(5)].map(
+                                                        (_, i) => (
+                                                            <input
+                                                                key={i}
+                                                                type="radio"
+                                                                name={`rating-${index}`}
+                                                                className="mask mask-star-2 bg-yellow-400"
+                                                                checked
+                                                                readOnly
+                                                            />
+                                                        )
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                    <p className="italic text-gray-700 text-sm mb-4">
-                                        "{t.quote}"
-                                    </p>
-                                    <div className="flex text-yellow-400">
-                                        {[...Array(5)].map((_, i) => (
-                                            <svg
-                                                key={i}
-                                                className="w-4 h-4 fill-current"
-                                                viewBox="0 0 20 20"
-                                            >
-                                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                                            </svg>
-                                        ))}
-                                    </div>
-                                </div>
+                                ))}
                             </div>
-                        ))}
+                        </div>
+
+                        {/* Navigation buttons */}
+                        <button
+                            onClick={handleTestimonialPrev}
+                            disabled={testimonialIndex === 0}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 btn btn-circle btn-sm btn-primary shadow-md z-10 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                            ❮
+                        </button>
+                        <button
+                            onClick={handleTestimonialNext}
+                            disabled={
+                                testimonialIndex >=
+                                testimonials.length - getVisibleTestimonials()
+                            }
+                            className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-circle btn-sm btn-primary shadow-md z-10 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                            ❯
+                        </button>
+
+                        {/* Dots indicator */}
+                        <div className="flex justify-center mt-6">
+                            {Array.from({
+                                length:
+                                    testimonials.length -
+                                    getVisibleTestimonials() +
+                                    1,
+                            }).map((_, index) => (
+                                <button
+                                    key={index}
+                                    onClick={() => goToTestimonial(index)}
+                                    className={`w-3 h-3 mx-1 rounded-full transition-all ${
+                                        index === testimonialIndex
+                                            ? "bg-primary w-6"
+                                            : "bg-base-content/20"
+                                    }`}
+                                />
+                            ))}
+                        </div>
                     </div>
                 </div>
             </section>
 
-            {/* Organizations - Simplified */}
-            <section className="py-16 bg-blue-50 px-6">
-                <div className="max-w-6xl mx-auto">
+            {/* Organizations */}
+            <section className="py-16 bg-base-200">
+                <div className="container mx-auto px-6">
                     <div className="text-center mb-12">
-                        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+                        <h2 className="text-3xl md:text-4xl font-bold mb-3">
                             Our Partners
                         </h2>
-                        <p className="text-gray-600 max-w-2xl mx-auto">
+                        <p className="text-base-content/70 max-w-2xl mx-auto">
                             Collaborating with organizations making a difference
                         </p>
                     </div>
@@ -627,46 +673,49 @@ export default function Home({ projects, auth }) {
                         ].map((org, i) => (
                             <div
                                 key={i}
-                                className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all text-center"
+                                className="card bg-base-100 shadow-sm hover:shadow-md transition-all"
                             >
-                                <div className="w-16 h-16 mx-auto mb-4 rounded-full overflow-hidden border-2 border-blue-100">
-                                    <img
-                                        src={org.logo}
-                                        alt={org.name}
-                                        className="w-full h-full object-cover"
-                                    />
+                                <div className="card-body items-center text-center">
+                                    <div className="avatar mb-4">
+                                        <div className="w-16 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
+                                            <img
+                                                src={org.logo}
+                                                alt={org.name}
+                                            />
+                                        </div>
+                                    </div>
+                                    <h4 className="card-title text-primary">
+                                        {org.name}
+                                    </h4>
+                                    <p className="text-base-content/70">
+                                        {org.mission}
+                                    </p>
                                 </div>
-                                <h4 className="font-bold text-lg text-blue-800 mb-1">
-                                    {org.name}
-                                </h4>
-                                <p className="text-gray-600 text-sm">
-                                    {org.mission}
-                                </p>
                             </div>
                         ))}
                     </div>
                 </div>
             </section>
 
-            {/* CTA - More refined */}
-            <section className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-16 px-6">
-                <div className="max-w-3xl mx-auto text-center">
+            {/* CTA */}
+            <section className="py-16 bg-gradient-to-r from-primary to-secondary text-primary-content">
+                <div className="container mx-auto px-6 text-center">
                     <h2 className="text-3xl md:text-4xl font-bold mb-4">
                         Ready to make a difference?
                     </h2>
-                    <p className="text-lg mb-8 opacity-90">
+                    <p className="text-xl mb-8 opacity-90">
                         Join thousands of volunteers creating positive change.
                     </p>
                     <div className="flex flex-col sm:flex-row justify-center gap-4">
                         <Link
                             href="/register"
-                            className="bg-white text-blue-700 px-6 py-3 rounded-full font-bold shadow-md hover:shadow-lg transition-all"
+                            className="btn btn-accent text-primary-content shadow-md hover:shadow-lg"
                         >
                             Sign Up Now
                         </Link>
                         <Link
                             href="/projects"
-                            className="border border-white text-white px-6 py-3 rounded-full font-bold hover:bg-white/10 transition-all"
+                            className="btn btn-outline btn-accent border-white text-white hover:bg-white/10"
                         >
                             Browse Projects
                         </Link>

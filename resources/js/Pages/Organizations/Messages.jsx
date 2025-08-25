@@ -1,6 +1,25 @@
 import OrganizationLayout from "@/Layouts/OrganizationLayout";
 import { usePage, router } from "@inertiajs/react";
 import { useState, useEffect, useCallback, useRef } from "react";
+import {
+    MessageSquare,
+    ArrowLeft,
+    Reply,
+    Check,
+    CheckCheck,
+    AlertCircle,
+    Phone,
+    Mail,
+    Link as LinkIcon,
+    X,
+    Menu,
+    Search,
+    Clock,
+    User,
+    Building,
+    Star,
+    Shield,
+} from "lucide-react";
 
 export default function Messages({
     // messages: initialMessages,
@@ -15,6 +34,7 @@ export default function Messages({
     const [replyToMessage, setReplyToMessage] = useState(null);
     const [highlightedMessageId, setHighlightedMessageId] = useState(null);
     const [showConversations, setShowConversations] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
     const messageRefs = useRef({});
     const messagesEndRef = useRef(null);
     const [contentWarning, setContentWarning] = useState(false);
@@ -84,6 +104,19 @@ export default function Messages({
             setSelectedConversationId(firstKey);
         }
     }, [initialMessages]);
+
+    // useEffect(() => {
+    //     Echo.join("chat")
+    //         .here((users) => {
+    //             console.log("here", users);
+    //         })
+    //         .joining((user) => {
+    //             console.log("joining", user);
+    //         })
+    //         .leaving((user) => {
+    //             console.log("leaving", user);
+    //         });
+    // }, []);
 
     // Scroll to bottom of messages
     useEffect(() => {
@@ -167,11 +200,114 @@ export default function Messages({
         });
     };
 
+    // Replace the current useEffect with:
     useEffect(() => {
-        window.Echo.private(`chat.${receiverId}`).listen("MessageSent", (e) => {
-            setMessages((prev) => [...prev, e.message]);
+        if (!receiverId) return;
+
+        // Sort IDs to match the channel name in the event
+        const ids = [auth.user.id, receiverId].sort((a, b) => a - b);
+        const channelName = `message.${ids.join("-")}`;
+
+        window.Echo.private(channelName).listen(".new.message", (e) => {
+            console.log("Received message:", e.message);
+
+            setGroupedMessages((prev) => {
+                const updated = { ...prev };
+                const conversationKey =
+                    e.message.sender_id === auth.user.id
+                        ? e.message.receiver_id
+                        : e.message.sender_id;
+
+                if (updated[conversationKey]) {
+                    updated[conversationKey] = {
+                        ...updated[conversationKey],
+                        messages: [
+                            ...updated[conversationKey].messages,
+                            e.message,
+                        ],
+                        latestMessage: e.message,
+                    };
+                } else {
+                    // Create new conversation if it doesn't exist
+                    updated[conversationKey] = {
+                        sender:
+                            e.message.sender_id === auth.user.id
+                                ? e.message.receiver
+                                : e.message.sender,
+                        messages: [e.message],
+                        latestMessage: e.message,
+                        unreadCount:
+                            e.message.sender_id !== auth.user.id ? 1 : 0,
+                        project: e.message.project_id
+                            ? {
+                                  id: e.message.project_id,
+                                  type_of_project: "Unknown", // You might need to load this
+                                  has_payment: false,
+                              }
+                            : null,
+                    };
+                }
+                return updated;
+            });
         });
-    }, [receiverId]);
+
+        return () => {
+            window.Echo.leave(channelName);
+        };
+    }, [receiverId, auth.user.id]);
+    // useEffect(() => {
+    //     if (!receiverId) return;
+
+    //     const channelName = `message.user.${[auth.user.id, receiverId]
+    //         .sort()
+    //         .join("-")}`;
+
+    //     // Connection status listeners
+    //     window.Echo.connector.socket.on("connect", () => {
+    //         console.log("Connected to WebSocket server");
+    //     });
+
+    //     window.Echo.connector.socket.on("error", (error) => {
+    //         console.error("WebSocket error:", error);
+    //     });
+
+    //     console.log(`Attempting to subscribe to channel: ${channelName}`);
+
+    //     const listener = window.Echo.private(channelName)
+    //         .here((users) => {
+    //             console.log("Users in channel:", users);
+    //         })
+    //         .listen("NewMessage", (e) => {
+    //             console.log("Received message:", e.message);
+    //             // Handle new message
+    //             setGroupedMessages((prev) => {
+    //                 const updated = { ...prev };
+    //                 const conversationKey =
+    //                     e.message.sender_id === auth.user.id
+    //                         ? e.message.receiver_id
+    //                         : e.message.sender_id;
+
+    //                 if (updated[conversationKey]) {
+    //                     updated[conversationKey] = {
+    //                         ...updated[conversationKey],
+    //                         messages: [
+    //                             ...updated[conversationKey].messages,
+    //                             e.message,
+    //                         ],
+    //                         latestMessage: e.message,
+    //                     };
+    //                 }
+    //                 return updated;
+    //             });
+    //         });
+
+    //     return () => {
+    //         window.Echo.leave(channelName);
+    //         // Clean up socket listeners
+    //         window.Echo.connector.socket.off("connect");
+    //         window.Echo.connector.socket.off("error");
+    //     };
+    // }, [receiverId, auth.user.id]);
 
     const handleSendMessage = (e) => {
         e.preventDefault();
@@ -273,313 +409,416 @@ export default function Messages({
         );
     };
 
+    const getLastMessageTime = (conversation) => {
+        if (!conversation.latestMessage?.created_at) return null;
+
+        const messageDate = new Date(conversation.latestMessage.created_at);
+        const now = new Date();
+        const diffHours = Math.floor((now - messageDate) / (1000 * 60 * 60));
+
+        if (diffHours < 24) {
+            return messageDate.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+            });
+        } else if (diffHours < 48) {
+            return "Yesterday";
+        } else {
+            return messageDate.toLocaleDateString([], {
+                month: "short",
+                day: "numeric",
+            });
+        }
+    };
+
+    const filteredConversations = Object.values(groupedMessages).filter(
+        (conversation) =>
+            conversation.sender.name
+                .toLowerCase()
+                .includes(searchQuery.toLowerCase()) ||
+            conversation.latestMessage?.message
+                ?.toLowerCase()
+                .includes(searchQuery.toLowerCase())
+    );
+
+    const getSenderTypeIcon = (conversation) => {
+        if (conversation.sender?.type === "organization") {
+            return <Building className="w-3 h-3" />;
+        } else if (conversation.sender?.is_verified) {
+            return <Shield className="w-3 h-3 text-success" />;
+        }
+        return <User className="w-3 h-3" />;
+    };
+
     // const selectedConversation = selectedConversationId
     //     ? groupedMessages[selectedConversationId]
     //     : null;
 
     return (
-        <OrganizationLayout>
-            <div className="max-w-7xl mx-auto py-2 px-4 sm:px-6 lg:px-8">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-white rounded-xl shadow overflow-hidden">
-                    {/* Conversations List */}
-                    <div
-                        className={`${
-                            showConversations
-                                ? "block fixed inset-0 z-10 bg-black bg-opacity-50 md:bg-opacity-0"
-                                : "hidden"
-                        } md:block md:relative`}
-                    >
-                        <div
-                            className={`absolute md:relative left-0 top-0 h-full w-80 bg-white shadow-lg md:shadow-none z-20 transform ${
-                                showConversations
-                                    ? "translate-x-0"
-                                    : "-translate-x-full"
-                            } md:translate-x-0 transition-transform duration-300 ease-in-out border-r border-gray-200`}
-                        >
-                            <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-                                <h2 className="text-lg font-semibold">
-                                    Conversations
-                                </h2>
-                                <button
-                                    onClick={() => setShowConversations(false)}
-                                    className="md:hidden p-1 rounded-full hover:bg-gray-200"
-                                >
-                                    <svg
-                                        className="w-5 h-5"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M6 18L18 6M6 6l12 12"
-                                        />
-                                    </svg>
-                                </button>
-                            </div>
-                            <ul className="divide-y divide-gray-200 max-h-[70vh] overflow-y-auto">
-                                {Object.values(groupedMessages).length > 0 ? (
-                                    Object.values(groupedMessages).map(
-                                        (conversation) => {
-                                            const latestMessage =
-                                                conversation.latestMessage
-                                                    ?.message ||
-                                                "No messages yet";
-                                            const previewText =
-                                                latestMessage.length > 30
-                                                    ? `${latestMessage.substring(
-                                                          0,
-                                                          30
-                                                      )}...`
-                                                    : latestMessage;
+        <OrganizationLayout auth={auth}>
+            <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                {/* Header */}
+                <div className="mb-6">
+                    <h1 className="text-3xl font-bold text-base-content">
+                        Messages
+                    </h1>
+                    <p className="text-base-content/70 mt-2">
+                        Communicate with volunteers and manage your
+                        conversations
+                    </p>
+                </div>
 
-                                            return (
-                                                <li
-                                                    key={conversation.sender.id} // Use sender.id as key
-                                                    className={`py-3 px-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                                                        selectedConversationId ===
-                                                        conversation.sender.id
-                                                            ? "bg-blue-50 border-l-4 border-blue-500"
-                                                            : ""
-                                                    }`}
-                                                    onClick={() =>
-                                                        handleConversationClick(
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 bg-base-100 rounded-box shadow-lg overflow-hidden">
+                    {/* Enhanced Conversations Sidebar */}
+                    <div
+                        className={`lg:col-span-1 ${
+                            showConversations ? "block" : "hidden"
+                        } lg:block`}
+                    >
+                        <div className="bg-base-100 rounded-box border border-base-300 h-full flex flex-col">
+                            {/* Sidebar Header with Gradient */}
+                            <div className="p-4 border-b border-base-300 bg-gradient-to-r from-primary/10 to-secondary/10">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                                        <MessageSquare className="w-5 h-5 text-primary" />
+                                        Conversations
+                                        <span className="badge badge-primary badge-sm">
+                                            {filteredConversations.length}
+                                        </span>
+                                    </h2>
+                                    <div className="lg:hidden">
+                                        <button
+                                            onClick={() =>
+                                                setShowConversations(false)
+                                            }
+                                            className="btn btn-ghost btn-sm btn-circle"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Enhanced Search */}
+                                <div className="relative">
+                                    <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-base-content/50" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search conversations..."
+                                        value={searchQuery}
+                                        onChange={(e) =>
+                                            setSearchQuery(e.target.value)
+                                        }
+                                        className="input input-bordered w-full pl-9 pr-4 py-2 text-sm bg-base-200/50 focus:bg-base-100 transition-colors"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Conversations List with Improved Styling */}
+                            <div className="flex-1 overflow-y-auto">
+                                {filteredConversations.length > 0 ? (
+                                    <div className="p-2 space-y-1">
+                                        {filteredConversations.map(
+                                            (conversation) => {
+                                                const lastMessageTime =
+                                                    getLastMessageTime(
+                                                        conversation
+                                                    );
+                                                const isSelected =
+                                                    selectedConversationId ===
+                                                    conversation.sender.id;
+                                                const hasUnread =
+                                                    conversation.unreadCount >
+                                                    0;
+
+                                                return (
+                                                    <div
+                                                        key={
                                                             conversation.sender
                                                                 .id
-                                                        )
-                                                    }
-                                                >
-                                                    <div className="flex justify-between items-center">
-                                                        <div className="flex items-center min-w-0">
-                                                            <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center">
-                                                                <button
-                                                                    onClick={() =>
-                                                                        setShowConversations(
-                                                                            true
-                                                                        )
-                                                                    }
-                                                                    className="md:hidden mr-2 p-1 rounded-full hover:bg-gray-200"
+                                                        }
+                                                        className={`group relative p-3 rounded-xl transition-all duration-200 cursor-pointer ${
+                                                            isSelected
+                                                                ? "bg-primary/20 border-l-4 border-primary shadow-sm"
+                                                                : "hover:bg-base-300/50 border-l-4 border-transparent"
+                                                        }`}
+                                                        onClick={() =>
+                                                            handleConversationClick(
+                                                                conversation
+                                                                    .sender.id
+                                                            )
+                                                        }
+                                                    >
+                                                        <div className="flex items-start gap-3">
+                                                            {/* Avatar with Status Indicator */}
+                                                            <div className="relative flex-shrink-0">
+                                                                <div
+                                                                    className={`avatar placeholder ${
+                                                                        hasUnread
+                                                                            ? "ring-2 ring-primary ring-offset-2 ring-offset-base-100"
+                                                                            : ""
+                                                                    }`}
                                                                 >
-                                                                    <svg
-                                                                        className="w-5 h-5"
-                                                                        fill="none"
-                                                                        stroke="currentColor"
-                                                                        viewBox="0 0 24 24"
-                                                                    >
-                                                                        <path
-                                                                            strokeLinecap="round"
-                                                                            strokeLinejoin="round"
-                                                                            strokeWidth={
-                                                                                2
-                                                                            }
-                                                                            d="M4 6h16M4 12h16M4 18h16"
-                                                                        />
-                                                                    </svg>
-                                                                </button>
-                                                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
-                                                                    {selectedConversation?.sender?.name?.charAt(
-                                                                        0
-                                                                    ) || "U"}
+                                                                    <div className="bg-gradient-to-br from-primary to-secondary text-primary-content rounded-full w-12 h-12">
+                                                                        <span className="text-lg font-semibold">
+                                                                            {conversation.sender.name
+                                                                                ?.charAt(
+                                                                                    0
+                                                                                )
+                                                                                ?.toUpperCase() ||
+                                                                                "U"}
+                                                                        </span>
+                                                                    </div>
                                                                 </div>
-                                                                <div>
-                                                                    <h2 className="text-lg font-semibold text-gray-900">
-                                                                        {selectedConversation
-                                                                            ?.sender
-                                                                            ?.name ||
-                                                                            "Unknown"}
-                                                                    </h2>
-                                                                    {selectedConversation?.project && (
-                                                                        <p className="text-xs text-gray-500">
-                                                                            Project:{" "}
+                                                                {hasUnread && (
+                                                                    <div className="absolute -top-1 -right-1">
+                                                                        <div className="bg-primary text-primary-content text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
                                                                             {
-                                                                                selectedConversation
+                                                                                conversation.unreadCount
+                                                                            }
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Conversation Details */}
+                                                            <div className="flex-1 min-w-0 space-y-1">
+                                                                {/* Sender Name and Time */}
+                                                                <div className="flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span
+                                                                            className={`font-semibold text-sm truncate ${
+                                                                                isSelected
+                                                                                    ? "text-primary"
+                                                                                    : "text-base-content"
+                                                                            }`}
+                                                                        >
+                                                                            {
+                                                                                conversation
+                                                                                    .sender
+                                                                                    .name
+                                                                            }
+                                                                        </span>
+                                                                        {getSenderTypeIcon(
+                                                                            conversation
+                                                                        )}
+                                                                    </div>
+                                                                    {lastMessageTime && (
+                                                                        <span className="text-xs text-base-content/50 flex items-center gap-1">
+                                                                            <Clock className="w-3 h-3" />
+                                                                            {
+                                                                                lastMessageTime
+                                                                            }
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Last Message Preview */}
+                                                                <p className="text-xs text-base-content/70 line-clamp-2 leading-relaxed">
+                                                                    {conversation
+                                                                        .latestMessage
+                                                                        ?.message ||
+                                                                        "No messages yet"}
+                                                                </p>
+
+                                                                {/* Project Badge */}
+                                                                {conversation.project && (
+                                                                    <div className="flex items-center gap-1">
+                                                                        <span className="badge badge-outline badge-xs py-1">
+                                                                            <Star className="w-2.5 h-2.5 mr-1" />
+                                                                            {
+                                                                                conversation
                                                                                     .project
                                                                                     .title
                                                                             }
-                                                                            {selectedConversation?.booking && (
-                                                                                <span>
-                                                                                    {" "}
-                                                                                    (Booking
-                                                                                    #
-                                                                                    {
-                                                                                        selectedConversation
-                                                                                            .booking
-                                                                                            .id
-                                                                                    }
-
-                                                                                    )
-                                                                                </span>
-                                                                            )}
-                                                                        </p>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                            <div className="min-w-0">
-                                                                <p className="text-sm font-medium text-gray-900 truncate">
-                                                                    {
-                                                                        conversation
-                                                                            .sender
-                                                                            .name
-                                                                    }
-                                                                </p>
-                                                                {selectedConversation.project && (
-                                                                    <p className="text-xs text-gray-500">
-                                                                        Project:{" "}
-                                                                        {
-                                                                            conversation
-                                                                                .project
-                                                                                .id
-                                                                        }
-                                                                    </p>
+                                                                        </span>
+                                                                        {conversation
+                                                                            .project
+                                                                            .type_of_project ===
+                                                                            "Paid" && (
+                                                                            <span className="badge badge-success badge-xs">
+                                                                                Paid
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
                                                                 )}
-                                                                <p className="text-xs text-gray-500 truncate">
-                                                                    {
-                                                                        previewText
-                                                                    }
-                                                                </p>
                                                             </div>
                                                         </div>
-                                                        {conversation.unreadCount >
-                                                            0 && (
-                                                            <span className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-full">
-                                                                {
-                                                                    conversation.unreadCount
-                                                                }
-                                                            </span>
-                                                        )}
+
+                                                        {/* Hover Actions */}
+                                                        <div className="absolute right-2 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button className="btn btn-ghost btn-xs btn-circle">
+                                                                <MessageSquare className="w-3 h-3" />
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                </li>
-                                            );
-                                        }
-                                    )
+                                                );
+                                            }
+                                        )}
+                                    </div>
                                 ) : (
-                                    <li className="py-4 px-4 text-center">
-                                        <p className="text-gray-500 text-sm">
-                                            No conversations found.
+                                    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                                        <div className="bg-base-200 rounded-full p-4 mb-4">
+                                            <MessageSquare className="w-8 h-8 text-base-content/30" />
+                                        </div>
+                                        <h3 className="font-semibold text-base-content/70 mb-2">
+                                            No conversations found
+                                        </h3>
+                                        <p className="text-sm text-base-content/50">
+                                            {searchQuery
+                                                ? "Try a different search term"
+                                                : "Start a conversation to see it here"}
                                         </p>
-                                    </li>
+                                    </div>
                                 )}
-                            </ul>
+                            </div>
+
+                            {/* Sidebar Footer */}
+                            <div className="p-3 border-t border-base-300 bg-base-200/50">
+                                <div className="flex items-center justify-between text-xs text-base-content/50">
+                                    <span>
+                                        Total: {filteredConversations.length}
+                                    </span>
+                                    <span>
+                                        {new Date().toLocaleDateString()}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     {/* Chat Interface */}
-                    <div className="col-span-2 flex flex-col">
-                        {isPaidProject && (
-                            <div className="mb-2 p-2 bg-green-50 rounded-lg text-sm">
-                                {hasPayment ? (
-                                    <p className="text-green-700">
-                                        <svg
-                                            className="w-4 h-4 inline mr-1"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
+                    <div className="lg:col-span-3">
+                        <div className="bg-base-100 rounded-box border border-base-300 h-full flex flex-col">
+                            {selectedConversation ? (
+                                <>
+                                    {/* Chat Header */}
+                                    <div className="p-4 border-b border-base-300 bg-base-200 flex items-center gap-3">
+                                        <button
+                                            onClick={() =>
+                                                setShowConversations(true)
+                                            }
+                                            className="lg:hidden btn btn-ghost btn-sm btn-circle"
                                         >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M5 13l4 4L19 7"
-                                            />
-                                        </svg>
-                                        Payment verified - You can now share
-                                        contact details
-                                    </p>
-                                ) : (
-                                    <p className="text-yellow-700">
-                                        <svg
-                                            className="w-4 h-4 inline mr-1"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                                            />
-                                        </svg>
-                                        This is a paid project - Contact sharing
-                                        is restricted until payment is made
-                                    </p>
-                                )}
-                            </div>
-                        )}
-                        {selectedConversation ? (
-                            <>
-                                <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center">
-                                    <button
-                                        onClick={() =>
-                                            setShowConversations(true)
-                                        }
-                                        className="md:hidden mr-2 p-1 rounded-full hover:bg-gray-200"
-                                    >
-                                        <svg
-                                            className="w-5 h-5"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M4 6h16M4 12h16M4 18h16"
-                                            />
-                                        </svg>
-                                    </button>
-                                    <div className="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
-                                        {selectedConversation.sender.name?.charAt(
-                                            0
-                                        ) || "U"}
+                                            <Menu className="w-4 h-4" />
+                                        </button>
+                                        <div className="avatar placeholder">
+                                            <div className="bg-neutral text-neutral-content rounded-full w-10">
+                                                <span className="text-sm">
+                                                    {selectedConversation.sender.name?.charAt(
+                                                        0
+                                                    ) || "U"}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="flex-1">
+                                            <h3 className="font-semibold">
+                                                {
+                                                    selectedConversation.sender
+                                                        .name
+                                                }
+                                            </h3>
+                                            {selectedConversation.project && (
+                                                <p className="text-xs text-base-content/70">
+                                                    Project:{" "}
+                                                    {
+                                                        selectedConversation
+                                                            .project.title
+                                                    }
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h2 className="text-lg font-semibold text-gray-900">
-                                            {selectedConversation.sender.name}
-                                        </h2>
-                                        {/* <p className="text-xs text-gray-500">
-                                            {selectedConversation.sender.email}
-                                        </p> */}
-                                    </div>
-                                </div>
 
-                                <div className="flex-1 p-4 overflow-y-auto max-h-[60vh]">
-                                    <div className="space-y-4">
+                                    {/* Payment Status Banner */}
+                                    {isPaidProject && (
+                                        <div
+                                            className={`p-3 ${
+                                                hasPayment
+                                                    ? "bg-success/20 text-success"
+                                                    : "bg-warning/20 text-warning"
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2 text-sm">
+                                                {hasPayment ? (
+                                                    <>
+                                                        <Check className="w-4 h-4" />
+                                                        Payment verified -
+                                                        Contact sharing enabled
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <AlertCircle className="w-4 h-4" />
+                                                        Paid project - Contact
+                                                        sharing restricted until
+                                                        payment
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Messages Container */}
+                                    <div className="flex-1 p-4 overflow-y-auto max-h-[60vh] space-y-4">
                                         {selectedConversation.messages.map(
                                             (message) => (
                                                 <div
-                                                    key={message.id} // Make sure this is unique
+                                                    key={message.id}
                                                     ref={(el) =>
                                                         (messageRefs.current[
                                                             message.id
                                                         ] = el)
                                                     }
-                                                    className={`flex ${
+                                                    className={`chat ${
                                                         message.sender_id ===
                                                         auth.user.id
-                                                            ? "justify-end"
-                                                            : "justify-start"
+                                                            ? "chat-end"
+                                                            : "chat-start"
                                                     }`}
                                                 >
+                                                    <div className="chat-image avatar">
+                                                        <div className="w-8 rounded-full bg-neutral text-neutral-content">
+                                                            <span className="text-xs">
+                                                                {message.sender_id ===
+                                                                auth.user.id
+                                                                    ? auth.user.name?.charAt(
+                                                                          0
+                                                                      )
+                                                                    : selectedConversation.sender.name?.charAt(
+                                                                          0
+                                                                      )}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="chat-header mb-1">
+                                                        {message.sender_id ===
+                                                        auth.user.id
+                                                            ? "You"
+                                                            : selectedConversation
+                                                                  .sender.name}
+                                                        <time className="text-xs opacity-50 ml-2">
+                                                            {new Date(
+                                                                message.created_at
+                                                            ).toLocaleTimeString()}
+                                                        </time>
+                                                    </div>
+
                                                     <div
-                                                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg transition-all duration-300 ${
+                                                        className={`chat-bubble ${
                                                             message.sender_id ===
                                                             auth.user.id
-                                                                ? "bg-blue-100"
-                                                                : "bg-gray-100"
+                                                                ? "chat-bubble-primary"
+                                                                : "chat-bubble-base-200"
                                                         } ${
                                                             highlightedMessageId ===
                                                             message.id
-                                                                ? "ring-2 ring-blue-500 scale-[1.02]"
+                                                                ? "ring-2 ring-primary"
                                                                 : ""
                                                         }`}
                                                     >
                                                         {message.original_message && (
                                                             <div
-                                                                className="mb-2 p-2 bg-blue-50 rounded text-xs cursor-pointer hover:bg-blue-100 transition-colors"
+                                                                className="bg-base-100/50 rounded-lg p-2 mb-2 cursor-pointer hover:bg-base-100 transition-colors"
                                                                 onClick={() =>
                                                                     handleOriginalMessageClick(
                                                                         message
@@ -588,24 +827,10 @@ export default function Messages({
                                                                     )
                                                                 }
                                                             >
-                                                                <div className="flex items-start">
-                                                                    <svg
-                                                                        className="w-3 h-3 text-blue-500 mt-0.5 mr-2 flex-shrink-0"
-                                                                        fill="none"
-                                                                        stroke="currentColor"
-                                                                        viewBox="0 0 24 24"
-                                                                    >
-                                                                        <path
-                                                                            strokeLinecap="round"
-                                                                            strokeLinejoin="round"
-                                                                            strokeWidth={
-                                                                                2
-                                                                            }
-                                                                            d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                                                                        />
-                                                                    </svg>
+                                                                <div className="flex items-start gap-2">
+                                                                    <Reply className="w-3 h-3 mt-0.5 text-base-content/50" />
                                                                     <div className="flex-1">
-                                                                        <p className="text-xs font-medium text-blue-700 mb-1">
+                                                                        <p className="text-xs font-medium text-base-content/70">
                                                                             Replying
                                                                             to{" "}
                                                                             {message
@@ -615,12 +840,11 @@ export default function Messages({
                                                                                 .user
                                                                                 .id
                                                                                 ? "your message"
-                                                                                : message
-                                                                                      .original_message
+                                                                                : selectedConversation
                                                                                       .sender
-                                                                                      ?.name}
+                                                                                      .name}
                                                                         </p>
-                                                                        <p className="text-xs text-gray-600 line-clamp-2">
+                                                                        <p className="text-xs text-base-content/50 line-clamp-2">
                                                                             {
                                                                                 message
                                                                                     .original_message
@@ -632,151 +856,137 @@ export default function Messages({
                                                             </div>
                                                         )}
 
-                                                        <p className="text-sm text-gray-800">
+                                                        <p className="text-sm">
                                                             {message.message}
                                                         </p>
-                                                        <div className="flex justify-between items-center mt-1">
-                                                            {message.sender_id !==
-                                                                auth.user
-                                                                    .id && (
-                                                                <button
-                                                                    onClick={() =>
-                                                                        handleReplyClick(
-                                                                            message
-                                                                        )
-                                                                    }
-                                                                    className="text-xs text-gray-500 hover:text-blue-500"
-                                                                >
-                                                                    Reply
-                                                                </button>
-                                                            )}
-                                                            <p className="text-[9px] text-gray-500 text-right">
-                                                                {new Date(
-                                                                    message.created_at
-                                                                ).toLocaleTimeString(
-                                                                    [],
-                                                                    {
-                                                                        hour: "2-digit",
-                                                                        minute: "2-digit",
-                                                                    }
+                                                    </div>
+
+                                                    <div className="chat-footer">
+                                                        {message.sender_id !==
+                                                            auth.user.id && (
+                                                            <button
+                                                                onClick={() =>
+                                                                    handleReplyClick(
+                                                                        message
+                                                                    )
+                                                                }
+                                                                className="btn btn-ghost btn-xs text-xs opacity-50 hover:opacity-100"
+                                                            >
+                                                                <Reply className="w-3 h-3 mr-1" />
+                                                                Reply
+                                                            </button>
+                                                        )}
+                                                        {message.sender_id ===
+                                                            auth.user.id && (
+                                                            <div className="text-xs opacity-50">
+                                                                {message.status ===
+                                                                "Read" ? (
+                                                                    <CheckCheck className="w-3 h-3 inline" />
+                                                                ) : (
+                                                                    <Check className="w-3 h-3 inline" />
                                                                 )}
-                                                            </p>
-                                                            <p>
-                                                                {message.sender_id ===
-                                                                    auth.user
-                                                                        .id && (
-                                                                    <span
-                                                                        className={`text-[9px] ${
-                                                                            message.status ===
-                                                                            "Read"
-                                                                                ? "text-blue-500"
-                                                                                : "text-gray-400"
-                                                                        }`}
-                                                                    >
-                                                                        {message.status ===
-                                                                        "Read" ? (
-                                                                            // Double tick for read messages
-                                                                            <span className="flex">
-                                                                                <span>
-                                                                                    ✓
-                                                                                </span>
-                                                                                <span>
-                                                                                    ✓
-                                                                                </span>
-                                                                            </span>
-                                                                        ) : (
-                                                                            // Single tick for unread messages
-                                                                            <span>
-                                                                                ✓
-                                                                            </span>
-                                                                        )}
-                                                                    </span>
-                                                                )}
-                                                            </p>
-                                                        </div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             )
                                         )}
                                         <div ref={messagesEndRef} />
                                     </div>
-                                </div>
 
-                                <div className="p-4 border-t border-gray-200">
-                                    {contentWarning && (
-                                        <div className="mb-2 p-2 bg-yellow-50 rounded-lg text-yellow-800 text-sm">
-                                            Phone numbers, emails, and links are
-                                            not allowed and have been removed.
-                                        </div>
-                                    )}
+                                    {/* Reply Indicator */}
                                     {isReplying && (
-                                        <div className="mb-2 p-2 bg-blue-50 rounded-lg">
-                                            <div className="flex justify-between items-center">
-                                                <p className="text-sm text-blue-800">
-                                                    Replying to:{" "}
-                                                    {replyToMessage.sender_id ===
-                                                    auth.user.id
-                                                        ? "your message"
-                                                        : replyToMessage.sender
-                                                              ?.name}
-                                                </p>
+                                        <div className="bg-base-200 p-3 border-y border-base-300">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <Reply className="w-4 h-4 text-primary" />
+                                                    <span className="text-sm text-base-content">
+                                                        Replying to{" "}
+                                                        {replyToMessage.sender_id ===
+                                                        auth.user.id
+                                                            ? "your message"
+                                                            : selectedConversation
+                                                                  .sender.name}
+                                                    </span>
+                                                </div>
                                                 <button
                                                     onClick={() => {
                                                         setIsReplying(false);
                                                         setReplyToMessage(null);
                                                     }}
-                                                    className="text-xs text-blue-600 hover:text-blue-800"
+                                                    className="btn btn-ghost btn-sm btn-circle"
                                                 >
-                                                    Cancel
+                                                    <X className="w-4 h-4" />
                                                 </button>
                                             </div>
-                                            <p className="text-xs text-gray-600 truncate">
+                                            <p className="text-xs text-base-content/70 mt-1 truncate">
                                                 {replyToMessage.message}
                                             </p>
                                         </div>
                                     )}
-                                    <form
-                                        onSubmit={handleSendMessage}
-                                        className="flex gap-2"
-                                    >
-                                        <input
-                                            type="text"
-                                            value={newMessage}
-                                            onChange={(e) =>
-                                                setNewMessage(e.target.value)
-                                            }
-                                            className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            placeholder={
-                                                isReplying
-                                                    ? `Reply to ${
-                                                          replyToMessage.sender_id ===
-                                                          auth.user.id
-                                                              ? "your message"
-                                                              : replyToMessage
-                                                                    .sender
-                                                                    ?.name
-                                                      }...`
-                                                    : "Type your message..."
-                                            }
-                                        />
-                                        <button
-                                            type="submit"
-                                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+
+                                    {/* Message Input */}
+                                    <div className="p-4 border-t border-base-300">
+                                        {contentWarning && (
+                                            <div className="alert alert-warning mb-3">
+                                                <AlertCircle className="w-4 h-4" />
+                                                <span>
+                                                    Contact information removed
+                                                    due to restrictions
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        <form
+                                            onSubmit={handleSendMessage}
+                                            className="flex gap-2"
                                         >
-                                            {isReplying ? "Reply" : "Send"}
-                                        </button>
-                                    </form>
+                                            <input
+                                                type="text"
+                                                value={newMessage}
+                                                onChange={(e) =>
+                                                    setNewMessage(
+                                                        e.target.value
+                                                    )
+                                                }
+                                                className="input input-bordered flex-1"
+                                                placeholder={
+                                                    isReplying
+                                                        ? "Type your reply..."
+                                                        : "Type your message..."
+                                                }
+                                            />
+                                            <button
+                                                type="submit"
+                                                className="btn btn-primary"
+                                                disabled={!newMessage.trim()}
+                                            >
+                                                {isReplying ? (
+                                                    <Reply className="w-4 h-4" />
+                                                ) : (
+                                                    <MessageSquare className="w-4 h-4" />
+                                                )}
+                                                {isReplying ? "Reply" : "Send"}
+                                            </button>
+                                        </form>
+                                    </div>
+                                </>
+                            ) : (
+                                /* Empty State */
+                                <div className="flex-1 flex items-center justify-center p-8">
+                                    <div className="text-center">
+                                        <MessageSquare className="w-16 h-16 text-base-content/30 mx-auto mb-4" />
+                                        <h3 className="text-lg font-semibold text-base-content/70 mb-2">
+                                            Select a conversation
+                                        </h3>
+                                        <p className="text-base-content/50">
+                                            Choose a conversation from the
+                                            sidebar to start messaging
+                                        </p>
+                                    </div>
                                 </div>
-                            </>
-                        ) : (
-                            <div className="h-full flex items-center justify-center p-12">
-                                <div className="text-center text-gray-500">
-                                    <p>
-                                        Select a conversation to start chatting.
-                                    </p>
-                                </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

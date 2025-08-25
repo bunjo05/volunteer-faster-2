@@ -151,19 +151,31 @@ export default function ViewProject({
         setReplyingTo(remarkId);
         setActiveReplyForms((prev) => ({ ...prev, [remarkId]: true }));
         setReplyData({
-            ...replyData,
+            comment: "", // Reset comment field
             project_remark_id: remarkId,
             parent_id: parentId,
+            user_id: auth.user?.id, // Include user ID
         });
     };
 
     const handleSubmitReply = (e, remarkId) => {
         e.preventDefault();
-        postReply(route("project.remark.comments.store"), {
+
+        // Ensure we have all required data
+        const formData = {
+            ...replyData,
+            user_id: auth.user?.id,
+            project_remark_id: remarkId,
+        };
+
+        postReply(route("project.remark.comments.store"), formData, {
             onSuccess: () => {
                 resetReply();
                 setReplyingTo(null);
                 setActiveReplyForms((prev) => ({ ...prev, [remarkId]: false }));
+            },
+            onError: (errors) => {
+                console.error("Error submitting reply:", errors);
             },
         });
     };
@@ -202,7 +214,7 @@ export default function ViewProject({
             <div className="max-w-7xl mx-auto px-4 sm:px-6">
                 {gallery.length > 0 ? (
                     <div
-                        className="relative w-full h-[500px] aspect-video overflow-hidden rounded-lg shadow-md cursor-pointer"
+                        className="relative w-full h-[500px] aspect-video overflow-hidden rounded-box shadow-lg cursor-pointer"
                         onClick={openModal}
                     >
                         <img
@@ -228,7 +240,7 @@ export default function ViewProject({
                         </div>
                     </div>
                 ) : (
-                    <div className="bg-gray-100 rounded-lg shadow-md aspect-video flex items-center justify-center">
+                    <div className="bg-base-200 rounded-box shadow-lg aspect-video flex items-center justify-center">
                         <img
                             src="/images/placeholder.jpg"
                             alt="Placeholder"
@@ -240,43 +252,47 @@ export default function ViewProject({
 
             {/* Image Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
-                    <button
-                        onClick={closeModal}
-                        className="absolute top-6 right-6 text-white text-3xl font-light"
-                    >
-                        &times;
-                    </button>
-                    <div ref={modalRef} className="relative w-full max-w-5xl">
-                        <img
-                            src={`/storage/${gallery[currentImageIndex].image_path}`}
-                            alt={`Full Image ${currentImageIndex + 1}`}
-                            className="w-full max-h-[85vh] object-contain"
-                        />
+                <div className="modal modal-open">
+                    <div className="modal-box max-w-5xl p-0 relative">
                         <button
-                            onClick={goToPrev}
-                            className="absolute left-0 top-1/2 -translate-y-1/2 text-white text-4xl px-4 hover:bg-black/20 rounded-r-lg"
+                            onClick={closeModal}
+                            className="btn btn-sm btn-circle absolute right-2 top-2"
                         >
-                            ‹
+                            ✕
                         </button>
-                        <button
-                            onClick={goToNext}
-                            className="absolute right-0 top-1/2 -translate-y-1/2 text-white text-4xl px-4 hover:bg-black/20 rounded-l-lg"
-                        >
-                            ›
-                        </button>
-                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
-                            {gallery.map((_, idx) => (
-                                <button
-                                    key={idx}
-                                    onClick={() => setCurrentImageIndex(idx)}
-                                    className={`w-2 h-2 rounded-full ${
-                                        idx === currentImageIndex
-                                            ? "bg-white"
-                                            : "bg-gray-500"
-                                    }`}
-                                />
-                            ))}
+                        <div ref={modalRef} className="relative w-full">
+                            <img
+                                src={`/storage/${gallery[currentImageIndex].image_path}`}
+                                alt={`Full Image ${currentImageIndex + 1}`}
+                                className="w-full max-h-[85vh] object-contain"
+                            />
+                            <button
+                                onClick={goToPrev}
+                                className="absolute left-0 top-1/2 -translate-y-1/2 btn btn-circle btn-ghost text-white text-4xl"
+                            >
+                                ‹
+                            </button>
+                            <button
+                                onClick={goToNext}
+                                className="absolute right-0 top-1/2 -translate-y-1/2 btn btn-circle btn-ghost text-white text-4xl"
+                            >
+                                ›
+                            </button>
+                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
+                                {gallery.map((_, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() =>
+                                            setCurrentImageIndex(idx)
+                                        }
+                                        className={`w-2 h-2 rounded-full ${
+                                            idx === currentImageIndex
+                                                ? "bg-white"
+                                                : "bg-gray-500"
+                                        }`}
+                                    />
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -285,19 +301,19 @@ export default function ViewProject({
             {/* Main Content */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* Left Column - Main Content */}
-                <div className="md:col-span-2 space-y-6 bg-white p-[15px] rounded-lg">
+                <div className="md:col-span-2 space-y-6 bg-base-100 p-6 rounded-box shadow">
                     <div className="space-y-3">
-                        <h1 className="text-3xl font-bold text-gray-900">
+                        <h1 className="text-3xl font-bold text-base-content">
                             {project.title}
                         </h1>
                         <div className="flex flex-wrap gap-2">
-                            <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                            <span className="badge badge-primary">
                                 {project.category?.name}
                             </span>
-                            <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
+                            <span className="badge badge-secondary">
                                 {project.subcategory?.name}
                             </span>
-                            <span className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm flex items-center">
+                            <span className="badge badge-accent">
                                 📍 {project.address}
                             </span>
                         </div>
@@ -305,20 +321,20 @@ export default function ViewProject({
                     {/* Project Details */}
                     <section className="space-y-6">
                         <div className="space-y-3">
-                            <h2 className="text-xl font-semibold text-gray-900">
+                            <h2 className="text-xl font-semibold text-base-content">
                                 About the Project
                             </h2>
-                            <p className="text-gray-700 leading-relaxed">
+                            <p className="text-base-content leading-relaxed">
                                 {project.detailed_description}
                             </p>
                         </div>
 
                         {project.activities && (
                             <div className="space-y-3">
-                                <h2 className="text-xl font-semibold text-gray-900">
+                                <h2 className="text-xl font-semibold text-base-content">
                                     Volunteer Activities
                                 </h2>
-                                <p className="text-gray-700 leading-relaxed">
+                                <p className="text-base-content leading-relaxed">
                                     {project.activities}
                                 </p>
                             </div>
@@ -332,18 +348,18 @@ export default function ViewProject({
                                     "project.volunteer.booking",
                                     project.slug
                                 )}
-                                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-2.5 rounded-lg font-medium transition shadow-md"
+                                className="btn btn-primary"
                             >
                                 Apply to Volunteer
                             </Link>
                             {isVolunteer && (
                                 <button
                                     onClick={() => setIsReportModalOpen(true)}
-                                    className="text-red-500 hover:text-red-700 text-sm flex items-center gap-1"
+                                    className="btn btn-ghost text-error"
                                 >
                                     <svg
                                         xmlns="http://www.w3.org/2000/svg"
-                                        className="h-4 w-4"
+                                        className="h-5 w-5"
                                         fill="none"
                                         viewBox="0 0 24 24"
                                         stroke="currentColor"
@@ -363,230 +379,24 @@ export default function ViewProject({
                     {/* Project Updates */}
                     {project.project_remarks?.length > 0 && (
                         <section className="pt-6">
-                            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                                Project Updates
+                            <h2 className="text-xl font-semibold text-base-content mb-4">
+                                Project Reviews
                             </h2>
                             <div className="space-y-3">
                                 {project.project_remarks.map((remark) => (
-                                    <div key={remark.id} className="space-y-3">
-                                        <div className="bg-blue-50/50 p-4 rounded-lg border-l-4 border-blue-500">
-                                            <div className="flex justify-between items-start">
-                                                <h3 className="font-medium text-blue-800">
-                                                    {remark.user
-                                                        ? `Volunteer: ${remark.user.name}`
-                                                        : "Anonymous Volunteer"}
-                                                </h3>
-                                                <span className="text-xs text-gray-500">
-                                                    {timeAgo(remark.created_at)}
-                                                </span>
-                                            </div>
-                                            <p className="text-gray-700 mt-1">
-                                                {remark.comment}
-                                            </p>
-                                            {auth.user && (
-                                                <button
-                                                    onClick={() =>
-                                                        handleStartReply(
-                                                            remark.id
-                                                        )
-                                                    }
-                                                    className="text-blue-600 hover:text-blue-800 text-xs mt-2"
-                                                >
-                                                    Reply
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        {/* Reply form */}
-                                        {replyingTo === remark.id &&
-                                            activeReplyForms[remark.id] && (
-                                                <div className="ml-8 pl-4 border-l-2 border-gray-200">
-                                                    <form
-                                                        onSubmit={(e) =>
-                                                            handleSubmitReply(
-                                                                e,
-                                                                remark.id
-                                                            )
-                                                        }
-                                                        className="mt-2"
-                                                    >
-                                                        <textarea
-                                                            value={
-                                                                replyData.comment
-                                                            }
-                                                            onChange={(e) =>
-                                                                setReplyData(
-                                                                    "comment",
-                                                                    e.target
-                                                                        .value
-                                                                )
-                                                            }
-                                                            className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                                            rows={2}
-                                                            placeholder="Write your reply..."
-                                                            required
-                                                        />
-                                                        <div className="flex justify-end gap-2 mt-2">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setReplyingTo(
-                                                                        null
-                                                                    );
-                                                                    setActiveReplyForms(
-                                                                        (
-                                                                            prev
-                                                                        ) => ({
-                                                                            ...prev,
-                                                                            [remark.id]: false,
-                                                                        })
-                                                                    );
-                                                                }}
-                                                                className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
-                                                            >
-                                                                Cancel
-                                                            </button>
-                                                            <button
-                                                                type="submit"
-                                                                disabled={
-                                                                    replyProcessing
-                                                                }
-                                                                className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
-                                                            >
-                                                                {replyProcessing
-                                                                    ? "Posting..."
-                                                                    : "Post Reply"}
-                                                            </button>
-                                                        </div>
-                                                    </form>
-                                                </div>
-                                            )}
-
-                                        {/* Nested comments */}
-                                        {remark.comments?.length > 0 && (
-                                            <div className="ml-8 pl-4 border-l-2 border-gray-200 space-y-3">
-                                                {remark.comments.map(
-                                                    (comment) => (
-                                                        <div
-                                                            key={comment.id}
-                                                            className="space-y-2"
-                                                        >
-                                                            <div className="bg-gray-50 p-3 rounded-lg">
-                                                                <div className="flex justify-between items-start">
-                                                                    <h4 className="font-medium text-gray-800 text-sm">
-                                                                        {comment
-                                                                            .user
-                                                                            ?.name ||
-                                                                            "Anonymous"}
-                                                                    </h4>
-                                                                    <span className="text-xs text-gray-500">
-                                                                        {timeAgo(
-                                                                            comment.created_at
-                                                                        )}
-                                                                    </span>
-                                                                </div>
-                                                                <p className="text-gray-600 text-sm mt-1">
-                                                                    {
-                                                                        comment.comment
-                                                                    }
-                                                                </p>
-                                                                {auth.user && (
-                                                                    <button
-                                                                        onClick={() =>
-                                                                            handleStartReply(
-                                                                                remark.id,
-                                                                                comment.id
-                                                                            )
-                                                                        }
-                                                                        className="text-blue-600 hover:text-blue-800 text-xs mt-1"
-                                                                    >
-                                                                        Reply
-                                                                    </button>
-                                                                )}
-                                                            </div>
-
-                                                            {/* Nested reply form */}
-                                                            {replyingTo ===
-                                                                remark.id &&
-                                                                activeReplyForms[
-                                                                    remark.id
-                                                                ] &&
-                                                                replyData.parent_id ===
-                                                                    comment.id && (
-                                                                    <div className="ml-6 pl-4 border-l-2 border-gray-200">
-                                                                        <form
-                                                                            onSubmit={(
-                                                                                e
-                                                                            ) =>
-                                                                                handleSubmitReply(
-                                                                                    e,
-                                                                                    remark.id
-                                                                                )
-                                                                            }
-                                                                            className="mt-2"
-                                                                        >
-                                                                            <textarea
-                                                                                value={
-                                                                                    replyData.comment
-                                                                                }
-                                                                                onChange={(
-                                                                                    e
-                                                                                ) =>
-                                                                                    setReplyData(
-                                                                                        "comment",
-                                                                                        e
-                                                                                            .target
-                                                                                            .value
-                                                                                    )
-                                                                                }
-                                                                                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                                                                rows={
-                                                                                    2
-                                                                                }
-                                                                                placeholder="Write your reply..."
-                                                                                required
-                                                                            />
-                                                                            <div className="flex justify-end gap-2 mt-2">
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => {
-                                                                                        setReplyingTo(
-                                                                                            null
-                                                                                        );
-                                                                                        setActiveReplyForms(
-                                                                                            (
-                                                                                                prev
-                                                                                            ) => ({
-                                                                                                ...prev,
-                                                                                                [remark.id]: false,
-                                                                                            })
-                                                                                        );
-                                                                                    }}
-                                                                                    className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
-                                                                                >
-                                                                                    Cancel
-                                                                                </button>
-                                                                                <button
-                                                                                    type="submit"
-                                                                                    disabled={
-                                                                                        replyProcessing
-                                                                                    }
-                                                                                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
-                                                                                >
-                                                                                    {replyProcessing
-                                                                                        ? "Posting..."
-                                                                                        : "Post Reply"}
-                                                                                </button>
-                                                                            </div>
-                                                                        </form>
-                                                                    </div>
-                                                                )}
-                                                        </div>
-                                                    )
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
+                                    <CommentThread
+                                        key={remark.id}
+                                        remark={remark}
+                                        auth={auth}
+                                        timeAgo={timeAgo}
+                                        handleStartReply={handleStartReply}
+                                        replyingTo={replyingTo}
+                                        activeReplyForms={activeReplyForms}
+                                        replyData={replyData}
+                                        setReplyData={setReplyData}
+                                        replyProcessing={replyProcessing}
+                                        handleSubmitReply={handleSubmitReply}
+                                    />
                                 ))}
                             </div>
                         </section>
@@ -596,317 +406,342 @@ export default function ViewProject({
                 {/* Right Column - Sidebar */}
                 <div className="space-y-5">
                     {/* Organization Card */}
-                    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                    <div className="card bg-base-100 shadow-sm">
                         <Link
                             href={route("home.organization.profile", {
                                 slug: project.slug,
                                 organization_profile:
                                     project.organization_profile.slug,
                             })}
-                            className="flex items-center p-4 hover:bg-gray-50 transition"
+                            className="card-body p-4 hover:bg-base-200 transition"
                         >
-                            <img
-                                className="w-14 h-14 rounded-full object-cover"
-                                src={
-                                    project.organization_profile.logo
-                                        ? `/storage/${project.organization_profile.logo}`
-                                        : "/images/placeholder.jpg"
-                                }
-                                alt={project.organization_profile?.name}
-                            />
-                            {/* <div className="ml-3"> */}
-                            <div className="ml-3 flex justify-between w-full">
-                                <div>
-                                    <h3 className="font-semibold text-[18px] text-gray-900">
-                                        {project.organization_profile?.name}
-                                    </h3>
-
-                                    <p className="text-sm text-gray-500">
-                                        Organization
-                                    </p>
+                            <div className="flex items-center">
+                                <div className="avatar">
+                                    <div className="w-14 rounded-full">
+                                        <img
+                                            src={
+                                                project.organization_profile
+                                                    .logo
+                                                    ? `/storage/${project.organization_profile.logo}`
+                                                    : "/images/placeholder.jpg"
+                                            }
+                                            alt={
+                                                project.organization_profile
+                                                    ?.name
+                                            }
+                                        />
+                                    </div>
                                 </div>
-                                <div className="flex items-center">
-                                    <ArrowRightCircle />
+                                <div className="ml-3 flex justify-between w-full">
+                                    <div>
+                                        <h3 className="card-title text-lg">
+                                            {project.organization_profile?.name}
+                                        </h3>
+                                        <p className="text-sm text-gray-500">
+                                            Organization
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center">
+                                        <ArrowRightCircle />
+                                    </div>
                                 </div>
                             </div>
-                            {/* </div> */}
                         </Link>
                     </div>
 
                     {/* Quick Facts Card */}
-                    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
-                        <h3 className="font-semibold text-gray-900 mb-3">
-                            Quick Facts
-                        </h3>
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                {project.start_date && (
+                    <div className="card bg-base-100 shadow-sm">
+                        <div className="card-body p-5">
+                            <h3 className="card-title text-lg mb-3">
+                                Quick Facts
+                            </h3>
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    {project.start_date && (
+                                        <div>
+                                            <p className="text-sm text-gray-500">
+                                                Start Date
+                                            </p>
+                                            <p className="font-medium">
+                                                {project.start_date}
+                                            </p>
+                                        </div>
+                                    )}
                                     <div>
                                         <p className="text-sm text-gray-500">
-                                            Start Date
+                                            Duration
                                         </p>
                                         <p className="font-medium">
-                                            {project.start_date}
+                                            {`${project.min_duration} - ${project.max_duration} `}
+                                            {project.duration_type}
                                         </p>
                                     </div>
-                                )}
+                                </div>
                                 <div>
                                     <p className="text-sm text-gray-500">
-                                        Duration
+                                        Minimum Age
                                     </p>
                                     <p className="font-medium">
-                                        {`${project.min_duration} - ${project.max_duration} `}
-                                        {/* {project.duration}{" "} */}
-                                        {project.duration_type}
+                                        {project.minAge || "18+"}
                                     </p>
                                 </div>
                             </div>
-                            <div>
-                                <p className="text-sm text-gray-500">
-                                    Minimum Age
-                                </p>
-                                <p className="font-medium">
-                                    {project.minAge || "18+"}
-                                </p>
-                            </div>
-                        </div>
 
-                        {/* Suitable For */}
-                        {project.suitable?.length > 0 && (
-                            <div className="mt-4">
-                                <p className="text-sm text-gray-500 mb-2">
-                                    Suitable For
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                    {project.suitable.map((item, index) => (
-                                        <span
-                                            key={index}
-                                            className="bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-full text-xs"
-                                        >
-                                            {item}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Availability */}
-                        {project.availability_months?.length > 0 && (
-                            <div className="mt-4">
-                                <p className="text-sm text-gray-500 mb-2">
-                                    Availability
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                    {project.availability_months.map(
-                                        (item, index) => (
+                            {/* Suitable For */}
+                            {project.suitable?.length > 0 && (
+                                <div className="mt-4">
+                                    <p className="text-sm text-gray-500 mb-2">
+                                        Suitable For
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {project.suitable.map((item, index) => (
                                             <span
                                                 key={index}
-                                                className="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full text-xs"
+                                                className="badge badge-primary"
                                             >
                                                 {item}
                                             </span>
-                                        )
-                                    )}
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
+
+                            {/* Availability */}
+                            {project.availability_months?.length > 0 && (
+                                <div className="mt-4">
+                                    <p className="text-sm text-gray-500 mb-2">
+                                        Availability
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {project.availability_months.map(
+                                            (item, index) => (
+                                                <span
+                                                    key={index}
+                                                    className="badge badge-secondary"
+                                                >
+                                                    {item}
+                                                </span>
+                                            )
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
-                    <div className="bg-white rounded-xl border border-gray-200 shadow-lg p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-5 border-b border-gray-100 pb-2">
-                            Volunteer Ratings
-                        </h3>
+                    {/* Ratings Card */}
+                    <div className="card bg-base-100 shadow-sm">
+                        <div className="card-body p-6">
+                            <h3 className="card-title text-lg mb-5">
+                                Volunteer Ratings
+                            </h3>
 
-                        {totalRatings > 0 ? (
-                            <div className="space-y-6">
-                                {/* Average Rating */}
-                                <div className="flex items-center justify-center gap-4">
-                                    <div className="text-5xl font-bold text-gray-900 leading-none">
-                                        {averageRating}
+                            {totalRatings > 0 ? (
+                                <div className="space-y-6">
+                                    {/* Average Rating */}
+                                    <div className="flex items-center justify-center gap-4">
+                                        <div className="text-5xl font-bold text-base-content leading-none">
+                                            {averageRating}
+                                        </div>
+                                        <div className="flex flex-col items-start">
+                                            <div className="rating rating-md">
+                                                {[1, 2, 3, 4, 5].map((star) => (
+                                                    <input
+                                                        key={star}
+                                                        type="radio"
+                                                        name="rating-2"
+                                                        className={`mask mask-star-2 ${
+                                                            star <=
+                                                            Math.round(
+                                                                averageRating
+                                                            )
+                                                                ? "bg-yellow-400"
+                                                                : "bg-gray-300"
+                                                        }`}
+                                                        checked={
+                                                            star ===
+                                                            Math.round(
+                                                                averageRating
+                                                            )
+                                                        }
+                                                        readOnly
+                                                    />
+                                                ))}
+                                            </div>
+                                            <div className="text-sm text-gray-500 mt-1">
+                                                {totalRatings}{" "}
+                                                {totalRatings === 1
+                                                    ? "rating"
+                                                    : "ratings"}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="flex flex-col items-start">
-                                        <div className="flex">
-                                            {[1, 2, 3, 4, 5].map((star) => (
-                                                <svg
-                                                    key={star}
-                                                    className={`h-6 w-6 ${
-                                                        star <=
-                                                        Math.round(
-                                                            averageRating
-                                                        )
-                                                            ? "text-yellow-400"
-                                                            : "text-gray-300"
-                                                    }`}
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 20 20"
-                                                    fill="currentColor"
-                                                >
-                                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                                </svg>
-                                            ))}
-                                        </div>
-                                        <div className="text-sm text-gray-500 mt-1">
-                                            {totalRatings}{" "}
-                                            {totalRatings === 1
-                                                ? "rating"
-                                                : "ratings"}
-                                        </div>
+
+                                    {/* Rating Distribution */}
+                                    <div className="space-y-3">
+                                        {[5, 4, 3, 2, 1].map((stars) => (
+                                            <div
+                                                key={stars}
+                                                className="flex items-center"
+                                            >
+                                                <div className="w-10 text-sm font-medium text-base-content">
+                                                    {stars} star
+                                                </div>
+                                                <div className="flex-1 mx-3 h-3 bg-gray-100 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-3 bg-gradient-to-r from-yellow-400 to-yellow-300 rounded-full transition-all duration-500"
+                                                        style={{
+                                                            width: `${
+                                                                totalRatings > 0
+                                                                    ? (ratingDistribution[
+                                                                          stars
+                                                                      ] /
+                                                                          totalRatings) *
+                                                                      100
+                                                                    : 0
+                                                            }%`,
+                                                        }}
+                                                    ></div>
+                                                </div>
+                                                <div className="w-8 text-sm text-gray-500 text-right">
+                                                    {ratingDistribution[stars]}
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
-
-                                {/* Rating Distribution */}
-                                <div className="space-y-3">
-                                    {[5, 4, 3, 2, 1].map((stars) => (
-                                        <div
-                                            key={stars}
-                                            className="flex items-center"
-                                        >
-                                            <div className="w-10 text-sm font-medium text-gray-900">
-                                                {stars} star
-                                            </div>
-                                            <div className="flex-1 mx-3 h-3 bg-gray-100 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-3 bg-gradient-to-r from-yellow-400 to-yellow-300 rounded-full transition-all duration-500"
-                                                    style={{
-                                                        width: `${
-                                                            totalRatings > 0
-                                                                ? (ratingDistribution[
-                                                                      stars
-                                                                  ] /
-                                                                      totalRatings) *
-                                                                  100
-                                                                : 0
-                                                        }%`,
-                                                    }}
-                                                ></div>
-                                            </div>
-                                            <div className="w-8 text-sm text-gray-500 text-right">
-                                                {ratingDistribution[stars]}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ) : (
-                            <p className="text-sm text-gray-500 italic">
-                                No ratings yet
-                            </p>
-                        )}
+                            ) : (
+                                <p className="text-sm text-gray-500 italic">
+                                    No ratings yet
+                                </p>
+                            )}
+                        </div>
                     </div>
 
                     {/* Share Card */}
-                    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
-                        <h3 className="font-semibold text-gray-900 mb-3">
-                            Share This Opportunity
-                        </h3>
-                        <div className="flex justify-center gap-3 mb-4">
-                            <FacebookShareButton
-                                url={window.location.href}
-                                quote={`Check out: ${project.title}`}
-                            >
-                                <FacebookIcon size={32} round />
-                            </FacebookShareButton>
-                            <TwitterShareButton
-                                url={window.location.href}
-                                title={`Check out: ${project.title}`}
-                            >
-                                <TwitterIcon size={32} round />
-                            </TwitterShareButton>
-                            <WhatsappShareButton
-                                url={window.location.href}
-                                title={`Check out: ${project.title}`}
-                            >
-                                <WhatsappIcon size={32} round />
-                            </WhatsappShareButton>
-                            <EmailShareButton
-                                url={window.location.href}
-                                subject={`Volunteer Opportunity: ${project.title}`}
-                            >
-                                <EmailIcon size={32} round />
-                            </EmailShareButton>
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-500 mb-2">
-                                Copy link
-                            </p>
-                            <div className="flex">
-                                <input
-                                    type="text"
-                                    readOnly
-                                    value={window.location.href}
-                                    className="flex-1 border border-gray-300 rounded-l-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                                <button
-                                    onClick={() =>
-                                        navigator.clipboard.writeText(
-                                            window.location.href
-                                        )
-                                    }
-                                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-r-md text-xs flex items-center"
+                    <div className="card bg-base-100 shadow-sm">
+                        <div className="card-body p-5">
+                            <h3 className="card-title text-lg mb-3">
+                                Share This Opportunity
+                            </h3>
+                            <div className="flex justify-center gap-3 mb-4">
+                                <FacebookShareButton
+                                    url={window.location.href}
+                                    quote={`Check out: ${project.title}`}
                                 >
-                                    <ClipboardDocumentIcon className="h-4 w-4" />
-                                </button>
+                                    <FacebookIcon size={32} round />
+                                </FacebookShareButton>
+                                <TwitterShareButton
+                                    url={window.location.href}
+                                    title={`Check out: ${project.title}`}
+                                >
+                                    <TwitterIcon size={32} round />
+                                </TwitterShareButton>
+                                <WhatsappShareButton
+                                    url={window.location.href}
+                                    title={`Check out: ${project.title}`}
+                                >
+                                    <WhatsappIcon size={32} round />
+                                </WhatsappShareButton>
+                                <EmailShareButton
+                                    url={window.location.href}
+                                    subject={`Volunteer Opportunity: ${project.title}`}
+                                >
+                                    <EmailIcon size={32} round />
+                                </EmailShareButton>
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500 mb-2">
+                                    Copy link
+                                </p>
+                                <div className="join w-full">
+                                    <input
+                                        type="text"
+                                        readOnly
+                                        value={window.location.href}
+                                        className="input input-bordered join-item w-full"
+                                    />
+                                    <button
+                                        onClick={() =>
+                                            navigator.clipboard.writeText(
+                                                window.location.href
+                                            )
+                                        }
+                                        className="btn btn-primary join-item"
+                                    >
+                                        <ClipboardDocumentIcon className="h-4 w-4" />
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Suggested Projects */}
                     {suggestedProjects?.length > 0 && (
-                        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
-                            <h3 className="font-semibold text-gray-900 mb-3">
-                                {hasVolunteerProfile
-                                    ? "Projects Matching Your Skills"
-                                    : "Suggested Projects"}
-                            </h3>
-                            <div className="space-y-3">
-                                {suggestedProjects.map((suggestedProject) => (
-                                    <Link
-                                        key={suggestedProject.id}
-                                        href={route(
-                                            "projects",
-                                            suggestedProject.slug
-                                        )}
-                                        className="flex gap-3 p-2 hover:bg-gray-50 rounded transition"
-                                    >
-                                        <div className="flex-shrink-0 w-12 h-12 rounded overflow-hidden bg-gray-100">
-                                            {suggestedProject.featured_image ? (
-                                                <img
-                                                    src={`/storage/${suggestedProject.featured_image}`}
-                                                    alt={suggestedProject.title}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                                    <svg
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        className="h-6 w-6"
-                                                        fill="none"
-                                                        viewBox="0 0 24 24"
-                                                        stroke="currentColor"
-                                                    >
-                                                        <path
-                                                            strokeLinecap="round"
-                                                            strokeLinejoin="round"
-                                                            strokeWidth={2}
-                                                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                                        />
-                                                    </svg>
+                        <div className="card bg-base-100 shadow-sm">
+                            <div className="card-body p-5">
+                                <h3 className="card-title text-lg mb-3">
+                                    {hasVolunteerProfile
+                                        ? "Projects Matching Your Skills"
+                                        : "Suggested Projects"}
+                                </h3>
+                                <div className="space-y-3">
+                                    {suggestedProjects.map(
+                                        (suggestedProject) => (
+                                            <Link
+                                                key={suggestedProject.id}
+                                                href={route(
+                                                    "projects",
+                                                    suggestedProject.slug
+                                                )}
+                                                className="flex gap-3 p-2 hover:bg-base-200 rounded transition"
+                                            >
+                                                <div className="avatar">
+                                                    <div className="w-12 h-12 rounded">
+                                                        {suggestedProject.featured_image ? (
+                                                            <img
+                                                                src={`/storage/${suggestedProject.featured_image}`}
+                                                                alt={
+                                                                    suggestedProject.title
+                                                                }
+                                                            />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center bg-base-200 text-gray-400">
+                                                                <svg
+                                                                    xmlns="http://www.w3.org/2000/svg"
+                                                                    className="h-6 w-6"
+                                                                    fill="none"
+                                                                    viewBox="0 0 24 24"
+                                                                    stroke="currentColor"
+                                                                >
+                                                                    <path
+                                                                        strokeLinecap="round"
+                                                                        strokeLinejoin="round"
+                                                                        strokeWidth={
+                                                                            2
+                                                                        }
+                                                                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                                                    />
+                                                                </svg>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <h4 className="text-sm font-medium text-gray-900">
-                                                {suggestedProject.title}
-                                            </h4>
-                                            <p className="text-xs text-gray-500">
-                                                {
-                                                    suggestedProject.category
-                                                        ?.name
-                                                }
-                                            </p>
-                                        </div>
-                                    </Link>
-                                ))}
+                                                <div>
+                                                    <h4 className="text-sm font-medium text-base-content">
+                                                        {suggestedProject.title}
+                                                    </h4>
+                                                    <p className="text-xs text-gray-500">
+                                                        {
+                                                            suggestedProject
+                                                                .category?.name
+                                                        }
+                                                    </p>
+                                                </div>
+                                            </Link>
+                                        )
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}
@@ -915,159 +750,319 @@ export default function ViewProject({
 
             {/* Report Modal */}
             {isReportModalOpen && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md relative">
+                <div className="modal modal-open">
+                    <div className="modal-box max-w-md">
                         <button
                             onClick={() => setIsReportModalOpen(false)}
-                            className="absolute top-4 right-4 text-gray-400 hover:text-gray-500"
+                            className="btn btn-sm btn-circle absolute right-2 top-2"
                         >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-6 w-6"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M6 18L18 6M6 6l12 12"
-                                />
-                            </svg>
+                            ✕
                         </button>
-                        <div className="p-6">
-                            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                                Report Project
-                            </h2>
-                            <form onSubmit={handleSubmitReport}>
-                                <div className="space-y-4">
-                                    <div>
-                                        <label
-                                            htmlFor="report_category_id"
-                                            className="block text-sm font-medium text-gray-700 mb-1"
-                                        >
+                        <h2 className="text-lg font-semibold mb-4">
+                            Report Project
+                        </h2>
+                        <form onSubmit={handleSubmitReport}>
+                            <div className="space-y-4">
+                                <div className="form-control">
+                                    <label className="label">
+                                        <span className="label-text">
                                             Issue Category
-                                        </label>
-                                        <select
-                                            id="report_category_id"
-                                            value={data.report_category_id}
-                                            onChange={(e) => {
-                                                setData(
-                                                    "report_category_id",
-                                                    e.target.value
+                                        </span>
+                                    </label>
+                                    <select
+                                        className="select select-bordered w-full"
+                                        value={data.report_category_id}
+                                        onChange={(e) => {
+                                            setData(
+                                                "report_category_id",
+                                                e.target.value
+                                            );
+                                            const selectedCategory =
+                                                reportCategories.find(
+                                                    (cat) =>
+                                                        cat.id == e.target.value
                                                 );
-                                                const selectedCategory =
-                                                    reportCategories.find(
-                                                        (cat) =>
-                                                            cat.id ==
-                                                            e.target.value
-                                                    );
-                                                setSubcategories(
-                                                    selectedCategory?.subcategories ||
-                                                        []
-                                                );
-                                            }}
-                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                            required
-                                        >
-                                            <option value="">
-                                                Select a category
+                                            setSubcategories(
+                                                selectedCategory?.subcategories ||
+                                                    []
+                                            );
+                                        }}
+                                        required
+                                    >
+                                        <option value="">
+                                            Select a category
+                                        </option>
+                                        {reportCategories.map((category) => (
+                                            <option
+                                                key={category.id}
+                                                value={category.id}
+                                            >
+                                                {category.name}
                                             </option>
-                                            {reportCategories.map(
-                                                (category) => (
-                                                    <option
-                                                        key={category.id}
-                                                        value={category.id}
-                                                    >
-                                                        {category.name}
-                                                    </option>
-                                                )
-                                            )}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label
-                                            htmlFor="report_subcategory_id"
-                                            className="block text-sm font-medium text-gray-700 mb-1"
-                                        >
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-control">
+                                    <label className="label">
+                                        <span className="label-text">
                                             Issue Type
-                                        </label>
-                                        <select
-                                            id="report_subcategory_id"
-                                            value={data.report_subcategory_id}
-                                            onChange={(e) =>
-                                                setData(
-                                                    "report_subcategory_id",
-                                                    e.target.value
-                                                )
-                                            }
-                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                            required
-                                            disabled={!data.report_category_id}
-                                        >
-                                            <option value="">
-                                                Select a type
-                                            </option>
-                                            {subcategories.map(
-                                                (subcategory) => (
-                                                    <option
-                                                        key={subcategory.id}
-                                                        value={subcategory.id}
-                                                    >
-                                                        {subcategory.name}
-                                                    </option>
-                                                )
-                                            )}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label
-                                            htmlFor="description"
-                                            className="block text-sm font-medium text-gray-700 mb-1"
-                                        >
-                                            Description
-                                        </label>
-                                        <textarea
-                                            id="description"
-                                            value={data.description}
-                                            onChange={(e) =>
-                                                setData(
-                                                    "description",
-                                                    e.target.value
-                                                )
-                                            }
-                                            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                            rows={4}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-                                <div className="mt-6 flex justify-end space-x-3">
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setIsReportModalOpen(false)
+                                        </span>
+                                    </label>
+                                    <select
+                                        className="select select-bordered w-full"
+                                        value={data.report_subcategory_id}
+                                        onChange={(e) =>
+                                            setData(
+                                                "report_subcategory_id",
+                                                e.target.value
+                                            )
                                         }
-                                        className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                                        required
+                                        disabled={!data.report_category_id}
                                     >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={processing}
-                                        className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50"
-                                    >
-                                        {processing
-                                            ? "Submitting..."
-                                            : "Submit Report"}
-                                    </button>
+                                        <option value="">Select a type</option>
+                                        {subcategories.map((subcategory) => (
+                                            <option
+                                                key={subcategory.id}
+                                                value={subcategory.id}
+                                            >
+                                                {subcategory.name}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
-                            </form>
-                        </div>
+                                <div className="form-control">
+                                    <label className="label">
+                                        <span className="label-text">
+                                            Description
+                                        </span>
+                                    </label>
+                                    <textarea
+                                        className="textarea textarea-bordered h-24"
+                                        value={data.description}
+                                        onChange={(e) =>
+                                            setData(
+                                                "description",
+                                                e.target.value
+                                            )
+                                        }
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <div className="modal-action">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsReportModalOpen(false)}
+                                    className="btn btn-ghost"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={processing}
+                                    className="btn btn-error"
+                                >
+                                    {processing ? (
+                                        <span className="loading loading-spinner"></span>
+                                    ) : (
+                                        "Submit Report"
+                                    )}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
         </GeneralPages>
     );
 }
+
+const CommentThread = ({
+    remark,
+    auth,
+    timeAgo,
+    handleStartReply,
+    replyingTo,
+    activeReplyForms,
+    replyData,
+    setReplyData,
+    replyProcessing,
+    handleSubmitReply,
+    depth = 0,
+}) => {
+    const maxDepth = 5;
+    const isTopLevel = depth === 0;
+    const indentClass = `ml-${
+        Math.min(depth, 3) * 4
+    } pl-4 border-l-2 border-base-200`;
+
+    const showReplyButton = auth.user && isTopLevel;
+
+    // Sort nested comments by most recent first
+    const sortedComments = [...(remark.comments || [])].sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+    );
+
+    return (
+        <div className="space-y-4">
+            {/* Comment Card */}
+            <div className={`relative ${isTopLevel ? "pt-0" : "pt-2"}`}>
+                <div
+                    className={`group p-4 rounded-box transition-all duration-150 ${
+                        isTopLevel
+                            ? "bg-base-100 shadow-sm border border-base-200 hover:border-base-300"
+                            : "bg-base-200"
+                    }`}
+                >
+                    <div className="flex items-start space-x-3">
+                        {/* User Avatar */}
+                        <div className="flex-shrink-0">
+                            <div className="avatar">
+                                <div className="w-8 rounded-full">
+                                    {remark.user?.avatar ? (
+                                        <img
+                                            src={`/storage/${remark.user.avatar}`}
+                                            alt={remark.user.name}
+                                        />
+                                    ) : (
+                                        <div className="bg-base-300 text-base-content flex items-center justify-center">
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                className="h-5 w-5"
+                                                viewBox="0 0 20 20"
+                                                fill="currentColor"
+                                            >
+                                                <path
+                                                    fillRule="evenodd"
+                                                    d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                                                    clipRule="evenodd"
+                                                />
+                                            </svg>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Comment Content */}
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2">
+                                    <h4 className="text-sm font-medium text-base-content">
+                                        {remark.user?.name ||
+                                            "Anonymous Volunteer"}
+                                    </h4>
+                                    <span className="text-xs text-gray-500">
+                                        {timeAgo(remark.created_at)}
+                                    </span>
+                                </div>
+
+                                {/* Reply Button */}
+                                {showReplyButton && (
+                                    <button
+                                        onClick={() =>
+                                            handleStartReply(remark.id)
+                                        }
+                                        className="btn btn-xs btn-ghost"
+                                    >
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            className="h-3.5 w-3.5 mr-1"
+                                            viewBox="0 0 20 20"
+                                            fill="currentColor"
+                                        >
+                                            <path
+                                                fillRule="evenodd"
+                                                d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                                                clipRule="evenodd"
+                                            />
+                                        </svg>
+                                        Reply
+                                    </button>
+                                )}
+                            </div>
+                            <p className="mt-1 text-sm text-base-content leading-snug">
+                                {remark.comment}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Reply Form (only for top-level comments) */}
+            {isTopLevel &&
+                replyingTo === remark.id &&
+                activeReplyForms[remark.id] && (
+                    <div className={`${indentClass} mt-3`}>
+                        <form
+                            onSubmit={(e) => handleSubmitReply(e, remark.id)}
+                            className="bg-base-100 p-3 rounded-box shadow-xs border border-base-200"
+                        >
+                            <textarea
+                                value={replyData.comment}
+                                onChange={(e) =>
+                                    setReplyData({
+                                        ...replyData,
+                                        comment: e.target.value,
+                                    })
+                                }
+                                className="textarea textarea-bordered w-full"
+                                rows={3}
+                                placeholder="Write your thoughtful reply..."
+                                required
+                            />
+                            <div className="mt-2 flex justify-end space-x-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setReplyingTo(null);
+                                        setActiveReplyForms((prev) => ({
+                                            ...prev,
+                                            [remark.id]: false,
+                                        }));
+                                    }}
+                                    className="btn btn-ghost btn-sm"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={replyProcessing}
+                                    className="btn btn-primary btn-sm"
+                                >
+                                    {replyProcessing ? (
+                                        <span className="loading loading-spinner"></span>
+                                    ) : (
+                                        "Post Reply"
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                )}
+
+            {/* Nested Comments */}
+            {sortedComments.length > 0 && depth < maxDepth && (
+                <div className={indentClass}>
+                    {sortedComments.map((comment) => (
+                        <CommentThread
+                            key={comment.id}
+                            remark={comment}
+                            auth={auth}
+                            timeAgo={timeAgo}
+                            handleStartReply={handleStartReply}
+                            replyingTo={replyingTo}
+                            activeReplyForms={activeReplyForms}
+                            replyData={replyData}
+                            setReplyData={setReplyData}
+                            replyProcessing={replyProcessing}
+                            handleSubmitReply={handleSubmitReply}
+                            depth={depth + 1}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};

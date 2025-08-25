@@ -20,10 +20,20 @@ return new class extends Migration
             $table->string('stripe_payment_id');
             $table->timestamp('start_date')->nullable();
             $table->timestamp('end_date')->nullable();
-            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
+            $table->enum('status', ['pending', 'approved', 'rejected', 'expired'])->default('pending');
             $table->text('rejection_reason')->nullable();
             $table->boolean('is_active')->default(false);
+
+            $table->boolean('notified_7_days')->default(false);
+            $table->boolean('notified_1_day')->default(false);
+            $table->boolean('notified_expired')->default(false);
+
             $table->timestamps();
+
+            // Add indexes for better performance
+            $table->index(['status', 'is_active']);
+            $table->index('end_date');
+            $table->index(['status', 'is_active', 'end_date']);
         });
     }
 

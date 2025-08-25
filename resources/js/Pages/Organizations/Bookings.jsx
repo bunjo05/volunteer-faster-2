@@ -21,7 +21,7 @@ import {
 import { Dialog } from "@headlessui/react";
 import VerifiedBadge from "@/Components/VerifiedBadge";
 
-export default function Bookings({ bookings: initialBookings }) {
+export default function Bookings({ bookings: initialBookings, auth }) {
     const [bookings, setBookings] = useState(initialBookings);
     const [activeBooking, setActiveBooking] = useState(bookings[0] || null);
     const { flash } = usePage().props;
@@ -154,7 +154,7 @@ export default function Bookings({ bookings: initialBookings }) {
     };
 
     return (
-        <OrganizationLayout>
+        <OrganizationLayout auth={auth}>
             <section className="bg-gray-50 min-h-screen">
                 <Head title="Volunteer Bookings" />
 
@@ -552,256 +552,260 @@ export default function Bookings({ bookings: initialBookings }) {
                                                 </div>
 
                                                 {/* Payment Information */}
-
-                                                <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                                                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-                                                        Payment Information
-                                                    </h3>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                                        {/* Total Amount */}
-                                                        <div className="bg-gray-50 p-4 rounded-lg">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
-                                                                    <DollarSign className="w-4 h-4" />
+                                                {activeBooking.type_of_project ===
+                                                    "Paid" && (
+                                                    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                                                        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
+                                                            Payment Information
+                                                        </h3>
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                                            {/* Total Amount */}
+                                                            <div className="bg-gray-50 p-4 rounded-lg">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
+                                                                        <DollarSign className="w-4 h-4" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <h4 className="text-sm font-medium text-gray-500">
+                                                                            Total
+                                                                            Amount
+                                                                        </h4>
+                                                                        <p className="text-lg font-semibold text-gray-800">
+                                                                            $
+                                                                            {calculateTotalAmount(
+                                                                                activeBooking.start_date,
+                                                                                activeBooking.end_date,
+                                                                                activeBooking
+                                                                                    .project
+                                                                                    ?.fees ||
+                                                                                    0,
+                                                                                activeBooking.number_of_travellers
+                                                                            ).toLocaleString()}
+                                                                        </p>
+                                                                    </div>
                                                                 </div>
-                                                                <div>
-                                                                    <h4 className="text-sm font-medium text-gray-500">
-                                                                        Total
-                                                                        Amount
-                                                                    </h4>
-                                                                    <p className="text-lg font-semibold text-gray-800">
-                                                                        $
-                                                                        {calculateTotalAmount(
-                                                                            activeBooking.start_date,
-                                                                            activeBooking.end_date,
-                                                                            activeBooking
-                                                                                .project
-                                                                                ?.fees ||
-                                                                                0,
-                                                                            activeBooking.number_of_travellers
-                                                                        ).toLocaleString()}
-                                                                    </p>
+                                                            </div>
+
+                                                            {/* Amount Paid / Deposit Due */}
+                                                            <div
+                                                                className={`p-4 rounded-lg ${
+                                                                    hasDepositPaid()
+                                                                        ? "bg-gray-50"
+                                                                        : "bg-red-50"
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-center gap-3">
+                                                                    <div
+                                                                        className={`flex items-center justify-center h-10 w-10 rounded-full ${
+                                                                            hasDepositPaid()
+                                                                                ? "bg-blue-100 text-blue-600"
+                                                                                : "bg-red-100 text-red-600"
+                                                                        } flex-shrink-0`}
+                                                                    >
+                                                                        <DollarSign className="w-4 h-4" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <h4 className="text-sm font-medium text-gray-500">
+                                                                            {hasDepositPaid()
+                                                                                ? "Amount Paid"
+                                                                                : "Deposit Amount to be paid"}
+                                                                        </h4>
+                                                                        <p
+                                                                            className={`text-lg font-semibold ${
+                                                                                hasDepositPaid()
+                                                                                    ? "text-gray-800"
+                                                                                    : "text-red-800"
+                                                                            }`}
+                                                                        >
+                                                                            $
+                                                                            {hasDepositPaid()
+                                                                                ? calculateTotalPaid().toLocaleString()
+                                                                                : calculateDepositAmount().toLocaleString()}
+                                                                        </p>
+                                                                        {!hasDepositPaid() && (
+                                                                            <p className="text-xs text-red-600 mt-1">
+                                                                                Deposit
+                                                                                payment
+                                                                                is
+                                                                                required
+                                                                                to
+                                                                                confirm
+                                                                                booking
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Balance Due */}
+                                                            <div className="bg-gray-50 p-4 rounded-lg">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
+                                                                        <DollarSign className="w-4 h-4" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <h4 className="text-sm font-medium text-gray-500">
+                                                                            Balance
+                                                                            Due
+                                                                        </h4>
+                                                                        <p className="text-lg font-semibold text-gray-800">
+                                                                            $
+                                                                            {calculateRemainingBalance().toLocaleString()}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Deposit Status */}
+                                                            <div className="bg-gray-50 p-4 rounded-lg">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
+                                                                        <DollarSign className="w-4 h-4" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <h4 className="text-sm font-medium text-gray-500">
+                                                                            Deposit
+                                                                            Status
+                                                                        </h4>
+                                                                        <p className="text-gray-600">
+                                                                            {hasDepositPaid() ? (
+                                                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                                    <Check className="w-3 h-3 mr-1" />
+                                                                                    Deposit
+                                                                                    Paid
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                                                    <X className="w-3 h-3 mr-1" />
+                                                                                    Deposit
+                                                                                    Pending
+                                                                                </span>
+                                                                            )}
+                                                                        </p>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
 
-                                                        {/* Amount Paid / Deposit Due */}
-                                                        <div
-                                                            className={`p-4 rounded-lg ${
-                                                                hasDepositPaid()
-                                                                    ? "bg-gray-50"
-                                                                    : "bg-red-50"
-                                                            }`}
-                                                        >
-                                                            <div className="flex items-center gap-3">
-                                                                <div
-                                                                    className={`flex items-center justify-center h-10 w-10 rounded-full ${
-                                                                        hasDepositPaid()
-                                                                            ? "bg-blue-100 text-blue-600"
-                                                                            : "bg-red-100 text-red-600"
-                                                                    } flex-shrink-0`}
-                                                                >
-                                                                    <DollarSign className="w-4 h-4" />
-                                                                </div>
-                                                                <div>
-                                                                    <h4 className="text-sm font-medium text-gray-500">
-                                                                        {hasDepositPaid()
-                                                                            ? "Amount Paid"
-                                                                            : "Deposit Amount to be paid"}
-                                                                    </h4>
-                                                                    <p
-                                                                        className={`text-lg font-semibold ${
-                                                                            hasDepositPaid()
-                                                                                ? "text-gray-800"
-                                                                                : "text-red-800"
-                                                                        }`}
-                                                                    >
-                                                                        $
-                                                                        {hasDepositPaid()
-                                                                            ? calculateTotalPaid().toLocaleString()
-                                                                            : calculateDepositAmount().toLocaleString()}
-                                                                    </p>
-                                                                    {!hasDepositPaid() && (
-                                                                        <p className="text-xs text-red-600 mt-1">
-                                                                            Deposit
-                                                                            payment
-                                                                            is
-                                                                            required
-                                                                            to
-                                                                            confirm
+                                                        {/* Point Payment Status - Only shown if paid with points */}
+                                                        {activeBooking.has_points_payment && (
+                                                            <div className="bg-gray-50 p-4 rounded-lg">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="flex items-center justify-center h-10 w-10 rounded-full bg-purple-100 text-purple-600 flex-shrink-0">
+                                                                        <DollarSign className="w-4 h-4" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <h4 className="text-sm font-medium text-gray-500">
+                                                                            Point
+                                                                            Payment
+                                                                        </h4>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                                                                <Check className="w-3 h-3 mr-1" />
+                                                                                Paid
+                                                                                with
+                                                                                Points
+                                                                            </span>
+                                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                                {
+                                                                                    activeBooking.points_amount
+                                                                                }{" "}
+                                                                                Points
+                                                                                Earned
+                                                                            </span>
+                                                                        </div>
+                                                                        <p className="mt-1 text-xs text-purple-600">
+                                                                            This
                                                                             booking
+                                                                            was
+                                                                            fully
+                                                                            paid
+                                                                            using
+                                                                            volunteer
+                                                                            points.
                                                                         </p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Payment History */}
+                                                        {activeBooking?.payments
+                                                            ?.length > 0 && (
+                                                            <div>
+                                                                <h4 className="font-medium text-gray-700 mb-3">
+                                                                    Payment
+                                                                    History
+                                                                </h4>
+                                                                <div className="space-y-3">
+                                                                    {activeBooking.payments.map(
+                                                                        (
+                                                                            payment
+                                                                        ) => (
+                                                                            <div
+                                                                                key={
+                                                                                    payment.id
+                                                                                }
+                                                                                className="bg-gray-50 p-4 rounded-lg border border-gray-200"
+                                                                            >
+                                                                                <div className="flex justify-between items-center">
+                                                                                    <div>
+                                                                                        <p className="font-semibold text-gray-800">
+                                                                                            $
+                                                                                            {
+                                                                                                payment.amount
+                                                                                            }
+                                                                                        </p>
+                                                                                        <p className="text-xs text-gray-500 mt-1">
+                                                                                            {new Date(
+                                                                                                payment.created_at
+                                                                                            ).toLocaleDateString(
+                                                                                                "en-US",
+                                                                                                {
+                                                                                                    year: "numeric",
+                                                                                                    month: "short",
+                                                                                                    day: "numeric",
+                                                                                                    hour: "2-digit",
+                                                                                                    minute: "2-digit",
+                                                                                                }
+                                                                                            )}
+                                                                                        </p>
+                                                                                    </div>
+                                                                                    <span
+                                                                                        className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                                                                            payment.status ===
+                                                                                            "succeeded"
+                                                                                                ? "bg-green-100 text-green-800"
+                                                                                                : payment.status ===
+                                                                                                  "pending"
+                                                                                                ? "bg-yellow-100 text-yellow-800"
+                                                                                                : payment.status ===
+                                                                                                  "deposit_paid"
+                                                                                                ? "bg-blue-100 text-blue-800"
+                                                                                                : "bg-red-100 text-red-800"
+                                                                                        }`}
+                                                                                    >
+                                                                                        {payment.status ===
+                                                                                        "deposit_paid"
+                                                                                            ? "Deposit"
+                                                                                            : payment.status
+                                                                                                  .charAt(
+                                                                                                      0
+                                                                                                  )
+                                                                                                  .toUpperCase() +
+                                                                                              payment.status.slice(
+                                                                                                  1
+                                                                                              )}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </div>
+                                                                        )
                                                                     )}
                                                                 </div>
                                                             </div>
-                                                        </div>
-
-                                                        {/* Balance Due */}
-                                                        <div className="bg-gray-50 p-4 rounded-lg">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
-                                                                    <DollarSign className="w-4 h-4" />
-                                                                </div>
-                                                                <div>
-                                                                    <h4 className="text-sm font-medium text-gray-500">
-                                                                        Balance
-                                                                        Due
-                                                                    </h4>
-                                                                    <p className="text-lg font-semibold text-gray-800">
-                                                                        $
-                                                                        {calculateRemainingBalance().toLocaleString()}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Deposit Status */}
-                                                        <div className="bg-gray-50 p-4 rounded-lg">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
-                                                                    <DollarSign className="w-4 h-4" />
-                                                                </div>
-                                                                <div>
-                                                                    <h4 className="text-sm font-medium text-gray-500">
-                                                                        Deposit
-                                                                        Status
-                                                                    </h4>
-                                                                    <p className="text-gray-600">
-                                                                        {hasDepositPaid() ? (
-                                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                                                <Check className="w-3 h-3 mr-1" />
-                                                                                Deposit
-                                                                                Paid
-                                                                            </span>
-                                                                        ) : (
-                                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                                                                <X className="w-3 h-3 mr-1" />
-                                                                                Deposit
-                                                                                Pending
-                                                                            </span>
-                                                                        )}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                        </div>
+                                                        )}
                                                     </div>
-                                                    {/* Point Payment Status - Only shown if paid with points */}
-                                                    {activeBooking.has_points_payment && (
-                                                        <div className="bg-gray-50 p-4 rounded-lg">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="flex items-center justify-center h-10 w-10 rounded-full bg-purple-100 text-purple-600 flex-shrink-0">
-                                                                    <DollarSign className="w-4 h-4" />
-                                                                </div>
-                                                                <div>
-                                                                    <h4 className="text-sm font-medium text-gray-500">
-                                                                        Point
-                                                                        Payment
-                                                                    </h4>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                                                            <Check className="w-3 h-3 mr-1" />
-                                                                            Paid
-                                                                            with
-                                                                            Points
-                                                                        </span>
-                                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                                            {
-                                                                                activeBooking.points_amount
-                                                                            }{" "}
-                                                                            Points
-                                                                            Earned
-                                                                        </span>
-                                                                    </div>
-                                                                    <p className="mt-1 text-xs text-purple-600">
-                                                                        This
-                                                                        booking
-                                                                        was
-                                                                        fully
-                                                                        paid
-                                                                        using
-                                                                        volunteer
-                                                                        points.
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Payment History */}
-                                                    {activeBooking?.payments
-                                                        ?.length > 0 && (
-                                                        <div>
-                                                            <h4 className="font-medium text-gray-700 mb-3">
-                                                                Payment History
-                                                            </h4>
-                                                            <div className="space-y-3">
-                                                                {activeBooking.payments.map(
-                                                                    (
-                                                                        payment
-                                                                    ) => (
-                                                                        <div
-                                                                            key={
-                                                                                payment.id
-                                                                            }
-                                                                            className="bg-gray-50 p-4 rounded-lg border border-gray-200"
-                                                                        >
-                                                                            <div className="flex justify-between items-center">
-                                                                                <div>
-                                                                                    <p className="font-semibold text-gray-800">
-                                                                                        $
-                                                                                        {
-                                                                                            payment.amount
-                                                                                        }
-                                                                                    </p>
-                                                                                    <p className="text-xs text-gray-500 mt-1">
-                                                                                        {new Date(
-                                                                                            payment.created_at
-                                                                                        ).toLocaleDateString(
-                                                                                            "en-US",
-                                                                                            {
-                                                                                                year: "numeric",
-                                                                                                month: "short",
-                                                                                                day: "numeric",
-                                                                                                hour: "2-digit",
-                                                                                                minute: "2-digit",
-                                                                                            }
-                                                                                        )}
-                                                                                    </p>
-                                                                                </div>
-                                                                                <span
-                                                                                    className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                                                                        payment.status ===
-                                                                                        "succeeded"
-                                                                                            ? "bg-green-100 text-green-800"
-                                                                                            : payment.status ===
-                                                                                              "pending"
-                                                                                            ? "bg-yellow-100 text-yellow-800"
-                                                                                            : payment.status ===
-                                                                                              "deposit_paid"
-                                                                                            ? "bg-blue-100 text-blue-800"
-                                                                                            : "bg-red-100 text-red-800"
-                                                                                    }`}
-                                                                                >
-                                                                                    {payment.status ===
-                                                                                    "deposit_paid"
-                                                                                        ? "Deposit"
-                                                                                        : payment.status
-                                                                                              .charAt(
-                                                                                                  0
-                                                                                              )
-                                                                                              .toUpperCase() +
-                                                                                          payment.status.slice(
-                                                                                              1
-                                                                                          )}
-                                                                                </span>
-                                                                            </div>
-                                                                        </div>
-                                                                    )
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                )}
 
                                                 {activeBooking.booking_status !==
                                                     "Completed" && (

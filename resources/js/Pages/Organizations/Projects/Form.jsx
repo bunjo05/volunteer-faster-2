@@ -4,7 +4,7 @@ import OrganizationLayout from "@/Layouts/OrganizationLayout";
 import LocationDropdown from "@/Components/LocationDropdown";
 import VolunteerSkillsDropdown from "@/Components/VolunteerSkillsDropdown";
 
-// Reusable form components
+// Reusable form components with Daisy UI classes
 const FormInput = ({
     label,
     type = "text",
@@ -12,24 +12,30 @@ const FormInput = ({
     value,
     onChange,
     error,
-    validate, // Add new prop for validation function
+    validate,
     className = "",
     ...props
 }) => {
     return (
-        <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-                {label}
+        <div className="form-control w-full mb-4">
+            <label className="label">
+                <span className="label-text">{label}</span>
             </label>
             <input
                 type={type}
                 name={name}
                 value={value || ""}
                 onChange={onChange}
-                className={`w-full px-4 py-2 border rounded-md shadow-sm focus:outline-none focus:ring focus:border-blue-300 ${className}`}
+                className={`input input-bordered w-full ${
+                    error ? "input-error" : ""
+                } ${className}`}
                 {...props}
             />
-            {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
+            {error && (
+                <label className="label">
+                    <span className="label-text-alt text-error">{error}</span>
+                </label>
+            )}
         </div>
     );
 };
@@ -41,29 +47,29 @@ const FormTextarea = ({
     onChange,
     error,
     rows = 3,
-    validate, // Add new prop for validation function
+    validate,
     ...props
 }) => {
-    const handleChange = (e) => {
-        onChange(e);
-        if (validate) {
-            validate(e.target.value); // Call validation function if provided
-        }
-    };
     return (
-        <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-                {label}
+        <div className="form-control w-full mb-4">
+            <label className="label">
+                <span className="label-text">{label}</span>
             </label>
             <textarea
                 name={name}
                 value={value || ""}
                 onChange={onChange}
                 rows={rows}
-                className="w-full px-4 py-2 border rounded-md shadow-sm focus:outline-none focus:ring focus:border-blue-300"
+                className={`textarea textarea-bordered w-full ${
+                    error ? "textarea-error" : ""
+                }`}
                 {...props}
             />
-            {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
+            {error && (
+                <label className="label">
+                    <span className="label-text-alt text-error">{error}</span>
+                </label>
+            )}
         </div>
     );
 };
@@ -75,25 +81,21 @@ const FormSelect = ({
     onChange,
     options,
     error,
-    validate, // Add new prop for validation function
+    validate,
     ...props
 }) => {
-    const handleChange = (e) => {
-        onChange(e);
-        if (validate) {
-            validate(e.target.value); // Call validation function if provided
-        }
-    };
     return (
-        <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-                {label}
+        <div className="form-control w-full mb-4">
+            <label className="label">
+                <span className="label-text">{label}</span>
             </label>
             <select
                 name={name}
                 value={value || ""}
                 onChange={onChange}
-                className="w-full px-4 py-2 border rounded-md shadow-sm focus:outline-none focus:ring focus:border-blue-300"
+                className={`select select-bordered w-full ${
+                    error ? "select-error" : ""
+                }`}
                 {...props}
             >
                 {options.map((option) => (
@@ -102,24 +104,34 @@ const FormSelect = ({
                     </option>
                 ))}
             </select>
-            {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
+            {error && (
+                <label className="label">
+                    <span className="label-text-alt text-error">{error}</span>
+                </label>
+            )}
         </div>
     );
 };
 
 const FormCheckbox = ({ label, name, checked, onChange, error, ...props }) => {
     return (
-        <div className="mb-4 flex items-center">
-            <input
-                type="checkbox"
-                name={name}
-                checked={checked || false}
-                onChange={onChange}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                {...props}
-            />
-            <label className="ml-2 block text-sm text-gray-700">{label}</label>
-            {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
+        <div className="form-control mb-4">
+            <label className="label cursor-pointer justify-start gap-2">
+                <input
+                    type="checkbox"
+                    name={name}
+                    checked={checked || false}
+                    onChange={onChange}
+                    className={`checkbox ${error ? "checkbox-error" : ""}`}
+                    {...props}
+                />
+                <span className="label-text">{label}</span>
+            </label>
+            {error && (
+                <label className="label">
+                    <span className="label-text-alt text-error">{error}</span>
+                </label>
+            )}
         </div>
     );
 };
@@ -132,9 +144,9 @@ const FormFileInput = ({
     accept,
     multiple = false,
 }) => (
-    <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-            {label}
+    <div className="form-control w-full mb-4">
+        <label className="label">
+            <span className="label-text">{label}</span>
         </label>
         <input
             type="file"
@@ -142,19 +154,29 @@ const FormFileInput = ({
             onChange={onChange}
             accept={accept}
             multiple={multiple}
-            className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            className={`file-input file-input-bordered w-full ${
+                error ? "file-input-error" : ""
+            }`}
         />
-        {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
+        {error && (
+            <label className="label">
+                <span className="label-text-alt text-error">{error}</span>
+            </label>
+        )}
     </div>
 );
 
 const ImagePreview = ({ src, onRemove, alt = "Preview" }) => (
     <div className="relative inline-block mt-2">
-        <img src={src} alt={alt} className="h-32 object-cover rounded" />
+        <img
+            src={src}
+            alt={alt}
+            className="h-32 w-full object-cover rounded-lg"
+        />
         <button
             type="button"
             onClick={onRemove}
-            className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+            className="absolute top-1 right-1 bg-error text-white rounded-full p-1 hover:bg-error/90"
             title="Remove image"
         >
             <svg
@@ -176,110 +198,13 @@ const ImagePreview = ({ src, onRemove, alt = "Preview" }) => (
 );
 
 const MAX_VALUES = 250;
-
 const SHORT_DESCRIPTION = 500;
-
-// Enhanced handleChange functions for real-time updates
-const handleInputChange = (field) => (e) => {
-    const value = e.target.value;
-    setData(field, value);
-    clearErrors(field); // Clear error when user starts typing
-};
-
-const handleCheckboxChange = (field) => (e) => {
-    const checked = e.target.checked;
-    setData(field, checked);
-    clearErrors(field);
-};
-
-const handleArrayCheckboxChange = (field, value) => (e) => {
-    const checked = e.target.checked;
-    setData(
-        field,
-        checked
-            ? [...data[field], value]
-            : data[field].filter((item) => item !== value)
-    );
-    clearErrors(field);
-};
-
-const handleFileChange = (field) => (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (field === "featured_image") {
-        handleFeaturedImageChange(e);
-    } else if (field === "gallery_images") {
-        handleGalleryImageChange(e);
-    }
-};
-
-const StepIndicator = ({ steps, currentStep, errorSteps, onStepClick }) => {
-    return (
-        <div className="mb-8">
-            <div className="flex justify-between relative">
-                <div className="absolute top-4 left-0 right-0 h-1 bg-gray-200 -z-10">
-                    <div
-                        className="h-1 bg-blue-600 transition-all duration-300"
-                        style={{
-                            width: `${
-                                ((currentStep - 1) / (steps.length - 1)) * 100
-                            }%`,
-                        }}
-                    ></div>
-                </div>
-
-                {steps.map((step, index) => {
-                    const stepNumber = index + 1;
-                    const isActive = currentStep === stepNumber;
-                    const hasError = errorSteps.includes(stepNumber);
-
-                    return (
-                        <div
-                            key={stepNumber}
-                            className="flex flex-col items-center"
-                        >
-                            <button
-                                type="button"
-                                onClick={() => onStepClick(stepNumber)}
-                                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
-                  ${
-                      isActive
-                          ? "bg-blue-600 text-white"
-                          : hasError
-                          ? "bg-red-500 text-white"
-                          : currentStep > stepNumber
-                          ? "bg-green-500 text-white"
-                          : "bg-gray-200 text-gray-600"
-                  }
-                  transition-colors duration-200`}
-                            >
-                                {stepNumber}
-                            </button>
-                            <span
-                                className={`text-xs mt-2 ${
-                                    isActive ? "font-bold text-blue-600" : ""
-                                }`}
-                            >
-                                {step.label}
-                            </span>
-                            {hasError && !isActive && (
-                                <span className="text-xs text-red-500 mt-1">
-                                    !
-                                </span>
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
-};
 
 export default function ProjectForm({
     categories,
     project = null,
     isEdit = false,
+    auth,
 }) {
     const featuredImageInputRef = useRef(null);
     const {
@@ -298,7 +223,7 @@ export default function ProjectForm({
             isEdit && project?.featured_image ? project.featured_image : null,
         category_id: project?.category_id || "",
         subcategory_id: project?.subcategory_id || "",
-        country: project?.country || null, // Changed from "" to null
+        country: project?.country || null,
         city: project?.city || null,
         state: project?.state || null,
         short_description: project?.short_description || "",
@@ -316,12 +241,11 @@ export default function ProjectForm({
         activities: project?.activities || "",
         suitable: project?.suitable || [],
         availability_months: project?.availability_months || [],
-        skills: project?.skills || [], // Add skills array
+        skills: project?.skills || [],
         gallery_images: [],
         existing_gallery_images: isEdit
             ? project?.gallery_images?.map((img) => img.id)
             : [],
-
         start_date: project?.start_date || "",
         status: project?.status || "Pending",
         point_exchange: project?.point_exchange || false,
@@ -363,7 +287,11 @@ export default function ProjectForm({
 
     const showError = (field) =>
         errors[field] ? (
-            <div className="text-red-500 text-sm mt-1">{errors[field]}</div>
+            <label className="label">
+                <span className="label-text-alt text-error">
+                    {errors[field]}
+                </span>
+            </label>
         ) : null;
 
     const suitableOptions = ["Adults", "Students", "Families", "Retirees"];
@@ -383,7 +311,6 @@ export default function ProjectForm({
             label: "Project Details",
             fields: [
                 "country",
-                // "city",
                 "state",
                 "short_description",
                 "detailed_description",
@@ -409,13 +336,11 @@ export default function ProjectForm({
                 "activities",
                 "suitable",
                 "availability_months",
-                // "point_exchange",
             ],
         },
         { label: "Media & Dates", fields: ["gallery_images", "start_date"] },
     ];
 
-    // Add this useEffect to watch for field changes and clear errors
     useEffect(() => {
         const currentStepFields = steps[step - 1].fields;
         const hasCurrentStepErrors = currentStepFields.some(
@@ -427,7 +352,6 @@ export default function ProjectForm({
         }
     }, [data, step, errors]);
 
-    // Initialize form with project data if editing
     useEffect(() => {
         if (isEdit && project) {
             if (project.featured_image) {
@@ -456,7 +380,6 @@ export default function ProjectForm({
             return acc;
         }, []);
 
-        // Ensure unique step numbers
         setStepsWithErrors([...new Set(errorSteps)]);
     }, [errors]);
 
@@ -480,7 +403,6 @@ export default function ProjectForm({
             featuredImageInputRef.current.value = "";
         }
 
-        // If editing and there was a previous image, mark it for deletion
         if (isEdit && project?.featured_image) {
             setData("remove_featured_image", true);
         }
@@ -567,7 +489,6 @@ export default function ProjectForm({
         const removedImage = updatedPreviews[index];
 
         if (removedImage.id) {
-            // Existing image - remove from existing_gallery_images array
             setData(
                 "existing_gallery_images",
                 data.existing_gallery_images.filter(
@@ -575,7 +496,6 @@ export default function ProjectForm({
                 )
             );
         } else {
-            // New image - remove from gallery_images array
             URL.revokeObjectURL(removedImage.url);
             setData(
                 "gallery_images",
@@ -593,10 +513,8 @@ export default function ProjectForm({
         e.preventDefault();
         const formData = new FormData();
 
-        // Include all required fields
         formData.append("title", data.title);
 
-        // Only include slug if it has changed or we're creating a new project
         if (!isEdit || data.slug !== project.slug) {
             formData.append("slug", data.slug);
         }
@@ -616,7 +534,6 @@ export default function ProjectForm({
         formData.append("type_of_project", data.type_of_project);
         formData.append("activities", data.activities);
 
-        // Handle array fields
         data.availability_months.forEach((month, index) => {
             formData.append(`availability_months[${index}]`, month);
         });
@@ -625,33 +542,26 @@ export default function ProjectForm({
             formData.append(`suitable[${index}]`, item);
         });
 
-        // Handle featured image - only include if it's a new file
         if (data.featured_image instanceof File) {
             formData.append("featured_image", data.featured_image);
         } else if (isEdit && typeof data.featured_image === "string") {
-            // For existing images, send the path separately
             formData.append("existing_featured_image", data.featured_image);
         }
 
-        // Handle gallery images
         if (isEdit) {
-            // For edit: include existing image IDs that should be preserved
             data.existing_gallery_images.forEach((id, index) => {
                 formData.append(`existing_gallery_images[${index}]`, id);
             });
 
-            // Add new gallery images
             data.gallery_images.forEach((file, index) => {
                 formData.append(`gallery_images[${index}]`, file);
             });
         } else {
-            // For create: add all gallery images
             data.gallery_images.forEach((file, index) => {
                 formData.append(`gallery_images[${index}]`, file);
             });
         }
 
-        // Include other fields conditionally
         if (data.type_of_project === "Paid") {
             formData.append("fees", data.fees || "");
             formData.append("currency", data.currency || "USD");
@@ -691,25 +601,18 @@ export default function ProjectForm({
         (cat) => String(cat.id) === String(data.category_id)
     );
 
-    // Modified handleNextStep with better validation
     const handleNextStep = (e) => {
         e.preventDefault();
 
-        // Validate required fields for the current step
         const currentStepFields = steps[step - 1].fields;
         let isValid = true;
 
         currentStepFields.forEach((field) => {
-            // Skip validation for Paid project fields if project type is Free
             if (
                 data.type_of_project === "Free" &&
-                [
-                    "fees",
-                    "includes",
-                    "excludes",
-                    "category_of_charge",
-                    // "point_exchange",
-                ].includes(field)
+                ["fees", "includes", "excludes", "category_of_charge"].includes(
+                    field
+                )
             ) {
                 clearErrors(field);
                 return;
@@ -726,7 +629,6 @@ export default function ProjectForm({
             }
         });
 
-        // Field-specific validations
         if (step === 1) {
             if (!data.title) {
                 isValid = false;
@@ -763,18 +665,15 @@ export default function ProjectForm({
         }
 
         if (!isValid) {
-            // Mark current step as having errors
             setStepsWithErrors([...new Set([...stepsWithErrors, step])]);
             return;
         }
 
-        // Special case: Always allow moving from step 4 to step 5
         if (step === 4) {
             setStep(5);
             return;
         }
 
-        // If validation passes, proceed to next step
         setStep((prev) => Math.min(prev + 1, steps.length));
     };
 
@@ -783,48 +682,81 @@ export default function ProjectForm({
     };
 
     return (
-        <OrganizationLayout>
+        <OrganizationLayout auth={auth}>
             <Head title={isEdit ? "Edit Project" : "Create Project"} />
-            <div className="max-w-5xl mx-auto bg-white p-8 rounded-xl shadow">
+            <div className="max-w-5xl mx-auto bg-base-100 p-8 rounded-box shadow-lg">
                 <h1 className="text-2xl font-bold mb-6">
                     {isEdit ? "Edit Project" : "Create New Project"}
                 </h1>
-                <StepIndicator
-                    steps={steps}
-                    currentStep={step}
-                    errorSteps={stepsWithErrors}
-                    onStepClick={setStep}
-                />
+
+                {/* Daisy UI Breadcrumb for Steps */}
+                <div className="mb-8">
+                    <div className="text-sm breadcrumbs">
+                        <ul>
+                            {steps.map((stepItem, index) => {
+                                const stepNumber = index + 1;
+                                const isActive = step === stepNumber;
+                                const hasError =
+                                    stepsWithErrors.includes(stepNumber);
+
+                                return (
+                                    <li key={stepNumber}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setStep(stepNumber)}
+                                            className={`${
+                                                isActive ? "font-bold" : ""
+                                            } ${hasError ? "text-error" : ""}`}
+                                        >
+                                            {stepItem.label}
+                                            {hasError && !isActive && (
+                                                <span className="ml-1 text-error">
+                                                    !
+                                                </span>
+                                            )}
+                                        </button>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+                    <progress
+                        className="progress progress-primary w-full mt-2"
+                        value={(step / steps.length) * 100}
+                        max="100"
+                    ></progress>
+                </div>
 
                 {stepsWithErrors.length > 0 && (
-                    <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 rounded-md shadow-sm">
-                        <div className="flex items-start">
-                            <svg
-                                className="h-5 w-5 text-red-400 mt-0.5"
-                                viewBox="0 0 20 20"
-                                fill="currentColor"
-                            >
-                                <path
-                                    fillRule="evenodd"
-                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                    clipRule="evenodd"
-                                />
-                            </svg>
-                            <div className="ml-3">
-                                <p className="text-sm text-red-700 font-medium">
-                                    Please fix the following errors:
-                                </p>
-                                <ul className="mt-1 text-sm text-red-700 list-disc list-inside">
-                                    {steps[step - 1].fields
-                                        .filter((field) => errors[field])
-                                        .map((field) => (
-                                            <li key={field}>{errors[field]}</li>
-                                        ))}
-                                </ul>
-                            </div>
+                    <div className="alert alert-error mb-6">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="stroke-current shrink-0 h-6 w-6"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                        </svg>
+                        <div>
+                            <h3 className="font-bold">
+                                Please fix the following errors:
+                            </h3>
+                            <ul className="list-disc list-inside">
+                                {steps[step - 1].fields
+                                    .filter((field) => errors[field])
+                                    .map((field) => (
+                                        <li key={field}>{errors[field]}</li>
+                                    ))}
+                            </ul>
                         </div>
                     </div>
                 )}
+
                 <form
                     onSubmit={handleSubmit}
                     encType="multipart/form-data"
@@ -874,9 +806,11 @@ export default function ProjectForm({
 
                             {previewImage && (
                                 <div className="mt-2">
-                                    <p className="text-sm font-medium text-gray-700 mb-1">
-                                        Preview:
-                                    </p>
+                                    <label className="label">
+                                        <span className="label-text">
+                                            Preview:
+                                        </span>
+                                    </label>
                                     <ImagePreview
                                         src={previewImage}
                                         onRemove={removeFeaturedImage}
@@ -974,8 +908,8 @@ export default function ProjectForm({
                             <div
                                 className={`text-sm mb-4 ${
                                     charCount === 499
-                                        ? "text-red-500"
-                                        : "text-gray-500"
+                                        ? "text-error"
+                                        : "text-base-content/70"
                                 }`}
                             >
                                 {charCount}/500 characters{" "}
@@ -1164,8 +1098,10 @@ export default function ProjectForm({
                             />
 
                             <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Suitable For
+                                <label className="label">
+                                    <span className="label-text">
+                                        Suitable For
+                                    </span>
                                 </label>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     {suitableOptions.map((option) => (
@@ -1193,15 +1129,19 @@ export default function ProjectForm({
                                     ))}
                                 </div>
                                 {errors.suitable && (
-                                    <div className="text-red-500 text-sm mt-1">
-                                        {errors.suitable}
-                                    </div>
+                                    <label className="label">
+                                        <span className="label-text-alt text-error">
+                                            {errors.suitable}
+                                        </span>
+                                    </label>
                                 )}
                             </div>
 
                             <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Availability Months
+                                <label className="label">
+                                    <span className="label-text">
+                                        Availability Months
+                                    </span>
                                 </label>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                                     {months.map((month) => (
@@ -1228,9 +1168,11 @@ export default function ProjectForm({
                                     ))}
                                 </div>
                                 {errors.availability_months && (
-                                    <div className="text-red-500 text-sm mt-1">
-                                        {errors.availability_months}
-                                    </div>
+                                    <label className="label">
+                                        <span className="label-text-alt text-error">
+                                            {errors.availability_months}
+                                        </span>
+                                    </label>
                                 )}
                             </div>
                         </>
@@ -1250,9 +1192,11 @@ export default function ProjectForm({
 
                             {galleryPreviews.length > 0 && (
                                 <div className="mt-4">
-                                    <p className="text-sm font-medium text-gray-700 mb-2">
-                                        Gallery Previews:
-                                    </p>
+                                    <label className="label">
+                                        <span className="label-text">
+                                            Gallery Previews:
+                                        </span>
+                                    </label>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                         {galleryPreviews.map(
                                             (preview, index) => (
@@ -1292,7 +1236,7 @@ export default function ProjectForm({
                             <button
                                 type="button"
                                 onClick={handlePrevStep}
-                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                                className="btn btn-ghost"
                             >
                                 Back
                             </button>
@@ -1303,17 +1247,17 @@ export default function ProjectForm({
                                 <button
                                     type="submit"
                                     disabled={processing}
-                                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-75"
+                                    className={`btn btn-primary ${
+                                        processing ? "loading" : ""
+                                    }`}
                                 >
-                                    {processing
-                                        ? "Submitting..."
-                                        : "Submit Project"}
+                                    {processing ? "" : "Submit Project"}
                                 </button>
                             ) : (
                                 <button
                                     type="button"
                                     onClick={(e) => handleNextStep(e)}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="btn btn-primary"
                                 >
                                     Next
                                 </button>

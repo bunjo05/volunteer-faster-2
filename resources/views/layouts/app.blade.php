@@ -19,7 +19,7 @@
         }
         .navbar-brand {
             font-weight: bold;
-            color: #1f2937;
+            color: #ffff;
             display: flex;
             align-items: center;
             gap: 0.5rem;

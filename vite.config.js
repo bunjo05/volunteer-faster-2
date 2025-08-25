@@ -23,11 +23,11 @@ export default defineConfig(({ mode }) => {
         },
         define: {
             "process.env": {
-                VITE_PUSHER_APP_KEY: JSON.stringify(env.VITE_PUSHER_APP_KEY),
-                VITE_PUSHER_APP_CLUSTER: JSON.stringify(
-                    env.VITE_PUSHER_APP_CLUSTER
-                ),
                 VITE_STRIPE_KEY: JSON.stringify(env.VITE_STRIPE_KEY),
+                VITE_REVERB_APP_KEY: JSON.stringify(env.VITE_REVERB_APP_KEY),
+                VITE_REVERB_HOST: JSON.stringify(env.VITE_REVERB_HOST),
+                VITE_REVERB_PORT: JSON.stringify(env.VITE_REVERB_PORT),
+                VITE_REVERB_SCHEME: JSON.stringify(env.VITE_REVERB_SCHEME),
             },
         },
     };

@@ -498,6 +498,8 @@ class VolunteerController extends Controller
         // Single broadcast call
         broadcast(new NewMessage($message))->toOthers();
 
+        // NewMessage::dispatch($message);
+
         return back()->with([
             'success' => 'Message sent successfully.',
             'hasRestrictedContent' => $hasRestrictedContent,

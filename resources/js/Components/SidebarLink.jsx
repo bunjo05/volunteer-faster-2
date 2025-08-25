@@ -1,10 +1,23 @@
+// In Components/SidebarLink.jsx
 import { Link } from "@inertiajs/react";
 
-export default function SidebarLink({ href, icon: Icon, children }) {
+export default function SidebarLink({
+    href,
+    icon: Icon,
+    children,
+    className,
+    activeClassName,
+    currentRoute,
+    routeName,
+    ...props
+}) {
+    const isActive = currentRoute === routeName;
+
     return (
         <Link
             href={href}
-            className="flex items-center gap-3 py-2 px-4 rounded hover:bg-gray-100 text-gray-700"
+            className={`${className} ${isActive ? activeClassName : ""}`}
+            {...props}
         >
             {Icon && <Icon className="w-5 h-5" />}
             {children}

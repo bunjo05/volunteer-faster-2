@@ -5,9 +5,8 @@ import {
     MessageSquare,
     Home,
     Bell,
-    Menu,
+    Menu as MenuIcon,
     ChevronDown,
-    ChevronRight,
     Clock,
     Check,
     X,
@@ -18,56 +17,36 @@ import {
     Shield,
 } from "lucide-react";
 import { Link, router, usePage } from "@inertiajs/react";
-import { useState, useEffect, useRef } from "react";
+import { Fragment, useState, useEffect, useRef } from "react";
+import { Disclosure, Menu, Transition } from "@headlessui/react";
 import axios from "axios";
 
 export default function AdminLayout({ children }) {
     const { auth } = usePage().props;
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [projectsOpen, setProjectsOpen] = useState(false);
-    const [reportsOpen, setReportsOpen] = useState(false);
-    const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
-    const notificationsRef = useRef(null);
 
-    // Navigation items
+    // ✅ Nav config
     const navItems = [
-        {
-            name: "Dashboard",
-            href: route("admin.dashboard"),
-            icon: Home,
-        },
+        { name: "Dashboard", href: route("admin.dashboard"), icon: Home },
         {
             name: "Organizations",
             href: route("admin.organizations"),
             icon: Users,
         },
-        {
-            name: "Volunteers",
-            href: route("admin.volunteers"),
-            icon: Users,
-        },
+        { name: "Volunteers", href: route("admin.volunteers"), icon: Users },
         {
             name: "Projects",
             icon: Folder,
             subItems: [
-                {
-                    name: "All Projects",
-                    href: route("admin.projects"),
-                },
+                { name: "All Projects", href: route("admin.projects") },
                 {
                     name: "Featured Projects",
                     href: route("admin.featured.projects"),
                 },
-                {
-                    name: "Categories",
-                    href: route("admin.categories"),
-                },
-                {
-                    name: "Subcategories",
-                    href: route("admin.subcategories"),
-                },
+                { name: "Categories", href: route("admin.categories") },
+                { name: "Subcategories", href: route("admin.subcategories") },
             ],
         },
         {
@@ -75,16 +54,8 @@ export default function AdminLayout({ children }) {
             href: route("admin.messages"),
             icon: MessageSquare,
         },
-        {
-            name: "Payments",
-            href: route("admin.payments"),
-            icon: CreditCard,
-        },
-        {
-            name: "Chat Support",
-            href: route("chat.index"),
-            icon: HelpCircle,
-        },
+        { name: "Payments", href: route("admin.payments"), icon: CreditCard },
+        { name: "Chat Support", href: route("chat.index"), icon: HelpCircle },
         {
             name: "Reports",
             icon: BarChart2,
@@ -103,23 +74,16 @@ export default function AdminLayout({ children }) {
                 },
             ],
         },
-        {
-            name: "Manage Users",
-            href: route("admin.users"),
-            icon: Shield,
-        },
+        { name: "Manage Users", href: route("admin.users"), icon: Shield },
         {
             name: "User Contacts",
             href: route("admin.contacts.index"),
             icon: Users,
         },
-        {
-            name: "Settings",
-            // href: route("admin.settings"),
-            icon: Settings,
-        },
+        { name: "Settings", href: "#", icon: Settings },
     ];
 
+    // ✅ Listen to notifications
     useEffect(() => {
         if (window.Echo) {
             window.Echo.private(`admin.${auth.user.id}`)
@@ -138,7 +102,6 @@ export default function AdminLayout({ children }) {
                     }
                 });
         }
-
         return () => {
             if (window.Echo) {
                 window.Echo.private(`admin.${auth.user.id}`).stopListening(
@@ -153,15 +116,11 @@ export default function AdminLayout({ children }) {
 
     const addNotification = (notification) => {
         setNotifications((prev) => [
-            {
-                id: Date.now(),
-                ...notification,
-                read: false,
-            },
+            { id: Date.now(), ...notification, read: false },
             ...prev,
         ]);
         setUnreadCount((prev) => prev + 1);
-        playNotificationSound();
+        new Audio("/sounds/notification.mp3").play();
     };
 
     const updateNotifications = (chatId, status) => {
@@ -170,316 +129,281 @@ export default function AdminLayout({ children }) {
         );
     };
 
-    const playNotificationSound = () => {
-        new Audio("/sounds/notification.mp3").play();
-    };
-
-    const markAsRead = (id = null) => {
-        if (id) {
-            setNotifications((prev) =>
-                prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-            );
-            setUnreadCount((prev) => Math.max(0, prev - 1));
-        } else {
-            setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-            setUnreadCount(0);
-        }
+    const markAsRead = () => {
+        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+        setUnreadCount(0);
     };
 
     const handleAcceptChat = async (chatId) => {
-        try {
-            await axios.post(`/admin/chat/${chatId}/accept`);
-            updateNotifications(chatId, "accepted");
-            router.visit(route("admin.chat.show", chatId));
-        } catch (error) {
-            console.error("Error accepting chat:", error);
-        }
+        await axios.post(`/admin/chat/${chatId}/accept`);
+        updateNotifications(chatId, "accepted");
+        router.visit(route("admin.chat.show", chatId));
     };
 
     const handleDeclineChat = async (chatId) => {
-        try {
-            await axios.post(`/admin/chat/${chatId}/decline`);
-            updateNotifications(chatId, "declined");
-        } catch (error) {
-            console.error("Error declining chat:", error);
-        }
+        await axios.post(`/admin/chat/${chatId}/decline`);
+        updateNotifications(chatId, "declined");
     };
 
     return (
-        <div className="flex h-screen bg-gray-50 overflow-hidden">
-            {/* Sidebar Overlay for Mobile */}
-            {sidebarOpen && (
-                <div
-                    className="fixed inset-0 bg-black/30 z-20 lg:hidden"
-                    onClick={() => setSidebarOpen(false)}
-                ></div>
-            )}
-
+        <div className="flex h-screen bg-base-200 overflow-hidden">
             {/* Sidebar */}
-            <aside
-                className={`fixed z-30 inset-y-0 left-0 w-64 bg-indigo-700 text-white shadow-lg transform transition-transform duration-300 ease-in-out
-                ${
+            <div
+                className={`fixed inset-y-0 left-0 z-30 w-64 transform transition-transform duration-300 lg:translate-x-0 lg:static lg:inset-0 ${
                     sidebarOpen ? "translate-x-0" : "-translate-x-full"
-                } lg:translate-x-0 lg:static lg:inset-0`}
+                }`}
             >
-                <div className="h-16 flex items-center justify-center border-b border-indigo-600">
-                    <span className="font-bold text-xl">Admin Panel</span>
-                </div>
-                <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-                    {navItems.map((item) => (
-                        <div key={item.name}>
-                            {item.href ? (
-                                <Link
-                                    href={item.href}
-                                    className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-indigo-600 transition-colors"
-                                    activeClassName="bg-indigo-800"
-                                >
-                                    <item.icon size={18} />
-                                    {item.name}
-                                </Link>
+                <aside className="h-full flex flex-col bg-base-100 shadow-xl">
+                    <div className="h-16 flex items-center justify-center border-b border-base-300">
+                        <span className="font-extrabold text-xl text-primary">
+                            Admin Panel
+                        </span>
+                    </div>
+                    <ul className="menu p-2 flex-1">
+                        {navItems.map((item) =>
+                            item.subItems ? (
+                                <Disclosure key={item.name}>
+                                    {({ open }) => (
+                                        <>
+                                            <Disclosure.Button className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-base-200">
+                                                <div className="flex items-center gap-3">
+                                                    <item.icon size={18} />
+                                                    {item.name}
+                                                </div>
+                                                <ChevronDown
+                                                    className={`w-4 h-4 transition-transform ${
+                                                        open ? "rotate-180" : ""
+                                                    }`}
+                                                />
+                                            </Disclosure.Button>
+                                            <Disclosure.Panel className="pl-8">
+                                                {item.subItems.map((sub) => (
+                                                    <li key={sub.name}>
+                                                        <Link
+                                                            href={sub.href}
+                                                            className="hover:bg-base-200 rounded-lg"
+                                                        >
+                                                            {sub.name}
+                                                        </Link>
+                                                    </li>
+                                                ))}
+                                            </Disclosure.Panel>
+                                        </>
+                                    )}
+                                </Disclosure>
                             ) : (
-                                <>
-                                    <button
-                                        onClick={() => {
-                                            if (item.name === "Projects") {
-                                                setProjectsOpen(!projectsOpen);
-                                            } else if (
-                                                item.name === "Reports"
-                                            ) {
-                                                setReportsOpen(!reportsOpen);
-                                            }
-                                        }}
-                                        className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-indigo-600 transition-colors"
+                                <li key={item.name}>
+                                    <Link
+                                        href={item.href}
+                                        className="flex items-center gap-3"
                                     >
-                                        <div className="flex items-center gap-3">
-                                            <item.icon size={18} />
-                                            <span>{item.name}</span>
-                                        </div>
-                                        {item.name === "Projects" ? (
-                                            projectsOpen ? (
-                                                <ChevronDown size={16} />
-                                            ) : (
-                                                <ChevronRight size={16} />
-                                            )
-                                        ) : item.name === "Reports" ? (
-                                            reportsOpen ? (
-                                                <ChevronDown size={16} />
-                                            ) : (
-                                                <ChevronRight size={16} />
-                                            )
-                                        ) : null}
-                                    </button>
-                                    {(item.name === "Projects" &&
-                                        projectsOpen) ||
-                                    (item.name === "Reports" && reportsOpen) ? (
-                                        <div className="pl-8 space-y-1 mt-1">
-                                            {item.subItems.map((subItem) => (
-                                                <Link
-                                                    key={subItem.name}
-                                                    href={subItem.href}
-                                                    className="block px-3 py-2 rounded-lg hover:bg-indigo-600 transition-colors"
-                                                    activeClassName="bg-indigo-800"
-                                                >
-                                                    {subItem.name}
-                                                </Link>
-                                            ))}
-                                        </div>
-                                    ) : null}
-                                </>
-                            )}
-                        </div>
-                    ))}
-
-                    <div className="mt-4 pt-4 border-t border-indigo-600">
+                                        <item.icon size={18} />
+                                        {item.name}
+                                    </Link>
+                                </li>
+                            )
+                        )}
+                    </ul>
+                    <div className="border-t border-base-300 p-4">
                         <Link
                             href={route("logout")}
                             method="post"
                             as="button"
-                            className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-indigo-600 transition-colors"
+                            className="btn btn-error w-full"
                         >
                             <LogOut size={18} />
                             Logout
                         </Link>
                     </div>
-                </nav>
-            </aside>
+                </aside>
+            </div>
 
-            {/* Main Content Area */}
+            {/* Main */}
             <div className="flex flex-col flex-1 overflow-hidden">
-                {/* Top Bar */}
-                <header className="h-16 bg-white shadow-sm px-4 sm:px-6 flex items-center justify-between">
-                    {/* Mobile Menu Button */}
+                {/* Topbar */}
+                <header className="h-16 bg-base-100 shadow px-4 flex items-center justify-between">
                     <button
-                        className="lg:hidden text-gray-600 hover:text-gray-900"
+                        className="lg:hidden btn btn-ghost btn-square"
                         onClick={() => setSidebarOpen(!sidebarOpen)}
                     >
-                        <Menu size={24} />
+                        <MenuIcon size={22} />
                     </button>
-
-                    <h1 className="text-lg sm:text-xl font-semibold text-gray-800">
+                    <h1 className="text-lg font-semibold text-base-content">
                         Admin Dashboard
                     </h1>
 
-                    <div className="flex items-center gap-4 sm:gap-6">
-                        <div className="relative" ref={notificationsRef}>
-                            <button
-                                onClick={() => {
-                                    setNotificationsOpen(!notificationsOpen);
-                                    markAsRead();
-                                }}
-                                className="p-1 rounded-full text-gray-600 hover:text-gray-900 focus:outline-none relative"
+                    <div className="flex items-center gap-4">
+                        {/* Notifications Dropdown */}
+                        <Menu as="div" className="relative">
+                            <Menu.Button
+                                onClick={markAsRead}
+                                className="btn btn-ghost btn-circle relative"
                             >
-                                <Bell className="h-6 w-6" />
+                                <Bell className="h-5 w-5" />
                                 {unreadCount > 0 && (
-                                    <span className="absolute top-0 right-0 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                                    <span className="badge badge-error badge-xs absolute top-0 right-0">
                                         {unreadCount}
                                     </span>
                                 )}
-                            </button>
-
-                            {/* Notification Dropdown */}
-                            {notificationsOpen && (
-                                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl overflow-hidden z-50 border border-gray-200">
-                                    <div className="py-1">
-                                        <div className="px-4 py-3 border-b flex justify-between items-center bg-gray-50">
-                                            <h3 className="font-medium text-gray-900">
-                                                Notifications
-                                            </h3>
-                                            <button
-                                                onClick={() => markAsRead()}
-                                                className="text-xs text-indigo-600 hover:text-indigo-800"
-                                            >
-                                                Mark all as read
-                                            </button>
-                                        </div>
-
-                                        {notifications.length === 0 ? (
-                                            <div className="px-4 py-6 text-center text-gray-500">
+                            </Menu.Button>
+                            <Transition
+                                as={Fragment}
+                                enter="transition ease-out duration-100"
+                                enterFrom="opacity-0 scale-95"
+                                enterTo="opacity-100 scale-100"
+                                leave="transition ease-in duration-75"
+                                leaveFrom="opacity-100 scale-100"
+                                leaveTo="opacity-0 scale-95"
+                            >
+                                <Menu.Items className="absolute right-0 mt-2 w-80 bg-base-100 rounded-lg shadow-lg border border-base-300 z-50">
+                                    <div className="p-3 font-medium">
+                                        Notifications
+                                    </div>
+                                    <div className="max-h-80 overflow-y-auto divide-y divide-base-200">
+                                        {notifications.length === 0 && (
+                                            <div className="p-4 text-center text-sm text-base-content/70">
                                                 No notifications
                                             </div>
-                                        ) : (
-                                            <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-                                                {notifications.map(
-                                                    (notification) => (
-                                                        <div
-                                                            key={
-                                                                notification.id
-                                                            }
-                                                            className={`px-4 py-3 ${
-                                                                !notification.read
-                                                                    ? "bg-blue-50"
-                                                                    : "bg-white"
-                                                            } hover:bg-gray-50 transition-colors`}
-                                                        >
-                                                            {notification.type ===
-                                                                "chat_request" && (
-                                                                <div>
-                                                                    <div className="flex items-start">
-                                                                        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium mr-3">
-                                                                            {notification.user?.name?.charAt(
-                                                                                0
-                                                                            ) ||
-                                                                                "U"}
-                                                                        </div>
-                                                                        <div className="flex-1">
-                                                                            <p className="text-sm font-medium text-gray-900">
-                                                                                New
-                                                                                Chat
-                                                                                Request
-                                                                            </p>
-                                                                            <p className="text-xs text-gray-500 mt-1">
-                                                                                From:{" "}
-                                                                                {notification
-                                                                                    .user
-                                                                                    ?.name ||
-                                                                                    "User"}
-                                                                            </p>
-                                                                            <div className="flex items-center mt-1 text-xs">
-                                                                                {notification.status ===
-                                                                                    "pending" && (
-                                                                                    <>
-                                                                                        <Clock className="h-3 w-3 mr-1 text-yellow-500" />
-                                                                                        <span className="text-yellow-600">
-                                                                                            Pending
-                                                                                        </span>
-                                                                                    </>
-                                                                                )}
-                                                                                {notification.status ===
-                                                                                    "accepted" && (
-                                                                                    <>
-                                                                                        <Check className="h-3 w-3 mr-1 text-green-500" />
-                                                                                        <span className="text-green-600">
-                                                                                            Accepted
-                                                                                        </span>
-                                                                                    </>
-                                                                                )}
-                                                                                {notification.status ===
-                                                                                    "declined" && (
-                                                                                    <>
-                                                                                        <X className="h-3 w-3 mr-1 text-red-500" />
-                                                                                        <span className="text-red-600">
-                                                                                            Declined
-                                                                                        </span>
-                                                                                    </>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {notification.status ===
-                                                                        "pending" && (
-                                                                        <div className="mt-3 flex justify-end space-x-2">
-                                                                            <button
-                                                                                onClick={() =>
-                                                                                    handleDeclineChat(
-                                                                                        notification
-                                                                                            .chat
-                                                                                            .id
-                                                                                    )
-                                                                                }
-                                                                                className="px-3 py-1.5 bg-gray-200 text-gray-700 text-xs rounded-md hover:bg-gray-300 transition-colors"
-                                                                            >
-                                                                                Decline
-                                                                            </button>
-                                                                            <button
-                                                                                onClick={() =>
-                                                                                    handleAcceptChat(
-                                                                                        notification
-                                                                                            .chat
-                                                                                            .id
-                                                                                    )
-                                                                                }
-                                                                                className="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-md hover:bg-indigo-700 transition-colors"
-                                                                            >
-                                                                                Accept
-                                                                            </button>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
+                                        )}
+                                        {notifications.map((n) => (
+                                            <div
+                                                key={n.id}
+                                                className={`p-3 text-sm ${
+                                                    !n.read ? "bg-base-200" : ""
+                                                }`}
+                                            >
+                                                {n.type === "chat_request" && (
+                                                    <div>
+                                                        <p className="font-medium">
+                                                            Chat Request from{" "}
+                                                            {n.user?.name ||
+                                                                "User"}
+                                                        </p>
+                                                        <div className="flex items-center gap-2 text-xs mt-1">
+                                                            {n.status ===
+                                                                "pending" && (
+                                                                <>
+                                                                    <Clock className="w-3 h-3 text-warning" />
+                                                                    <span className="text-warning">
+                                                                        Pending
+                                                                    </span>
+                                                                </>
+                                                            )}
+                                                            {n.status ===
+                                                                "accepted" && (
+                                                                <>
+                                                                    <Check className="w-3 h-3 text-success" />
+                                                                    <span className="text-success">
+                                                                        Accepted
+                                                                    </span>
+                                                                </>
+                                                            )}
+                                                            {n.status ===
+                                                                "declined" && (
+                                                                <>
+                                                                    <X className="w-3 h-3 text-error" />
+                                                                    <span className="text-error">
+                                                                        Declined
+                                                                    </span>
+                                                                </>
                                                             )}
                                                         </div>
-                                                    )
+
+                                                        {n.status ===
+                                                            "pending" && (
+                                                            <div className="flex justify-end gap-2 mt-2">
+                                                                <button
+                                                                    onClick={() =>
+                                                                        handleDeclineChat(
+                                                                            n
+                                                                                .chat
+                                                                                .id
+                                                                        )
+                                                                    }
+                                                                    className="btn btn-xs"
+                                                                >
+                                                                    Decline
+                                                                </button>
+                                                                <button
+                                                                    onClick={() =>
+                                                                        handleAcceptChat(
+                                                                            n
+                                                                                .chat
+                                                                                .id
+                                                                        )
+                                                                    }
+                                                                    className="btn btn-xs btn-primary"
+                                                                >
+                                                                    Accept
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
-                                        )}
+                                        ))}
+                                    </div>
+                                </Menu.Items>
+                            </Transition>
+                        </Menu>
+
+                        {/* User Dropdown */}
+                        <Menu as="div" className="relative">
+                            <Menu.Button className="flex items-center gap-2 btn btn-ghost">
+                                <div className="avatar placeholder">
+                                    <div className="w-8 rounded-full bg-primary text-white flex items-center justify-center">
+                                        {auth.user.name.charAt(0)}
                                     </div>
                                 </div>
-                            )}
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium">
-                                {auth.user.name.charAt(0)}
-                            </div>
-                            <span className="hidden sm:block text-sm font-medium text-gray-700">
-                                {auth.user.name}
-                            </span>
-                        </div>
+                                <span className="hidden sm:block">
+                                    {auth.user.name}
+                                </span>
+                                <ChevronDown className="w-4 h-4" />
+                            </Menu.Button>
+                            <Transition
+                                as={Fragment}
+                                enter="transition ease-out duration-100"
+                                enterFrom="opacity-0 scale-95"
+                                enterTo="opacity-100 scale-100"
+                                leave="transition ease-in duration-75"
+                                leaveFrom="opacity-100 scale-100"
+                                leaveTo="opacity-0 scale-95"
+                            >
+                                <Menu.Items className="absolute right-0 mt-2 w-48 bg-base-100 shadow-lg rounded-lg border border-base-300 z-50">
+                                    <Menu.Item>
+                                        {({ active }) => (
+                                            <Link
+                                                href="#"
+                                                className={`block px-4 py-2 text-sm ${
+                                                    active ? "bg-base-200" : ""
+                                                }`}
+                                            >
+                                                Profile
+                                            </Link>
+                                        )}
+                                    </Menu.Item>
+                                    <Menu.Item>
+                                        {({ active }) => (
+                                            <Link
+                                                href={route("logout")}
+                                                method="post"
+                                                as="button"
+                                                className={`w-full text-left block px-4 py-2 text-sm ${
+                                                    active ? "bg-base-200" : ""
+                                                }`}
+                                            >
+                                                Logout
+                                            </Link>
+                                        )}
+                                    </Menu.Item>
+                                </Menu.Items>
+                            </Transition>
+                        </Menu>
                     </div>
                 </header>
 
-                {/* Page Content */}
-                <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-gray-50">
+                {/* Content */}
+                <main className="flex-1 overflow-y-auto p-6 bg-base-200">
                     <div className="max-w-7xl mx-auto">{children}</div>
                 </main>
             </div>

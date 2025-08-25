@@ -48,56 +48,55 @@ export default function Points({ auth, points }) {
         <VolunteerLayout auth={auth}>
             <Head title="My Points" />
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="bg-white shadow rounded-lg overflow-hidden">
-                    <div className="px-6 py-5 border-b border-gray-200">
-                        <h2 className="text-xl font-semibold text-gray-800">
+            <div className="container mx-auto px-4 py-8">
+                <div className="card bg-base-100 shadow-xl">
+                    <div className="card-body">
+                        <h2 className="card-title text-2xl">
                             My Volunteer Points
                         </h2>
-                        <p className="mt-1 text-sm text-gray-600">
+                        <p className="text-base-content/70">
                             Track your earned and spent points
                         </p>
-                    </div>
 
-                    <div className="px-6 py-4">
-                        <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-                            <h3 className="text-lg font-medium text-blue-800 mb-2">
-                                Total Points: {points.total}
-                            </h3>
-                            <p className="text-sm text-blue-700">
-                                {sortedTransactions.length > 0
-                                    ? `You've made ${sortedTransactions.length} point transactions.`
-                                    : "You haven't made any point transactions yet."}
-                            </p>
+                        <div className="stats bg-primary/10 my-4">
+                            <div className="stat">
+                                <div className="stat-title">Total Points</div>
+                                <div className="stat-value text-primary">
+                                    {points.total}
+                                </div>
+                                <div className="stat-desc">
+                                    {sortedTransactions.length > 0
+                                        ? `${sortedTransactions.length} transactions`
+                                        : "No transactions yet"}
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
-                            <table className="min-w-full divide-y divide-gray-300">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Date
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Type
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Description
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Points
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Balance
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {sortedTransactions.length > 0 ? (
-                                        transactionsWithBalance.map(
+                        <div className="overflow-x-auto">
+                            {sortedTransactions.length > 0 ? (
+                                <table className="table table-zebra">
+                                    {/* Desktop table head */}
+                                    <thead className="hidden sm:table-header-group">
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Type</th>
+                                            <th>Description</th>
+                                            <th>Points</th>
+                                            <th>Balance</th>
+                                        </tr>
+                                    </thead>
+                                    {/* Mobile table head */}
+                                    <thead className="sm:hidden">
+                                        <tr>
+                                            <th>Transaction Details</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {transactionsWithBalance.map(
                                             (transaction) => (
                                                 <tr key={transaction.id}>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    {/* Desktop view */}
+                                                    <td className="hidden sm:table-cell">
                                                         {format(
                                                             new Date(
                                                                 transaction.created_at
@@ -105,13 +104,13 @@ export default function Points({ auth, points }) {
                                                             "MMM d, yyyy HH:mm"
                                                         )}
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                    <td className="hidden sm:table-cell">
                                                         <span
-                                                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                            className={`badge ${
                                                                 transaction.type ===
                                                                 "credit"
-                                                                    ? "bg-green-100 text-green-800"
-                                                                    : "bg-red-100 text-red-800"
+                                                                    ? "badge-success"
+                                                                    : "badge-error"
                                                             }`}
                                                         >
                                                             {transaction.type ===
@@ -120,43 +119,116 @@ export default function Points({ auth, points }) {
                                                                 : "Debit"}
                                                         </span>
                                                     </td>
-                                                    <td className="px-6 py-4 text-sm text-gray-500">
+                                                    <td className="hidden sm:table-cell">
                                                         {maskEmails(
                                                             transaction.description
                                                         )}
                                                     </td>
-                                                    <td
-                                                        className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                                                            transaction.type ===
+                                                    <td className="hidden sm:table-cell">
+                                                        <span
+                                                            className={`font-semibold ${
+                                                                transaction.type ===
+                                                                "credit"
+                                                                    ? "text-success"
+                                                                    : "text-error"
+                                                            }`}
+                                                        >
+                                                            {transaction.type ===
                                                             "credit"
-                                                                ? "text-green-600"
-                                                                : "text-red-600"
-                                                        }`}
-                                                    >
-                                                        {transaction.type ===
-                                                        "credit"
-                                                            ? "+"
-                                                            : "-"}
-                                                        {transaction.points}
+                                                                ? "+"
+                                                                : "-"}
+                                                            {transaction.points}
+                                                        </span>
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    <td className="hidden sm:table-cell">
                                                         {transaction.balance}
+                                                    </td>
+
+                                                    {/* Mobile view */}
+                                                    <td className="sm:hidden">
+                                                        <div className="flex flex-col space-y-2">
+                                                            <div className="flex justify-between">
+                                                                <span className="font-semibold">
+                                                                    {format(
+                                                                        new Date(
+                                                                            transaction.created_at
+                                                                        ),
+                                                                        "MMM d, yyyy"
+                                                                    )}
+                                                                </span>
+                                                                <span
+                                                                    className={`badge ${
+                                                                        transaction.type ===
+                                                                        "credit"
+                                                                            ? "badge-success"
+                                                                            : "badge-error"
+                                                                    }`}
+                                                                >
+                                                                    {transaction.type ===
+                                                                    "credit"
+                                                                        ? "Credit"
+                                                                        : "Debit"}
+                                                                </span>
+                                                            </div>
+                                                            <div>
+                                                                {maskEmails(
+                                                                    transaction.description
+                                                                )}
+                                                            </div>
+                                                            <div className="flex justify-between">
+                                                                <span
+                                                                    className={`font-semibold ${
+                                                                        transaction.type ===
+                                                                        "credit"
+                                                                            ? "text-success"
+                                                                            : "text-error"
+                                                                    }`}
+                                                                >
+                                                                    {transaction.type ===
+                                                                    "credit"
+                                                                        ? "+"
+                                                                        : "-"}
+                                                                    {
+                                                                        transaction.points
+                                                                    }{" "}
+                                                                    points
+                                                                </span>
+                                                                <span>
+                                                                    Balance:{" "}
+                                                                    {
+                                                                        transaction.balance
+                                                                    }
+                                                                </span>
+                                                            </div>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             )
-                                        )
-                                    ) : (
-                                        <tr>
-                                            <td
-                                                colSpan="5"
-                                                className="px-6 py-4 text-center text-sm text-gray-500"
-                                            >
-                                                No point transactions yet.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
+                                        )}
+                                    </tbody>
+                                </table>
+                            ) : (
+                                <div className="alert alert-info">
+                                    <div className="flex-1">
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            className="w-6 h-6 mx-2 stroke-current"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth="2"
+                                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                            ></path>
+                                        </svg>
+                                        <label>
+                                            No point transactions yet.
+                                        </label>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
