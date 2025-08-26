@@ -858,11 +858,14 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                 Project Details
                                                             </Link>
 
-                                                            <Review
-                                                                activeBooking={
-                                                                    activeBooking
-                                                                }
-                                                            />
+                                                            {activeBooking.booking_status ===
+                                                                "Completed" && (
+                                                                <Review
+                                                                    activeBooking={
+                                                                        activeBooking
+                                                                    }
+                                                                />
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>

@@ -3,20 +3,24 @@
 namespace App\Http\Controllers;
 
 use App\Models\Chat;
-use App\Models\ProjectRemark;
 use Inertia\Inertia;
+use App\Models\Admin;
 use App\Models\Message;
 use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Reminder;
 use App\Events\NewMessage;
 use Illuminate\Http\Request;
+use App\Models\ProjectRemark;
 use App\Models\ReportProject;
+use App\Models\PlatformReview;
 use App\Models\VolunteerPoint;
 use App\Models\PointTransaction;
 use App\Models\VolunteerBooking;
 use App\Models\VolunteerProfile;
 use App\Mail\OrganizationReminder;
+use App\Mail\PlatformReview as MailPlatformReview;
+use App\Mail\PlatformReviewMail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
@@ -517,8 +521,6 @@ class VolunteerController extends Controller
             'project_id' => 'required|exists:projects,id',
         ]);
 
-        dd($request);
-
         // $message = Message::create([
         //     'sender_id' => $request->sender_id,
         //     'receiver_id' => $request->receiver_id,
@@ -674,7 +676,7 @@ class VolunteerController extends Controller
 
     public function updateProfile(Request $request)
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         $data = $request->validate([
             'gender' => 'required|string|in:Male,Female,Other',
@@ -996,5 +998,37 @@ class VolunteerController extends Controller
         ]);
 
         return back()->with('success', 'Thank you for your review!');
+    }
+
+    public function platformReview(Request $request)
+    {
+        $validated = $request->validate([
+            'rating' => 'required|integer|between:1,5',
+            'message' => 'nullable|string|max:1000',
+        ]);
+
+        $user = Auth::user();
+
+        // Check if user already submitted a review
+        $existingReview = PlatformReview::where('user_id', $user->id)->first();
+        if ($existingReview) {
+            return back()->with('error', 'You have already submitted a review for our platform.');
+        }
+
+        // Create review
+        $platformReview = PlatformReview::create([
+            'user_id' => $user->id,
+            'rating' => $validated['rating'],
+            'message' => $validated['message'] ?? null,
+            'status' => 'Pending',
+        ]);
+
+        // Notify all admins
+        $admins = Admin::all();
+        foreach ($admins as $admin) {
+            Mail::to($admin->email)->send(new PlatformReviewMail($platformReview));
+        }
+
+        return back()->with('success', 'Thank you for your review! Your feedback helps us improve our platform.');
     }
 }

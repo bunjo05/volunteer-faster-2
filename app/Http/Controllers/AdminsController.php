@@ -15,6 +15,7 @@ use App\Models\Subcategory;
 use Illuminate\Http\Request;
 use App\Models\ProjectRemark;
 use App\Models\ReportProject;
+use App\Models\PlatformReview;
 use App\Models\ReportCategory;
 use App\Mail\UserStatusChanged;
 use App\Models\FeaturedProject;
@@ -711,6 +712,60 @@ class AdminsController extends Controller
         $review->update([
             'status' => $validated['status'],
             'admin_id' => auth('admin')->id()
+        ]);
+
+        return redirect()->back()->with('success', 'Review status updated successfully.');
+    }
+
+    public function platformReview(Request $request)
+    {
+        $query = PlatformReview::with('user')
+            ->latest();
+
+        // Apply filters
+        if ($request->has('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->has('rating') && $request->rating !== 'all') {
+            $query->where('rating', $request->rating);
+        }
+
+        if ($request->has('search')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('message', 'like', '%' . $request->search . '%')
+                    ->orWhereHas('user', function ($q) use ($request) {
+                        $q->where('name', 'like', '%' . $request->search . '%')
+                            ->orWhere('email', 'like', '%' . $request->search . '%');
+                    });
+            });
+        }
+
+        $reviews = $query->paginate(15);
+
+        // Get statistics
+        $stats = [
+            'total' => PlatformReview::count(),
+            'pending_count' => PlatformReview::where('status', 'pending')->count(),
+            'approved_count' => PlatformReview::where('status', 'approved')->count(),
+            'average_rating' => PlatformReview::avg('rating'),
+        ];
+
+        return Inertia::render('Admins/PlatformReviews', [
+            'reviews' => array_merge($reviews->toArray(), $stats),
+            'filters' => $request->only(['status', 'rating', 'search'])
+        ]);
+    }
+
+    public function updatePlatformStatus(PlatformReview $review, Request $request)
+    {
+        $request->validate([
+            'status' => 'required|in:pending,approved,rejected'
+        ]);
+
+        $review->update([
+            'status' => $request->status,
+            'admin_id' => auth()->id()
         ]);
 
         return redirect()->back()->with('success', 'Review status updated successfully.');

@@ -23,6 +23,13 @@ use App\Http\Controllers\VolunteerFollowOrganization;
 use App\Http\Controllers\Auth\OtpVerificationController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 
+Route::get('/api/check-volunteer-profile', function () {
+    $user = Auth::user();
+    $hasProfile = $user->volunteerProfile()->exists();
+
+    return response()->json(['hasProfile' => $hasProfile]);
+})->middleware('auth');
+
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/about', [HomeController::class, 'about'])->name('about');
 Route::get('/contact', [HomeController::class, 'contact'])->name('contact');
@@ -179,6 +186,9 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
         ->name('admin.reviews');
     Route::put('/reviews/{review}/status', [AdminsController::class, 'updateReviewStatus'])
         ->name('admin.reviews.update-status');
+
+    Route::get('/platform-reviews', [AdminsController::class, 'platformReview'])->name('admin.platform.reviews');
+    Route::post('/platform-reviews/{review}/status', [AdminsController::class, 'updatePlatformStatus'])->name('admin.platform-reviews.update-status');
 });
 
 Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
@@ -204,9 +214,10 @@ Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(
         ->name('volunteer.verification');
     Route::post('/{volunteer}/verification', [VolunteerController::class, 'storeVerification'])
         ->name('volunteer.verification.store');
-
     Route::post('/reviews', [VolunteerController::class, 'storeReview'])
         ->name('volunteer.reviews.stores');
+
+    Route::post('/platform/reviews', [VolunteerController::class, 'platformReview'])->name('platform.review');
 });
 
 Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->group(function () {
@@ -302,11 +313,11 @@ Route::get('/mail-preview/owner', function () {
     return new \App\Mail\PaymentSuccessfulOwner($booking, $payment);
 });
 
-Route::get('/mail-preview/admin', function () {
-    $booking = \App\Models\VolunteerBooking::with(['user', 'project.user'])->first();
-    $payment = \App\Models\Payment::first();
-    return new \App\Mail\PaymentSuccessfulAdmin($booking, $payment);
-});
+// Route::get('/mail-preview/admin', function () {
+//     $booking = \App\Models\VolunteerBooking::with(['user', 'project.user'])->first();
+//     $payment = \App\Models\Payment::first();
+//     return new \App\Mail\PaymentSuccessfulAdmin($booking, $payment);
+// });
 
 // Stripe webhook
 Route::post('/stripe/webhook', [FeaturedProjectController::class, 'handleWebhook']);

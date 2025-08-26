@@ -5,7 +5,7 @@ import { useInView } from "react-intersection-observer";
 import { useEffect, useRef, useState } from "react";
 import { useSwipeable } from "react-swipeable";
 
-export default function Home({ projects, auth }) {
+export default function Home({ projects, auth, platformReviews }) {
     const testimonials = [
         {
             name: "Lina K.",
@@ -525,114 +525,152 @@ export default function Home({ projects, auth }) {
                         </p>
                     </div>
 
-                    <div className="relative" {...testimonialSwipeHandlers}>
-                        <div className="overflow-hidden">
-                            <div
-                                className="flex transition-transform duration-500 ease-in-out"
-                                style={{
-                                    transform: `translateX(-${
-                                        testimonialIndex *
-                                        (100 / getVisibleTestimonials())
-                                    }%)`,
-                                }}
-                            >
-                                {testimonials.map((testimonial, index) => (
-                                    <div
-                                        key={index}
-                                        className="w-full flex-shrink-0 px-4"
-                                        style={{
-                                            width: `${
-                                                100 / getVisibleTestimonials()
-                                            }%`,
-                                        }}
-                                    >
-                                        <div className="card bg-base-200 shadow-md hover:shadow-lg transition-all h-full">
-                                            <div className="card-body items-center text-center">
-                                                <div className="flex items-center mb-4">
-                                                    <div className="avatar">
-                                                        <div className="w-12 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
-                                                            <img
-                                                                src={
-                                                                    testimonial.avatar
-                                                                }
-                                                                alt={
-                                                                    testimonial.name
-                                                                }
-                                                            />
+                    {platformReviews.length > 0 ? (
+                        <div className="relative" {...testimonialSwipeHandlers}>
+                            <div className="overflow-hidden">
+                                <div
+                                    className="flex transition-transform duration-500 ease-in-out"
+                                    style={{
+                                        transform: `translateX(-${
+                                            testimonialIndex *
+                                            (100 / getVisibleTestimonials())
+                                        }%)`,
+                                    }}
+                                >
+                                    {platformReviews.map(
+                                        (testimonial, index) => (
+                                            <div
+                                                key={index}
+                                                className="w-full flex-shrink-0 px-4"
+                                                style={{
+                                                    width: `${
+                                                        100 /
+                                                        getVisibleTestimonials()
+                                                    }%`,
+                                                }}
+                                            >
+                                                <div className="card bg-base-200 shadow-md hover:shadow-lg transition-all h-full">
+                                                    <div className="card-body items-center text-center">
+                                                        <div className="flex items-center mb-4">
+                                                            <div className="avatar">
+                                                                <div className="w-12 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
+                                                                    <img
+                                                                        src={`/storage/${testimonial.volunteer_profile.profile_picture}`}
+                                                                        alt={
+                                                                            testimonial
+                                                                                .user
+                                                                                .name
+                                                                        }
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div className="ml-3">
+                                                                <h4 className="font-bold">
+                                                                    {
+                                                                        testimonial
+                                                                            .user
+                                                                            .name
+                                                                    }
+                                                                </h4>
+                                                                <div>
+                                                                    <p className="text-sm text-primary">
+                                                                        {
+                                                                            testimonial
+                                                                                .volunteer_profile
+                                                                                .country
+                                                                        }
+                                                                    </p>
+                                                                    <p className="text-sm text-primary">
+                                                                        {
+                                                                            testimonial
+                                                                                .volunteer_profile
+                                                                                .state
+                                                                        }
+                                                                    </p>
+                                                                    <p className="text-sm text-primary">
+                                                                        {
+                                                                            testimonial
+                                                                                .volunteer_profile
+                                                                                .city
+                                                                        }
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <p className="italic text-base-content/80 mb-4">
+                                                            "
+                                                            {
+                                                                testimonial.message
+                                                            }
+                                                            "
+                                                        </p>
+                                                        <div className="rating rating-sm">
+                                                            {[...Array(5)].map(
+                                                                (_, i) => (
+                                                                    <input
+                                                                        key={i}
+                                                                        type="radio"
+                                                                        name={`rating-${index}`}
+                                                                        className="mask mask-star-2 bg-yellow-400"
+                                                                        checked
+                                                                        readOnly
+                                                                    />
+                                                                )
+                                                            )}
                                                         </div>
                                                     </div>
-                                                    <div className="ml-3">
-                                                        <h4 className="font-bold">
-                                                            {testimonial.name}
-                                                        </h4>
-                                                        <p className="text-sm text-primary">
-                                                            {testimonial.role}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <p className="italic text-base-content/80 mb-4">
-                                                    "{testimonial.quote}"
-                                                </p>
-                                                <div className="rating rating-sm">
-                                                    {[...Array(5)].map(
-                                                        (_, i) => (
-                                                            <input
-                                                                key={i}
-                                                                type="radio"
-                                                                name={`rating-${index}`}
-                                                                className="mask mask-star-2 bg-yellow-400"
-                                                                checked
-                                                                readOnly
-                                                            />
-                                                        )
-                                                    )}
                                                 </div>
                                             </div>
-                                        </div>
-                                    </div>
+                                        )
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Navigation buttons */}
+                            <button
+                                onClick={handleTestimonialPrev}
+                                disabled={testimonialIndex === 0}
+                                className="absolute left-2 top-1/2 -translate-y-1/2 btn btn-circle btn-sm btn-primary shadow-md z-10 disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                ❮
+                            </button>
+                            <button
+                                onClick={handleTestimonialNext}
+                                disabled={
+                                    testimonialIndex >=
+                                    platformReviews.length -
+                                        getVisibleTestimonials()
+                                }
+                                className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-circle btn-sm btn-primary shadow-md z-10 disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                ❯
+                            </button>
+
+                            {/* Dots indicator */}
+                            <div className="flex justify-center mt-6">
+                                {Array.from({
+                                    length:
+                                        platformReviews.length -
+                                        getVisibleTestimonials() +
+                                        1,
+                                }).map((_, index) => (
+                                    <button
+                                        key={index}
+                                        onClick={() => goToTestimonial(index)}
+                                        className={`w-3 h-3 mx-1 rounded-full transition-all ${
+                                            index === testimonialIndex
+                                                ? "bg-primary w-6"
+                                                : "bg-base-content/20"
+                                        }`}
+                                    />
                                 ))}
                             </div>
                         </div>
-
-                        {/* Navigation buttons */}
-                        <button
-                            onClick={handleTestimonialPrev}
-                            disabled={testimonialIndex === 0}
-                            className="absolute left-2 top-1/2 -translate-y-1/2 btn btn-circle btn-sm btn-primary shadow-md z-10 disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                            ❮
-                        </button>
-                        <button
-                            onClick={handleTestimonialNext}
-                            disabled={
-                                testimonialIndex >=
-                                testimonials.length - getVisibleTestimonials()
-                            }
-                            className="absolute right-2 top-1/2 -translate-y-1/2 btn btn-circle btn-sm btn-primary shadow-md z-10 disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                            ❯
-                        </button>
-
-                        {/* Dots indicator */}
-                        <div className="flex justify-center mt-6">
-                            {Array.from({
-                                length:
-                                    testimonials.length -
-                                    getVisibleTestimonials() +
-                                    1,
-                            }).map((_, index) => (
-                                <button
-                                    key={index}
-                                    onClick={() => goToTestimonial(index)}
-                                    className={`w-3 h-3 mx-1 rounded-full transition-all ${
-                                        index === testimonialIndex
-                                            ? "bg-primary w-6"
-                                            : "bg-base-content/20"
-                                    }`}
-                                />
-                            ))}
-                        </div>
-                    </div>
+                    ) : (
+                        <p className="text-center text-base-content/70">
+                            No testimonials available yet.
+                        </p>
+                    )}
                 </div>
             </section>
 

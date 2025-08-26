@@ -5,10 +5,7 @@ namespace App\Mail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use App\Models\VolunteerBooking;
-use Illuminate\Mail\Mailables\Content;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Mail\Mailables\Envelope;
-use Illuminate\Contracts\Queue\ShouldQueue;
 
 class OrganizationReminder extends Mailable
 {
@@ -22,20 +19,17 @@ class OrganizationReminder extends Mailable
         $this->booking = $booking;
         $this->stage = $stage;
     }
+
     public function build()
     {
-        $subject = '';
-        switch ($this->stage) {
-            case 'first':
-                $subject = 'First Reminder: Volunteer Booking for ' . $this->booking->project->title;
-                break;
-            case 'second':
-                $subject = 'Second Reminder: Volunteer Booking for ' . $this->booking->project->title;
-                break;
-            case 'final':
-                $subject = 'Final Reminder: Volunteer Booking for ' . $this->booking->project->title;
-                break;
-        }
+        $subjectPrefix = match ($this->stage) {
+            'first' => '📌 First Reminder',
+            'second' => '⏰ Second Reminder',
+            'final' => '⚠️ Final Reminder',
+            default => 'Volunteer Booking Reminder',
+        };
+
+        $subject = "{$subjectPrefix}: {$this->booking->project->title}";
 
         return $this->subject($subject)
             ->markdown('emails.organization-reminder')

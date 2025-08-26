@@ -14,6 +14,7 @@ use App\Models\ProjectRemarkComment;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use App\Models\OrganizationVerification;
+use App\Models\PlatformReview;
 
 class HomeController extends Controller
 {
@@ -35,11 +36,14 @@ class HomeController extends Controller
             ->latest()
             ->get();
 
+        $platformReviews = PlatformReview::where('status', 'Approved')->with('user', 'volunteer_profile')->latest()->get();
+
         return inertia('Home', [
             'projects' => $featuredProjects,
-            'auth' => auth()->user() ? [
-                'user' => auth()->user()->only('id', 'name', 'email')
+            'auth' => Auth::user() ? [
+                'user' => Auth::user()->only('id', 'name', 'email')
             ] : null,
+            'platformReviews' => $platformReviews,
         ]);
     }
 

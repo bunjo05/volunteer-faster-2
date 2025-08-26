@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "@inertiajs/react";
 import SidebarLink from "@/Components/SidebarLink";
 import FloatingChat from "@/Components/FloatingChat";
 import TotalPoints from "@/Components/TotalPoints";
+import PlatformReview from "@/Components/PlatformReview";
+
 import {
     Home,
     FolderKanban,
@@ -16,8 +18,29 @@ import {
 
 export default function VolunteerLayout({ children, auth, points }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [hasVolunteerProfile, setHasVolunteerProfile] = useState(false);
 
     const totalPoints = auth?.user?.points || points || 0;
+
+    // Check if user has volunteer_profile field
+    useEffect(() => {
+        // Check if volunteer_profile is already in the auth object
+        if (auth?.user?.volunteer_profile) {
+            setHasVolunteerProfile(true);
+        } else {
+            // If not, make an API call to check if the user has a volunteer profile
+            axios
+                .get("/api/check-volunteer-profile")
+                .then((response) => {
+                    setHasVolunteerProfile(response.data.hasProfile);
+                })
+                .catch((error) => {
+                    console.error("Error checking volunteer profile:", error);
+                });
+        }
+    }, [auth]);
+
+    console.log("Has volunteer profile:", hasVolunteerProfile);
 
     return (
         <div className="flex h-screen bg-base-200 overflow-hidden">
@@ -84,14 +107,6 @@ export default function VolunteerLayout({ children, auth, points }) {
 
                 {/* Points & Logout */}
                 <div className="border-t border-base-300 p-4 space-y-3">
-                    {/* <div className="flex items-center justify-between bg-base-200 px-3 py-2 rounded-lg">
-                        <span className="font-semibold">Points</span>
-                        <div className="badge badge-primary gap-1">
-                            <Star className="w-4 h-4" />
-                            {totalPoints}
-                        </div>
-                    </div> */}
-
                     <Link
                         href={route("logout")}
                         method="post"
@@ -125,7 +140,7 @@ export default function VolunteerLayout({ children, auth, points }) {
                     <span className="font-bold text-lg text-primary">
                         Volunteer Panel
                     </span>
-                    <div className="w-6" /> {/* placeholder */}
+                    <div className="w-6" />
                 </div>
 
                 {/* Page Content */}
@@ -133,6 +148,9 @@ export default function VolunteerLayout({ children, auth, points }) {
 
                 {/* Floating Chat */}
                 <FloatingChat auth={auth} />
+
+                {/* Conditionally render PlatformReview component */}
+                {hasVolunteerProfile && <PlatformReview />}
             </div>
         </div>
     );
