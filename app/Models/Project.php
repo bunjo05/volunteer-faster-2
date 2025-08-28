@@ -45,6 +45,8 @@ class Project extends Model
 
     protected $casts = [
         'suitable' => 'array',
+        'includes' => 'array',
+        'excludes' => 'array',
         'availability_months' => 'array',
         'skills' => 'array',
         'min_duration' => 'integer',

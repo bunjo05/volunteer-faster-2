@@ -24,6 +24,8 @@ class EmailVerificationPromptController extends Controller
                     return redirect()->intended(route('volunteer.dashboard'))->with('success', 'Device verified!');
                 case 'Organization':
                     return redirect()->intended(route('organization.dashboard'))->with('success', 'Device verified!');
+                case 'Sponsor':
+                    return redirect()->intended(route('sponsor.dashboard'))->with('success', 'Device verified!');
                 default:
                     Auth::logout(); // Optional: log out for unknown roles
                     return redirect('/')->withErrors(['role' => 'Unknown user role. Access denied.']);

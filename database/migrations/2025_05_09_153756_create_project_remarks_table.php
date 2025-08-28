@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignId('project_id')->constrained()->onDelete('cascade');
-            $table->foreignId('booking_id')->constrained('volunteer_bookings')->onDelete('cascade');
+            $table->foreignId('booking_id')->nullable()->constrained('volunteer_bookings')->onDelete('cascade');
             $table->foreignId('admin_id')->nullable()->constrained('admins')->onDelete('cascade');
             $table->text('comment')->nullable();
             $table->integer('rating');

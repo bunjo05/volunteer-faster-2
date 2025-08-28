@@ -43,10 +43,12 @@ class ConfirmablePasswordController extends Controller
                 return redirect()->route('volunteer.dashboard')->with('success', 'Device verified!');
             case 'Organization':
                 return redirect()->route('organization.dashboard')->with('success', 'Device verified!');
+            case 'Sponsor':
+                return redirect()->route('sponsor.dashboard')->with('success', 'Device verified!');
             default:
                 Auth::logout(); // optional security fallback
                 return redirect('/')->withErrors(['role' => 'Unknown user role. Access denied.']);
-}
+        }
         // return redirect()->intended(route('dashboard', absolute: false));
     }
 }

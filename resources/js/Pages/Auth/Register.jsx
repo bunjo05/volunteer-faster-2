@@ -59,6 +59,7 @@ export default function Register({ referralCode }) {
                         <option value="">-- Select Role --</option>
                         <option value="Volunteer">Volunteer</option>
                         <option value="Organization">Organization</option>
+                        <option value="Sponsor">Corporate Sponsor</option>
                     </select>
                     <InputError message={errors.role} className="mt-2" />
                 </div>

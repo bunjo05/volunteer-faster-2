@@ -104,6 +104,8 @@ class AuthenticatedSessionController extends Controller
                 return redirect()->route('volunteer.dashboard')->with('success', 'Welcome back!');
             case 'Organization':
                 return redirect()->route('organization.dashboard')->with('success', 'Welcome back!');
+            case 'Sponsor':
+                return redirect()->route('sponsor.dashboard')->with('success', 'Welcome back!');
             default:
                 Auth::logout();
                 return redirect()->route('error.unauthorized')->withErrors(['role' => 'Unknown user role. Access denied.']);

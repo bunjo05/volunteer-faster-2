@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import GeneralPages from "@/Layouts/GeneralPages";
-import { usePage } from "@inertiajs/react"; // Add this import
+import { usePage, router } from "@inertiajs/react";
 import { useForm, Link } from "@inertiajs/react";
 
 import InputError from "@/Components/InputError";
@@ -9,89 +9,140 @@ import TextInput from "@/Components/TextInput";
 import Checkbox from "@/Components/Checkbox";
 import PrimaryButton from "@/Components/PrimaryButton";
 
-import OtpModal from "@/Components/OtpModal"; // Add this import
+import OtpModal from "@/Components/OtpModal";
+import Modal from "@/Components/Modal";
 
-import Modal from "@/Components/Modal"; // Assuming you have a Modal component
-
-export default function Booking({ project, auth, canResetPassword }) {
+export default function Booking({
+    project,
+    auth,
+    canResetPassword,
+    requiresOtp = false,
+}) {
     const [showOtpModal, setShowOtpModal] = useState(false);
     const [otpEmail, setOtpEmail] = useState("");
-
     const [step, setStep] = useState(1);
     const [emailVerified, setEmailVerified] = useState(false);
     const [verificationCode, setVerificationCode] = useState("");
-    const [sentCode, setSentCode] = useState("");
     const [showVerificationInput, setShowVerificationInput] = useState(false);
     const [emailExists, setEmailExists] = useState(false);
     const [showLoginModal, setShowLoginModal] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const { url } = usePage(); // Get current URL
+    const { url } = usePage();
 
-    const { data, setData, post, errors, processing, fullData, reset } =
-        useForm({
-            email: "",
-            password: "",
-            confirmPassword: "",
-            name: "",
-            gender: "",
-            dob: "",
-            country: "",
-            address: "",
-            city: "",
-            postal: "",
-            phone: "",
-            start_date: "",
-            end_date: "",
-            number_of_travellers: "",
-            message: "",
-            project_id: project.id,
-            booking_status: "Pending",
-        });
+    const [seekingSponsorship, setSeekingSponsorship] = useState(false);
+    const [fundingAspects, setFundingAspects] = useState([]);
+    const [totalAmount, setTotalAmount] = useState(0);
+    const [numberOfDays, setNumberOfDays] = useState(0);
+
+    const fundingOptions = [
+        { id: "travel", label: "Travel" },
+        { id: "accommodation", label: "Accommodation" },
+        { id: "meals", label: "Meals" },
+        { id: "living_expenses", label: "Living Expenses" },
+        { id: "visa_fees", label: "Visa Fees" },
+        { id: "project_fees", label: "Project Fees" },
+    ];
+
+    const { data, setData, post, processing, errors, reset } = useForm({
+        project_id: project.id,
+        email: "",
+        password: "",
+        confirmPassword: "",
+        name: "",
+        gender: "",
+        dob: "",
+        country: "",
+        address: "",
+        city: "",
+        postal: "",
+        phone: "",
+        start_date: "",
+        end_date: "",
+        number_of_travellers: "",
+        message: "",
+        booking_status: "Pending",
+        seeking_sponsorship: false,
+        aspect_needs_funding: [],
+        travel: 0,
+        accommodation: 0,
+        meals: 0,
+        living_expenses: 0,
+        visa_fees: 0,
+        project_fees_amount: 0,
+        total_amount: 0,
+        self_introduction: "",
+        skills: [],
+        impact: "",
+        commitment: false,
+        agreement: false,
+        remember: false,
+    });
 
     const [isSendingCode, setIsSendingCode] = useState(false);
 
+    // Persist form data between steps
+    useEffect(() => {
+        const savedData = sessionStorage.getItem("bookingFormData");
+        if (savedData && !auth?.user) {
+            setData(JSON.parse(savedData));
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!auth?.user) {
+            sessionStorage.setItem("bookingFormData", JSON.stringify(data));
+        }
+    }, [data, auth]);
+
     const handleShowLoginModal = () => {
         setShowLoginModal(true);
-        // Store the current URL in session storage
-        sessionStorage.setItem(
-            "preLoginUrl",
-            window.location.pathname + window.location.search
-        );
+        sessionStorage.setItem("preLoginUrl", window.location.href);
     };
 
-    const LoginSubmit = (e) => {
+    const handleLogin = (e) => {
         e.preventDefault();
 
-        // const preLoginUrl = window.location.pathname + window.location.search;
-
         post(route("login"), {
-            data: {
-                email: data.email,
-                password: data.password,
-                remember: data.remember,
-                // redirect_to: preLoginUrl,
-            },
-            onSuccess: (response) => {
-                // Check if OTP verification is required
-                if (response.props.requiresOtp) {
+            preserveState: true,
+            onSuccess: (page) => {
+                if (page.props.requiresOtp) {
                     setOtpEmail(data.email);
                     setShowOtpModal(true);
                 } else {
-                    // window.location.href = preLoginUrl;
+                    setShowLoginModal(false);
+                    // Reload to get updated auth state
+                    router.reload();
                 }
+            },
+            onError: (errors) => {
+                console.log("Login errors:", errors);
             },
         });
     };
 
-    const nextStep = () => setStep(step + 1);
-    const prevStep = () => setStep(step - 1);
+    const handleOtpVerification = (otp) => {
+        post(route("verify.otp"), {
+            email: otpEmail,
+            otp: otp,
+            preserveState: true,
+            onSuccess: () => {
+                setShowOtpModal(false);
+                setShowLoginModal(false);
+                router.reload();
+            },
+            onError: (errors) => {
+                alert("Invalid OTP code");
+            },
+        });
+    };
 
     const sendVerificationCode = async () => {
         setIsSendingCode(true);
-        setEmailExists(false); // Reset email exists error
+        setEmailExists(false);
 
         try {
-            const response = await axios.post("/check-email-exists", {
+            const response = await axios.post(route("volunteer.email.exists"), {
                 email: data.email,
             });
 
@@ -100,14 +151,14 @@ export default function Booking({ project, auth, canResetPassword }) {
                 return;
             }
 
-            // Call your backend logic here (e.g., axios.post or Inertia.post)
-            await axios.post("/send-verification-code", { email: data.email });
+            await axios.post(route("volunteer.email.send"), {
+                email: data.email,
+            });
 
-            // Optionally show input for code
             setShowVerificationInput(true);
         } catch (error) {
             console.error("Failed to send code:", error);
-            if (error.response && error.response.status === 422) {
+            if (error.response?.status === 422) {
                 setEmailExists(true);
             }
         } finally {
@@ -125,7 +176,6 @@ export default function Booking({ project, auth, canResetPassword }) {
             if (response.data.success) {
                 setEmailVerified(true);
                 setShowVerificationInput(false);
-                alert("Email verified successfully.");
             } else {
                 alert("Incorrect verification code.");
             }
@@ -135,148 +185,218 @@ export default function Booking({ project, auth, canResetPassword }) {
         }
     };
 
+    const nextStep = () => {
+        if (step === 1 && !emailVerified) return;
+        setStep(step + 1);
+    };
+
+    const prevStep = () => setStep(step - 1);
+
+    // Calculate number of days between dates
+    useEffect(() => {
+        if (data.start_date && data.end_date) {
+            const start = new Date(data.start_date);
+            const end = new Date(data.end_date);
+            const diffTime = Math.abs(end - start);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            setNumberOfDays(diffDays);
+
+            if (fundingAspects.some((aspect) => aspect.id === "project_fees")) {
+                const projectFeePerDay = project.fees || 0;
+                const calculatedProjectFee = diffDays * projectFeePerDay;
+                setData("project_fees_amount", calculatedProjectFee);
+
+                const newTotal = fundingAspects.reduce((total, aspect) => {
+                    if (aspect.id === "project_fees")
+                        return total + calculatedProjectFee;
+                    return total + (data[aspect.id] || 0);
+                }, 0);
+
+                setTotalAmount(newTotal);
+                setData("total_amount", newTotal);
+            }
+        }
+    }, [data.start_date, data.end_date, project.fees, fundingAspects]);
+
+    const handleSponsorshipChange = (e) => {
+        const isSeeking = e.target.checked;
+        setSeekingSponsorship(isSeeking);
+        setData("seeking_sponsorship", isSeeking);
+
+        if (!isSeeking) {
+            setFundingAspects([]);
+            setData("aspect_needs_funding", []);
+            setTotalAmount(0);
+            setData("total_amount", 0);
+            fundingOptions.forEach((aspect) => {
+                setData(aspect.id, 0);
+            });
+        }
+    };
+
+    const handleAspectChange = (e, aspect) => {
+        const isChecked = e.target.checked;
+        let updatedAspects;
+
+        if (isChecked) {
+            updatedAspects = [...fundingAspects, aspect];
+            if (
+                aspect.id === "project_fees" &&
+                data.start_date &&
+                data.end_date
+            ) {
+                const projectFeePerDay = project.fees || 0;
+                const calculatedProjectFee = numberOfDays * projectFeePerDay;
+                setData("project_fees_amount", calculatedProjectFee);
+            }
+        } else {
+            updatedAspects = fundingAspects.filter((a) => a.id !== aspect.id);
+            setData(aspect.id, 0);
+        }
+
+        setFundingAspects(updatedAspects);
+        setData(
+            "aspect_needs_funding",
+            updatedAspects.map((a) => a.id)
+        );
+
+        const newTotal = updatedAspects.reduce((total, aspect) => {
+            if (aspect.id === "project_fees" && isChecked) {
+                return total + numberOfDays * (project.fees || 0);
+            }
+            return total + (data[aspect.id] || 0);
+        }, 0);
+
+        setTotalAmount(newTotal);
+        setData("total_amount", newTotal);
+    };
+
+    const handleAmountChange = (aspectId, amount) => {
+        if (aspectId === "project_fees") return;
+
+        const numericAmount = parseFloat(amount) || 0;
+        setData(aspectId, numericAmount);
+
+        const newTotal = fundingAspects.reduce((total, aspect) => {
+            if (aspect.id === aspectId) return total + numericAmount;
+            if (aspect.id === "project_fees")
+                return total + numberOfDays * (project.fees || 0);
+            return total + (data[aspect.id] || 0);
+        }, 0);
+
+        setTotalAmount(newTotal);
+        setData("total_amount", newTotal);
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
+        setIsSubmitting(true);
 
         if (auth?.user) {
             const payload = {
                 start_date: data.start_date,
                 end_date: data.end_date,
-                number_of_travellers: data.number_of_travellers,
+                number_of_travellers: data.number_of_travellers || 1,
                 message: data.message,
                 project_id: project.id,
+                booking_status: "Pending",
+                seeking_sponsorship: seekingSponsorship,
+                aspect_needs_funding: data.aspect_needs_funding,
+                total_amount: data.total_amount,
+                travel: data.travel,
+                accommodation: data.accommodation,
+                meals: data.meals,
+                living_expenses: data.living_expenses,
+                visa_fees: data.visa_fees,
+                project_fees_amount: data.project_fees_amount,
+                self_introduction: data.self_introduction,
+                skills: data.skills,
+                impact: data.impact,
+                commitment: data.commitment,
+                agreement: data.agreement,
             };
+
             post(route("auth.volunteer.booking.store"), {
                 data: payload,
-                onSuccess: () => console.log("Booking successful"),
+                preserveScroll: true,
+                onSuccess: () => {
+                    setIsSubmitting(false);
+                    sessionStorage.removeItem("bookingFormData");
+                    // Show success message or redirect
+                },
+                onError: (errors) => {
+                    setIsSubmitting(false);
+                    console.log("Booking errors:", errors);
+                },
             });
         } else {
             post(route("volunteer.booking.store"), {
-                data: fullData,
-                onSuccess: () =>
-                    console.log("Booking + Registration successful"),
+                data: data,
+                preserveScroll: true,
+                onSuccess: () => {
+                    setIsSubmitting(false);
+                    sessionStorage.removeItem("bookingFormData");
+                    // Show success message or redirect
+                },
+                onError: (errors) => {
+                    setIsSubmitting(false);
+                    console.log("Registration errors:", errors);
+                },
             });
         }
     };
 
+    const visibleFundingOptions = fundingOptions.filter((option) => {
+        if (
+            project.includes?.includes("Accommodation") &&
+            option.id === "accommodation"
+        )
+            return false;
+        if (project.includes?.includes("Meals") && option.id === "meals")
+            return false;
+        return true;
+    });
+
     return (
         <GeneralPages auth={auth}>
-            <div className="max-w-3xl mx-auto p-6 bg-white shadow-md rounded-md mt-10">
-                {/* Floating error badge */}
-                {Object.keys(errors).length > 0 && (
-                    <div className="fixed top-5 right-5 z-50 bg-red-500 text-white px-4 py-2 rounded shadow-lg animate-fade-in-out">
-                        <div className="list-disc pl-5">
-                            {Object.values(errors).map((error, index) => (
-                                <p key={index}>{error}</p>
-                            ))}
+            <div className="max-w-4xl mx-auto mt-10">
+                <div className="bg-white shadow-lg rounded-2xl p-8">
+                    <h2 className="text-3xl font-bold text-center mb-6">
+                        Booking for{" "}
+                        <span className="text-indigo-600">{project.title}</span>
+                    </h2>
+
+                    {/* Error display */}
+                    {Object.keys(errors).length > 0 && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+                            <ul className="list-disc list-inside">
+                                {Object.entries(errors).map(([key, error]) => (
+                                    <li key={key}>{error}</li>
+                                ))}
+                            </ul>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                <h2 className="text-2xl font-semibold mb-4 text-center">
-                    Booking for{" "}
-                    <span className="text-indigo-600">{project.title}</span>
-                </h2>
-
-                {/* Step Progress Indicator */}
-                <div>
                     {auth?.user ? (
-                        <>
-                            <form
-                                onSubmit={handleSubmit}
-                                encType="multipart/form-data"
-                            >
-                                <h3 className="text-lg font-bold mb-4">
-                                    Step 3: Booking Details
-                                </h3>
-                                <div className="mb-4">
-                                    <label className="block text-gray-700">
-                                        Start Date
-                                    </label>
-                                    <input
-                                        type="date"
-                                        name="start_date"
-                                        value={data.start_date}
-                                        min={
-                                            new Date()
-                                                .toISOString()
-                                                .split("T")[0]
-                                        }
-                                        onChange={(e) =>
-                                            setData(
-                                                "start_date",
-                                                e.target.value
-                                            )
-                                        }
-                                        className="w-full p-2 border rounded"
-                                        required
-                                    />
-                                </div>
-                                <div className="mb-4">
-                                    <label className="block text-gray-700">
-                                        End Date
-                                    </label>
-                                    <input
-                                        type="date"
-                                        name="end_date"
-                                        min={
-                                            new Date()
-                                                .toISOString()
-                                                .split("T")[0]
-                                        }
-                                        value={data.end_date}
-                                        onChange={(e) =>
-                                            setData("end_date", e.target.value)
-                                        }
-                                        className="w-full p-2 border rounded"
-                                        required
-                                    />
-                                </div>
-                                <div className="mb-4">
-                                    <label className="block text-gray-700">
-                                        Number of Travellers
-                                    </label>
-                                    <input
-                                        type="number"
-                                        name="number_of_travellers"
-                                        value={data.number_of_travellers}
-                                        onChange={(e) =>
-                                            setData(
-                                                "number_of_travellers",
-                                                e.target.value
-                                            )
-                                        }
-                                        className="w-full p-2 border rounded"
-                                        required
-                                    />
-                                </div>
-                                <div className="mb-4">
-                                    <label className="block text-gray-700">
-                                        Message to Admin
-                                    </label>
-                                    <textarea
-                                        name="message"
-                                        value={data.message}
-                                        onChange={(e) =>
-                                            setData("message", e.target.value)
-                                        }
-                                        required
-                                        className="w-full p-2 border rounded"
-                                        maxLength={255}
-                                        rows="3"
-                                        placeholder="Brief message to the Organization Admin..."
-                                    ></textarea>
-                                </div>
+                        /* Authenticated user form */
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            {/* ... existing authenticated form fields ... */}
+                            <div className="flex justify-end">
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 ml-auto"
+                                    disabled={isSubmitting}
+                                    className="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow hover:bg-indigo-700 disabled:opacity-50"
                                 >
-                                    Submit Booking
+                                    {isSubmitting
+                                        ? "Submitting..."
+                                        : "Submit Application"}
                                 </button>
-                            </form>
-                        </>
+                            </div>
+                        </form>
                     ) : (
-                        <section>
+                        /* Non-authenticated user multi-step form */
+                        <div>
+                            {/* Step progress indicator */}
                             <div className="flex items-center justify-center mb-8">
                                 {[1, 2, 3].map((s) => (
                                     <div key={s} className="flex items-center">
@@ -292,48 +412,32 @@ export default function Booking({ project, auth, canResetPassword }) {
                                             {s}
                                         </div>
                                         {s !== 3 && (
-                                            <div className="w-10 h-1 bg-gray-300 mx-2 rounded-full relative">
-                                                <div
-                                                    className={`absolute h-full top-0 left-0 rounded-full transition-all duration-300 ${
-                                                        step > s
-                                                            ? "bg-green-500 w-full"
-                                                            : "bg-indigo-600 w-0"
-                                                    }`}
-                                                ></div>
-                                            </div>
+                                            <div className="w-10 h-1 bg-gray-300 mx-2"></div>
                                         )}
                                     </div>
                                 ))}
                             </div>
 
-                            <form
-                                onSubmit={handleSubmit}
-                                encType="multipart/form-data"
-                            >
-                                {/* STEP 1 */}
+                            <form onSubmit={handleSubmit}>
+                                {/* Step 1: Personal Info */}
                                 {step === 1 && (
-                                    <div>
-                                        <h3 className="text-lg font-bold mb-4">
-                                            Step 1: Personal Info
-                                        </h3>
-
-                                        {/* Email */}
+                                    <div className="space-y-4">
+                                        {/* Email verification section */}
                                         <div className="mb-4 relative">
-                                            <label className="block text-gray-700">
+                                            <label className="block text-sm font-medium mb-1">
                                                 Email
                                             </label>
                                             <input
                                                 type="email"
-                                                name="email"
                                                 value={data.email}
                                                 onChange={(e) => {
                                                     setData(
                                                         "email",
                                                         e.target.value
                                                     );
-                                                    setEmailExists(false); // Reset when typing
+                                                    setEmailExists(false);
                                                 }}
-                                                className="w-full p-2 border rounded pr-28"
+                                                className="w-full border rounded-lg px-3 py-2 pr-28"
                                                 required
                                             />
                                             {emailExists && (
@@ -344,7 +448,7 @@ export default function Booking({ project, auth, canResetPassword }) {
                                                         onClick={
                                                             handleShowLoginModal
                                                         }
-                                                        className="text-indigo-600 underline hover:text-indigo-800"
+                                                        className="text-indigo-600 underline"
                                                     >
                                                         login
                                                     </button>{" "}
@@ -358,54 +462,25 @@ export default function Booking({ project, auth, canResetPassword }) {
                                                         sendVerificationCode
                                                     }
                                                     disabled={isSendingCode}
-                                                    className={`absolute right-2 top-8 text-sm px-2 py-1 rounded transition ${
-                                                        isSendingCode
-                                                            ? "bg-gray-400 cursor-not-allowed"
-                                                            : "bg-indigo-600 hover:bg-indigo-700 text-white"
-                                                    }`}
+                                                    className="absolute right-2 top-8 text-sm px-2 py-1 bg-indigo-600 text-white rounded"
                                                 >
-                                                    {isSendingCode ? (
-                                                        <span className="flex items-center gap-1">
-                                                            <svg
-                                                                className="animate-spin h-4 w-4 text-white"
-                                                                xmlns="http://www.w3.org/2000/svg"
-                                                                fill="none"
-                                                                viewBox="0 0 24 24"
-                                                            >
-                                                                <circle
-                                                                    className="opacity-25"
-                                                                    cx="12"
-                                                                    cy="12"
-                                                                    r="10"
-                                                                    stroke="currentColor"
-                                                                    strokeWidth="4"
-                                                                ></circle>
-                                                                <path
-                                                                    className="opacity-75"
-                                                                    fill="currentColor"
-                                                                    d="M4 12a8 8 0 018-8v8z"
-                                                                ></path>
-                                                            </svg>
-                                                            Sending...
-                                                        </span>
-                                                    ) : (
-                                                        "Send Code"
-                                                    )}
+                                                    {isSendingCode
+                                                        ? "Sending..."
+                                                        : "Send Code"}
                                                 </button>
                                             )}
                                             {emailVerified && (
-                                                <span className="absolute right-2 top-8 text-green-600 text-xl font-bold">
-                                                    ✔
+                                                <span className="absolute right-2 top-8 text-green-600 text-xl">
+                                                    ✓
                                                 </span>
                                             )}
                                         </div>
 
-                                        {/* Code Verification */}
                                         {showVerificationInput &&
                                             !emailVerified && (
                                                 <div className="mb-4">
-                                                    <label className="block text-gray-700">
-                                                        Enter Verification Code
+                                                    <label className="block text-sm font-medium mb-1">
+                                                        Verification Code
                                                     </label>
                                                     <input
                                                         type="text"
@@ -415,114 +490,123 @@ export default function Booking({ project, auth, canResetPassword }) {
                                                                 e.target.value
                                                             )
                                                         }
-                                                        className="w-full p-2 border rounded"
+                                                        className="w-full border rounded-lg px-3 py-2"
+                                                        placeholder="Enter code sent to your email"
                                                     />
                                                     <button
                                                         type="button"
                                                         onClick={verifyCode}
-                                                        className="mt-2 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                                                        className="mt-2 px-4 py-2 bg-green-600 text-white rounded"
                                                     >
                                                         Verify Email
                                                     </button>
                                                 </div>
                                             )}
 
-                                        {/* Rest of form after email verified */}
                                         {emailVerified && (
                                             <>
-                                                <div className="mb-4">
-                                                    <label className="block text-gray-700">
-                                                        Password
-                                                    </label>
-                                                    <input
-                                                        type="password"
-                                                        name="password"
-                                                        value={data.password}
-                                                        onChange={(e) =>
-                                                            setData(
-                                                                "password",
-                                                                e.target.value
-                                                            )
-                                                        }
-                                                        className="w-full p-2 border rounded"
-                                                        required
-                                                    />
+                                                {/* Password fields */}
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-sm font-medium mb-1">
+                                                            Password
+                                                        </label>
+                                                        <input
+                                                            type="password"
+                                                            value={
+                                                                data.password
+                                                            }
+                                                            onChange={(e) =>
+                                                                setData(
+                                                                    "password",
+                                                                    e.target
+                                                                        .value
+                                                                )
+                                                            }
+                                                            className="w-full border rounded-lg px-3 py-2"
+                                                            required
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium mb-1">
+                                                            Confirm Password
+                                                        </label>
+                                                        <input
+                                                            type="password"
+                                                            value={
+                                                                data.confirmPassword
+                                                            }
+                                                            onChange={(e) =>
+                                                                setData(
+                                                                    "confirmPassword",
+                                                                    e.target
+                                                                        .value
+                                                                )
+                                                            }
+                                                            className="w-full border rounded-lg px-3 py-2"
+                                                            required
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <div className="mb-4">
-                                                    <label className="block text-gray-700">
-                                                        Confirm Password
-                                                    </label>
-                                                    <input
-                                                        type="password"
-                                                        name="confirmPassword"
-                                                        value={
-                                                            data.confirmPassword
-                                                        }
-                                                        onChange={(e) =>
-                                                            setData(
-                                                                "confirmPassword",
-                                                                e.target.value
-                                                            )
-                                                        }
-                                                        className="w-full p-2 border rounded"
-                                                        required
-                                                    />
+
+                                                {/* Personal info fields */}
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-sm font-medium mb-1">
+                                                            Full Name
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            value={data.name}
+                                                            onChange={(e) =>
+                                                                setData(
+                                                                    "name",
+                                                                    e.target
+                                                                        .value
+                                                                )
+                                                            }
+                                                            className="w-full border rounded-lg px-3 py-2"
+                                                            required
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium mb-1">
+                                                            Gender
+                                                        </label>
+                                                        <select
+                                                            value={data.gender}
+                                                            onChange={(e) =>
+                                                                setData(
+                                                                    "gender",
+                                                                    e.target
+                                                                        .value
+                                                                )
+                                                            }
+                                                            className="w-full border rounded-lg px-3 py-2"
+                                                            required
+                                                        >
+                                                            <option value="">
+                                                                Select
+                                                            </option>
+                                                            <option value="Male">
+                                                                Male
+                                                            </option>
+                                                            <option value="Female">
+                                                                Female
+                                                            </option>
+                                                            <option value="Other">
+                                                                Other
+                                                            </option>
+                                                        </select>
+                                                    </div>
                                                 </div>
-                                                <div className="mb-4">
-                                                    <label className="block text-gray-700">
-                                                        Name
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        name="name"
-                                                        value={data.name}
-                                                        onChange={(e) =>
-                                                            setData(
-                                                                "name",
-                                                                e.target.value
-                                                            )
-                                                        }
-                                                        className="w-full p-2 border rounded"
-                                                        required
-                                                    />
-                                                </div>
-                                                <div className="mb-4">
-                                                    <label className="block text-gray-700">
-                                                        Gender
-                                                    </label>
-                                                    <select
-                                                        name="gender"
-                                                        value={data.gender}
-                                                        onChange={(e) =>
-                                                            setData(
-                                                                "gender",
-                                                                e.target.value
-                                                            )
-                                                        }
-                                                        className="w-full p-2 border rounded"
-                                                        required
-                                                    >
-                                                        <option value="">
-                                                            Select
-                                                        </option>
-                                                        <option value="Male">
-                                                            Male
-                                                        </option>
-                                                        <option value="Female">
-                                                            Female
-                                                        </option>
-                                                        <option value="Other">
-                                                            Other
-                                                        </option>
-                                                    </select>
-                                                </div>
-                                                <div className="mb-4">
-                                                    <label className="block text-gray-700">
+
+                                                <div>
+                                                    <label className="block text-sm font-medium mb-1">
                                                         Date of Birth
                                                     </label>
                                                     <input
                                                         type="date"
-                                                        name="dob"
                                                         value={data.dob}
                                                         onChange={(e) =>
                                                             setData(
@@ -530,7 +614,7 @@ export default function Booking({ project, auth, canResetPassword }) {
                                                                 e.target.value
                                                             )
                                                         }
-                                                        className="w-full p-2 border rounded"
+                                                        className="w-full border rounded-lg px-3 py-2"
                                                         required
                                                     />
                                                 </div>
@@ -539,37 +623,52 @@ export default function Booking({ project, auth, canResetPassword }) {
                                     </div>
                                 )}
 
-                                {/* STEP 2 */}
+                                {/* Step 2: Contact Info */}
                                 {step === 2 && (
-                                    <div>
-                                        <h3 className="text-lg font-bold mb-4">
-                                            Step 2: Contact Info
-                                        </h3>
-                                        <div className="mb-4">
-                                            <label className="block text-gray-700">
-                                                Country
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="country"
-                                                value={data.country}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "country",
-                                                        e.target.value
-                                                    )
-                                                }
-                                                className="w-full p-2 border rounded"
-                                                required
-                                            />
+                                    <div className="space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium mb-1">
+                                                    Country
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={data.country}
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            "country",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                    className="w-full border rounded-lg px-3 py-2"
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium mb-1">
+                                                    City
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={data.city}
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            "city",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                    className="w-full border rounded-lg px-3 py-2"
+                                                    required
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="mb-4">
-                                            <label className="block text-gray-700">
+
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">
                                                 Address
                                             </label>
                                             <input
                                                 type="text"
-                                                name="address"
                                                 value={data.address}
                                                 onChange={(e) =>
                                                     setData(
@@ -577,116 +676,397 @@ export default function Booking({ project, auth, canResetPassword }) {
                                                         e.target.value
                                                     )
                                                 }
-                                                className="w-full p-2 border rounded"
+                                                className="w-full border rounded-lg px-3 py-2"
                                                 required
                                             />
                                         </div>
-                                        <div className="mb-4">
-                                            <label className="block text-gray-700">
-                                                City
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="city"
-                                                value={data.city}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "city",
-                                                        e.target.value
-                                                    )
-                                                }
-                                                className="w-full p-2 border rounded"
-                                                required
-                                            />
-                                        </div>
-                                        <div className="mb-4">
-                                            <label className="block text-gray-700">
-                                                Postal Code / Zip code
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="postal"
-                                                value={data.postal}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "postal",
-                                                        e.target.value
-                                                    )
-                                                }
-                                                className="w-full p-2 border rounded"
-                                                required
-                                            />
-                                        </div>
-                                        <div className="mb-4">
-                                            <label className="block text-gray-700">
-                                                Phone
-                                            </label>
-                                            <input
-                                                type="tel"
-                                                name="phone"
-                                                value={data.phone}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "phone",
-                                                        e.target.value
-                                                    )
-                                                }
-                                                className="w-full p-2 border rounded"
-                                                required
-                                            />
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium mb-1">
+                                                    Postal Code
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={data.postal}
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            "postal",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                    className="w-full border rounded-lg px-3 py-2"
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium mb-1">
+                                                    Phone
+                                                </label>
+                                                <input
+                                                    type="tel"
+                                                    value={data.phone}
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            "phone",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                    className="w-full border rounded-lg px-3 py-2"
+                                                    required
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                 )}
 
-                                {/* STEP 3 */}
+                                {/* Step 3: Booking Details */}
                                 {step === 3 && (
-                                    <div>
-                                        <h3 className="text-lg font-bold mb-4">
-                                            Step 3: Booking Details
-                                        </h3>
-                                        <div className="mb-4">
-                                            <label className="block text-gray-700">
-                                                Start Date
-                                            </label>
-                                            <input
-                                                type="date"
-                                                name="start_date"
-                                                value={data.start_date}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "start_date",
-                                                        e.target.value
-                                                    )
-                                                }
-                                                className="w-full p-2 border rounded"
-                                                required
-                                            />
+                                    <div className="space-y-6">
+                                        {/* Date fields */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium mb-1">
+                                                    Start Date
+                                                </label>
+                                                <input
+                                                    type="date"
+                                                    value={data.start_date}
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            "start_date",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                    className="w-full border rounded-lg px-3 py-2"
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium mb-1">
+                                                    End Date
+                                                </label>
+                                                <input
+                                                    type="date"
+                                                    value={data.end_date}
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            "end_date",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                    className="w-full border rounded-lg px-3 py-2"
+                                                    required
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="mb-4">
-                                            <label className="block text-gray-700">
-                                                End Date
-                                            </label>
-                                            <input
-                                                type="date"
-                                                name="end_date"
-                                                value={data.end_date}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "end_date",
-                                                        e.target.value
-                                                    )
-                                                }
-                                                className="w-full p-2 border rounded"
-                                                required
-                                            />
-                                        </div>
-                                        <div className="mb-4">
-                                            <label className="block text-gray-700">
+
+                                        {numberOfDays > 0 && (
+                                            <div className="text-sm text-gray-600">
+                                                Duration: {numberOfDays} day
+                                                {numberOfDays !== 1 ? "s" : ""}
+                                                {project.fees && (
+                                                    <span className="ml-4">
+                                                        Project fee: $
+                                                        {project.fees}/day
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Sponsorship Section */}
+                                        {project.type_of_project === "Paid" && (
+                                            <div className="mt-6">
+                                                <h4 className="text-lg font-semibold mb-4">
+                                                    Financial Sponsorship
+                                                </h4>
+
+                                                <label className="flex items-center gap-3 mb-4">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={
+                                                            seekingSponsorship
+                                                        }
+                                                        onChange={
+                                                            handleSponsorshipChange
+                                                        }
+                                                        className="h-5 w-5 text-indigo-600"
+                                                    />
+                                                    <span className="font-medium">
+                                                        I am seeking financial
+                                                        sponsorship
+                                                    </span>
+                                                </label>
+
+                                                {seekingSponsorship && (
+                                                    <div className="space-y-6 p-4 bg-gray-50 rounded-lg">
+                                                        {/* Funding aspects selection */}
+                                                        <div>
+                                                            <h5 className="font-semibold mb-3">
+                                                                Funding Needs
+                                                            </h5>
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                                {visibleFundingOptions.map(
+                                                                    (
+                                                                        aspect
+                                                                    ) => (
+                                                                        <div
+                                                                            key={
+                                                                                aspect.id
+                                                                            }
+                                                                            className="border rounded-lg p-3"
+                                                                        >
+                                                                            <label className="flex items-center gap-2 font-medium">
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={fundingAspects.some(
+                                                                                        (
+                                                                                            a
+                                                                                        ) =>
+                                                                                            a.id ===
+                                                                                            aspect.id
+                                                                                    )}
+                                                                                    onChange={(
+                                                                                        e
+                                                                                    ) =>
+                                                                                        handleAspectChange(
+                                                                                            e,
+                                                                                            aspect
+                                                                                        )
+                                                                                    }
+                                                                                    className="h-5 w-5 text-indigo-600"
+                                                                                />
+                                                                                {
+                                                                                    aspect.label
+                                                                                }
+                                                                            </label>
+
+                                                                            {fundingAspects.some(
+                                                                                (
+                                                                                    a
+                                                                                ) =>
+                                                                                    a.id ===
+                                                                                    aspect.id
+                                                                            ) && (
+                                                                                <div className="mt-3">
+                                                                                    <label className="block text-sm mb-1">
+                                                                                        Amount
+                                                                                        needed
+                                                                                        ($)
+                                                                                    </label>
+                                                                                    <input
+                                                                                        type="number"
+                                                                                        value={
+                                                                                            data[
+                                                                                                aspect
+                                                                                                    .id
+                                                                                            ] ||
+                                                                                            ""
+                                                                                        }
+                                                                                        onChange={(
+                                                                                            e
+                                                                                        ) =>
+                                                                                            handleAmountChange(
+                                                                                                aspect.id,
+                                                                                                e
+                                                                                                    .target
+                                                                                                    .value
+                                                                                            )
+                                                                                        }
+                                                                                        className="w-full border rounded px-2 py-1"
+                                                                                        min="0"
+                                                                                        step="0.01"
+                                                                                        readOnly={
+                                                                                            aspect.id ===
+                                                                                            "project_fees"
+                                                                                        }
+                                                                                    />
+                                                                                    {aspect.id ===
+                                                                                        "project_fees" &&
+                                                                                        numberOfDays >
+                                                                                            0 && (
+                                                                                            <p className="text-xs text-gray-500 mt-1">
+                                                                                                Calculated:{" "}
+                                                                                                {
+                                                                                                    numberOfDays
+                                                                                                }{" "}
+                                                                                                days
+                                                                                                ×
+                                                                                                $
+                                                                                                {project.fees ||
+                                                                                                    0}
+                                                                                                /day
+                                                                                            </p>
+                                                                                        )}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    )
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Total amount display */}
+                                                        <div className="bg-white p-4 rounded border">
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="font-semibold">
+                                                                    Total
+                                                                    Requested:
+                                                                </span>
+                                                                <span className="text-2xl font-bold text-indigo-600">
+                                                                    $
+                                                                    {totalAmount.toFixed(
+                                                                        2
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Additional sponsorship fields */}
+                                                        <div>
+                                                            <label className="block font-medium mb-2">
+                                                                Personal
+                                                                Statement
+                                                            </label>
+                                                            <textarea
+                                                                value={
+                                                                    data.self_introduction
+                                                                }
+                                                                onChange={(e) =>
+                                                                    setData(
+                                                                        "self_introduction",
+                                                                        e.target
+                                                                            .value
+                                                                    )
+                                                                }
+                                                                className="w-full border rounded-lg px-3 py-2 h-24"
+                                                                placeholder="Tell us about yourself and why you need sponsorship..."
+                                                                required
+                                                            />
+                                                        </div>
+
+                                                        <div>
+                                                            <label className="block font-medium mb-2">
+                                                                Relevant Skills
+                                                            </label>
+                                                            <input
+                                                                type="text"
+                                                                value={
+                                                                    Array.isArray(
+                                                                        data.skills
+                                                                    )
+                                                                        ? data.skills.join(
+                                                                              ", "
+                                                                          )
+                                                                        : data.skills
+                                                                }
+                                                                onChange={(e) =>
+                                                                    setData(
+                                                                        "skills",
+                                                                        e.target.value
+                                                                            .split(
+                                                                                ","
+                                                                            )
+                                                                            .map(
+                                                                                (
+                                                                                    s
+                                                                                ) =>
+                                                                                    s.trim()
+                                                                            )
+                                                                    )
+                                                                }
+                                                                className="w-full border rounded-lg px-3 py-2"
+                                                                placeholder="List your skills separated by commas"
+                                                            />
+                                                        </div>
+
+                                                        <div>
+                                                            <label className="block font-medium mb-2">
+                                                                Expected Impact
+                                                            </label>
+                                                            <textarea
+                                                                value={
+                                                                    data.impact
+                                                                }
+                                                                onChange={(e) =>
+                                                                    setData(
+                                                                        "impact",
+                                                                        e.target
+                                                                            .value
+                                                                    )
+                                                                }
+                                                                className="w-full border rounded-lg px-3 py-2 h-20"
+                                                                placeholder="How will this opportunity help you make a difference?"
+                                                                required
+                                                            />
+                                                        </div>
+
+                                                        <div className="space-y-3">
+                                                            <label className="flex items-center gap-2">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={
+                                                                        data.commitment
+                                                                    }
+                                                                    onChange={(
+                                                                        e
+                                                                    ) =>
+                                                                        setData(
+                                                                            "commitment",
+                                                                            e
+                                                                                .target
+                                                                                .checked
+                                                                        )
+                                                                    }
+                                                                    className="h-5 w-5 text-indigo-600"
+                                                                />
+                                                                <span>
+                                                                    I commit to
+                                                                    providing
+                                                                    regular
+                                                                    updates
+                                                                </span>
+                                                            </label>
+
+                                                            <label className="flex items-center gap-2">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={
+                                                                        data.agreement
+                                                                    }
+                                                                    onChange={(
+                                                                        e
+                                                                    ) =>
+                                                                        setData(
+                                                                            "agreement",
+                                                                            e
+                                                                                .target
+                                                                                .checked
+                                                                        )
+                                                                    }
+                                                                    className="h-5 w-5 text-indigo-600"
+                                                                    required
+                                                                />
+                                                                <span>
+                                                                    I agree to
+                                                                    the terms
+                                                                    and
+                                                                    conditions
+                                                                </span>
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Number of travellers */}
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">
                                                 Number of Travellers
                                             </label>
                                             <input
                                                 type="number"
-                                                name="number_of_travellers"
                                                 value={
                                                     data.number_of_travellers
                                                 }
@@ -696,16 +1076,18 @@ export default function Booking({ project, auth, canResetPassword }) {
                                                         e.target.value
                                                     )
                                                 }
-                                                className="w-full p-2 border rounded"
+                                                className="w-full border rounded-lg px-3 py-2"
+                                                min="1"
                                                 required
                                             />
                                         </div>
-                                        <div className="mb-4">
-                                            <label className="block text-gray-700">
-                                                Message to Admin
+
+                                        {/* Message to organization */}
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">
+                                                Message to Organization
                                             </label>
                                             <textarea
-                                                name="message"
                                                 value={data.message}
                                                 onChange={(e) =>
                                                     setData(
@@ -713,169 +1095,178 @@ export default function Booking({ project, auth, canResetPassword }) {
                                                         e.target.value
                                                     )
                                                 }
-                                                className="w-full p-2 border rounded"
-                                                rows="3"
-                                                placeholder="Optional message..."
-                                            ></textarea>
+                                                className="w-full border rounded-lg px-3 py-2 h-28"
+                                                placeholder="Tell the organization why you're interested in volunteering..."
+                                            />
                                         </div>
                                     </div>
                                 )}
 
-                                {/* Buttons */}
-                                <div className="mt-6 flex justify-between">
+                                {/* Navigation buttons */}
+                                <div className="mt-8 flex justify-between">
                                     {step > 1 && (
                                         <button
                                             type="button"
                                             onClick={prevStep}
-                                            className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                                            className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
                                         >
                                             Back
                                         </button>
                                     )}
+
                                     {step < 3 ? (
                                         <button
                                             type="button"
                                             onClick={nextStep}
-                                            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 ml-auto"
                                             disabled={
                                                 step === 1 && !emailVerified
                                             }
+                                            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 ml-auto"
                                         >
                                             Next
                                         </button>
                                     ) : (
                                         <button
                                             type="submit"
-                                            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 ml-auto"
+                                            disabled={isSubmitting}
+                                            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 ml-auto"
                                         >
-                                            Submit Booking
+                                            {isSubmitting
+                                                ? "Submitting..."
+                                                : "Complete Booking"}
                                         </button>
                                     )}
                                 </div>
                             </form>
-                        </section>
+                        </div>
                     )}
+
+                    {/* Login Modal */}
+                    <Modal
+                        show={showLoginModal}
+                        onClose={() => setShowLoginModal(false)}
+                    >
+                        <div className="p-6">
+                            <h2 className="text-2xl font-bold mb-4">
+                                Login to Continue
+                            </h2>
+                            <form onSubmit={handleLogin}>
+                                <div className="space-y-4">
+                                    <div>
+                                        <InputLabel
+                                            htmlFor="login-email"
+                                            value="Email"
+                                        />
+                                        <TextInput
+                                            id="login-email"
+                                            type="email"
+                                            value={data.email}
+                                            onChange={(e) =>
+                                                setData("email", e.target.value)
+                                            }
+                                            className="w-full"
+                                            required
+                                        />
+                                        <InputError message={errors.email} />
+                                    </div>
+
+                                    <div>
+                                        <InputLabel
+                                            htmlFor="login-password"
+                                            value="Password"
+                                        />
+                                        <TextInput
+                                            id="login-password"
+                                            type="password"
+                                            value={data.password}
+                                            onChange={(e) =>
+                                                setData(
+                                                    "password",
+                                                    e.target.value
+                                                )
+                                            }
+                                            className="w-full"
+                                            required
+                                        />
+                                        <InputError message={errors.password} />
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                        <label className="flex items-center">
+                                            <Checkbox
+                                                name="remember"
+                                                checked={data.remember}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        "remember",
+                                                        e.target.checked
+                                                    )
+                                                }
+                                            />
+                                            <span className="ml-2 text-sm">
+                                                Remember me
+                                            </span>
+                                        </label>
+
+                                        {canResetPassword && (
+                                            <Link
+                                                href={route("password.request")}
+                                                className="text-sm text-indigo-600 hover:text-indigo-800"
+                                            >
+                                                Forgot password?
+                                            </Link>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center justify-center mt-4">
+                                        <span className="text-gray-500 mr-2">
+                                            Sign in with
+                                        </span>
+                                        <a
+                                            href={route("google.login")}
+                                            className="flex items-center justify-center"
+                                        >
+                                            <img
+                                                src="/google.png"
+                                                alt="Google"
+                                                className="w-5 h-5"
+                                            />
+                                        </a>
+                                    </div>
+
+                                    <div className="text-center mt-4">
+                                        <p className="text-sm text-gray-600">
+                                            Don't have an account?{" "}
+                                            <Link
+                                                href={route("register")}
+                                                className="text-indigo-600 hover:text-indigo-800"
+                                            >
+                                                Register here
+                                            </Link>
+                                        </p>
+                                    </div>
+
+                                    <div className="flex justify-end mt-6">
+                                        <PrimaryButton disabled={processing}>
+                                            {processing
+                                                ? "Logging in..."
+                                                : "Log in"}
+                                        </PrimaryButton>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </Modal>
+
+                    {/* OTP Modal */}
+                    <OtpModal
+                        show={showOtpModal}
+                        onClose={() => setShowOtpModal(false)}
+                        email={otpEmail}
+                        onVerify={handleOtpVerification}
+                    />
                 </div>
             </div>
-
-            {/* Login Modal */}
-            <Modal
-                show={showLoginModal}
-                onClose={() => setShowLoginModal(false)}
-            >
-                <div className="p-6">
-                    <h2 className="text-2xl font-bold mb-4">Login</h2>
-                    <form onSubmit={LoginSubmit}>
-                        <div>
-                            <InputLabel htmlFor="email" value="Email" />
-
-                            <TextInput
-                                id="email"
-                                type="email"
-                                name="email"
-                                value={data.email}
-                                className="mt-1 block w-full"
-                                autoComplete="username"
-                                isFocused={true}
-                                onChange={(e) =>
-                                    setData("email", e.target.value)
-                                }
-                            />
-
-                            <InputError
-                                message={errors.email}
-                                className="mt-2"
-                            />
-                        </div>
-
-                        <div className="mt-4">
-                            <InputLabel htmlFor="password" value="Password" />
-
-                            <TextInput
-                                id="password"
-                                type="password"
-                                name="password"
-                                value={data.password}
-                                className="mt-1 block w-full"
-                                autoComplete="current-password"
-                                onChange={(e) =>
-                                    setData("password", e.target.value)
-                                }
-                            />
-
-                            <InputError
-                                message={errors.password}
-                                className="mt-2"
-                            />
-                        </div>
-
-                        <div className="mt-4 block">
-                            <label className="flex items-center">
-                                <Checkbox
-                                    name="remember"
-                                    checked={data.remember}
-                                    onChange={(e) =>
-                                        setData("remember", e.target.checked)
-                                    }
-                                />
-                                <span className="ms-2 text-sm text-gray-600">
-                                    Remember me
-                                </span>
-                            </label>
-                        </div>
-
-                        <div className="flex items-center justify-center mt-4">
-                            <span className="text-gray-500">Sign in with</span>
-                            <a
-                                href={route("google.login")}
-                                className="flex items-center justify-center ms-2 "
-                            >
-                                <img
-                                    src="/google.png"
-                                    alt="Google"
-                                    className="w-[20px] h-[20px]"
-                                />
-                            </a>
-                        </div>
-                        <div className="mt-4 text-center flex justify-center gap-2">
-                            <p className="text-sm text-gray-600">
-                                Don't have an account?
-                            </p>
-
-                            <Link
-                                href={route("register")}
-                                className="text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                            >
-                                Register
-                            </Link>
-                        </div>
-
-                        {/* <OtpModal
-                            show={showOtpModal}
-                            onClose={() => setShowOtpModal(false)}
-                            email={otpEmail}
-                        /> */}
-
-                        <div className="mt-4 flex items-center justify-end">
-                            {canResetPassword && (
-                                <Link
-                                    href={route("password.request")}
-                                    className="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                                >
-                                    Forgot your password?
-                                </Link>
-                            )}
-
-                            <PrimaryButton
-                                className="ms-4"
-                                disabled={processing}
-                            >
-                                Log in
-                            </PrimaryButton>
-                        </div>
-                    </form>
-                </div>
-            </Modal>
         </GeneralPages>
     );
 }

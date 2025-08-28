@@ -38,6 +38,8 @@ class VerifyEmailController extends Controller
                 return redirect()->intended(route('volunteer.dashboard'))->with('success', 'Email verified!');
             case 'Organization':
                 return redirect()->intended(route('organization.dashboard'))->with('success', 'Email verified!');
+            case 'Sponsor':
+                return redirect()->intended(route('sponsor.dashboard'))->with('success', 'Email verified!');
             default:
                 Auth::logout(); // optional security fallback
                 return redirect('/')->withErrors(['role' => 'Unknown user role. Access denied.']);

@@ -487,6 +487,44 @@ export default function ViewProject({
                                 </div>
                             </div>
 
+                            {/* Includes For */}
+                            {project.includes?.length > 0 && (
+                                <div className="mt-4">
+                                    <p className="text-sm text-gray-500 mb-2">
+                                        Includes
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {project.includes.map((item, index) => (
+                                            <span
+                                                key={index}
+                                                className="badge badge-primary"
+                                            >
+                                                {item}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Excludes For */}
+                            {project.excludes?.length > 0 && (
+                                <div className="mt-4">
+                                    <p className="text-sm text-gray-500 mb-2">
+                                        Excludes
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {project.excludes.map((item, index) => (
+                                            <span
+                                                key={index}
+                                                className="badge bg-red-600 text-white"
+                                            >
+                                                {item}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Suitable For */}
                             {project.suitable?.length > 0 && (
                                 <div className="mt-4">

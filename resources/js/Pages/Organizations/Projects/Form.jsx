@@ -113,6 +113,256 @@ const FormSelect = ({
     );
 };
 
+// NEW: Enhanced dropdown component for includes/excludes matching VolunteerSkillsDropdown
+const EnhancedIncludesExcludesDropdown = ({
+    label,
+    name,
+    value = [],
+    onChange,
+    options,
+    error,
+    placeholder = "Select options...",
+    required = false,
+    multiple = true,
+    maxHeight = "60vh",
+    minHeight = "200px",
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
+    const dropdownRef = useRef(null);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (
+                dropdownRef.current &&
+                !dropdownRef.current.contains(event.target)
+            ) {
+                setIsOpen(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
+    const toggleOption = (optionValue) => {
+        let newValue;
+        if (multiple) {
+            newValue = value.includes(optionValue)
+                ? value.filter((v) => v !== optionValue)
+                : [...value, optionValue];
+        } else {
+            newValue = value.includes(optionValue) ? [] : [optionValue];
+        }
+
+        onChange(name, newValue);
+    };
+
+    const removeOption = (optionValue) => {
+        const newValue = value.filter((v) => v !== optionValue);
+        onChange(name, newValue);
+    };
+
+    const filteredOptions = options.filter((option) =>
+        option.label.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    return (
+        <div className="mb-6" ref={dropdownRef}>
+            {label && (
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {label}
+                    {required && <span className="text-red-500 ml-1">*</span>}
+                </label>
+            )}
+
+            <div className="relative">
+                <button
+                    type="button"
+                    className={`relative w-full bg-white border ${
+                        isOpen
+                            ? "border-blue-500 ring-2 ring-blue-200"
+                            : "border-gray-300"
+                    } rounded-lg shadow-sm pl-3 pr-10 py-3 text-left cursor-default focus:outline-none transition-all duration-150 ${
+                        error ? "border-red-500" : ""
+                    }`}
+                    onClick={() => setIsOpen(!isOpen)}
+                    aria-haspopup="listbox"
+                    aria-expanded={isOpen}
+                >
+                    <div className="flex flex-wrap gap-2 min-h-[40px] items-center">
+                        {value.length > 0 ? (
+                            value.map((selectedValue) => {
+                                const option = options.find(
+                                    (opt) => opt.value === selectedValue
+                                );
+                                return (
+                                    <span
+                                        key={selectedValue}
+                                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                                    >
+                                        {option?.label}
+                                        <button
+                                            type="button"
+                                            className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full text-blue-400 hover:bg-blue-200 hover:text-blue-500"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                removeOption(selectedValue);
+                                            }}
+                                            aria-label={`Remove ${option?.label}`}
+                                        >
+                                            ×
+                                        </button>
+                                    </span>
+                                );
+                            })
+                        ) : (
+                            <span className="text-gray-500">{placeholder}</span>
+                        )}
+                    </div>
+                    <span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                        <svg
+                            className={`h-5 w-5 text-gray-400 transition-transform duration-200 ${
+                                isOpen ? "transform rotate-180" : ""
+                            }`}
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                        >
+                            <path
+                                fillRule="evenodd"
+                                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                clipRule="evenodd"
+                            />
+                        </svg>
+                    </span>
+                </button>
+
+                {isOpen && (
+                    <div
+                        className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-lg py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm"
+                        style={{
+                            maxHeight: maxHeight,
+                            minHeight: minHeight,
+                        }}
+                    >
+                        <div className="p-3">
+                            {value.length > 0 && (
+                                <div className="w-full mb-3">
+                                    <span className="text-xs font-medium text-gray-500">
+                                        Selected options:
+                                    </span>
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {value.map((selectedValue) => {
+                                            const option = options.find(
+                                                (opt) =>
+                                                    opt.value === selectedValue
+                                            );
+                                            return (
+                                                <span
+                                                    key={selectedValue}
+                                                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                                                >
+                                                    {option?.label}
+                                                    <button
+                                                        type="button"
+                                                        className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full text-blue-400 hover:bg-blue-200 hover:text-blue-500"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            removeOption(
+                                                                selectedValue
+                                                            );
+                                                        }}
+                                                        aria-label={`Remove ${option?.label}`}
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="w-full">
+                                <input
+                                    type="text"
+                                    placeholder="Search options..."
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-3"
+                                    onClick={(e) => e.stopPropagation()}
+                                    value={searchTerm}
+                                    onChange={(e) =>
+                                        setSearchTerm(e.target.value)
+                                    }
+                                />
+
+                                <div
+                                    className="overflow-y-auto"
+                                    style={{
+                                        maxHeight: `calc(${maxHeight} - 150px)`,
+                                    }}
+                                >
+                                    {filteredOptions.length > 0 ? (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {filteredOptions.map((option) => (
+                                                <div
+                                                    key={option.value}
+                                                    className={`px-3 py-2 text-sm cursor-default select-none rounded-md transition-colors duration-100 flex items-center ${
+                                                        value.includes(
+                                                            option.value
+                                                        )
+                                                            ? "bg-blue-50 text-blue-800"
+                                                            : "hover:bg-gray-50 text-gray-700"
+                                                    }`}
+                                                    onClick={() =>
+                                                        toggleOption(
+                                                            option.value
+                                                        )
+                                                    }
+                                                >
+                                                    <input
+                                                        type={
+                                                            multiple
+                                                                ? "checkbox"
+                                                                : "radio"
+                                                        }
+                                                        checked={value.includes(
+                                                            option.value
+                                                        )}
+                                                        readOnly
+                                                        className={`h-4 w-4 ${
+                                                            multiple
+                                                                ? "rounded text-blue-600 focus:ring-blue-500"
+                                                                : "rounded-full text-blue-600 focus:ring-blue-500"
+                                                        } border-gray-300`}
+                                                    />
+                                                    <span className="ml-2 truncate">
+                                                        {option.label}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-4 text-gray-500">
+                                            No options found matching your
+                                            search
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+        </div>
+    );
+};
+
 const FormCheckbox = ({ label, name, checked, onChange, error, ...props }) => {
     return (
         <div className="form-control mb-4">
@@ -207,6 +457,21 @@ export default function ProjectForm({
     auth,
 }) {
     const featuredImageInputRef = useRef(null);
+
+    // Helper function to parse includes/excludes data
+    const parseIncludesExcludes = (value) => {
+        if (Array.isArray(value)) return value;
+        if (typeof value === "string") {
+            try {
+                const parsed = JSON.parse(value);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+                return [];
+            }
+        }
+        return [];
+    };
+
     const {
         data,
         setData,
@@ -236,8 +501,8 @@ export default function ProjectForm({
         fees: project?.fees || "",
         currency: project?.currency || "USD",
         category_of_charge: project?.category_of_charge || "Day",
-        includes: project?.includes || "",
-        excludes: project?.excludes || "",
+        includes: project?.includes || [],
+        excludes: project?.excludes || [],
         activities: project?.activities || "",
         suitable: project?.suitable || [],
         availability_months: project?.availability_months || [],
@@ -284,6 +549,31 @@ export default function ProjectForm({
         "December",
     ];
     const [isEditing, setIsEditing] = useState(isEdit);
+
+    // NEW: Options for includes and excludes
+    const includesOptions = [
+        { value: "Accommodation", label: "Accommodation" },
+        { value: "Meals", label: "Meals" },
+        { value: "Airport Pickup", label: "Airport Pickup" },
+        { value: "Orientation", label: "Orientation" },
+        { value: "Training", label: "Training" },
+        { value: "Support", label: "24/7 Support" },
+        { value: "Certificate", label: "Certificate" },
+        { value: "Wifi", label: "WiFi" },
+        { value: "Laundry", label: "Laundry" },
+        { value: "Transportation", label: "Local Transportation" },
+    ];
+
+    const excludesOptions = [
+        { value: "Flights", label: "Flights" },
+        { value: "Visa", label: "Visa Fees" },
+        { value: "Travel Insurance", label: "Travel Insurance" },
+        { value: "Vaccinations", label: "Vaccinations" },
+        { value: "Personal Expenses", label: "Personal Expenses" },
+        { value: "Extra Tours", label: "Extra Tours" },
+        { value: "Airport Dropoff", label: "Airport Dropoff" },
+        { value: "Souvenirs", label: "Souvenirs" },
+    ];
 
     const showError = (field) =>
         errors[field] ? (
@@ -534,6 +824,15 @@ export default function ProjectForm({
         formData.append("type_of_project", data.type_of_project);
         formData.append("activities", data.activities);
 
+        // Append each include and exclude item individually for proper array handling
+        data.includes.forEach((item, index) => {
+            formData.append(`includes[${index}]`, item);
+        });
+
+        data.excludes.forEach((item, index) => {
+            formData.append(`excludes[${index}]`, item);
+        });
+
         data.availability_months.forEach((month, index) => {
             formData.append(`availability_months[${index}]`, month);
         });
@@ -569,15 +868,12 @@ export default function ProjectForm({
                 "category_of_charge",
                 data.category_of_charge || "Day"
             );
-            formData.append("includes", data.includes || "");
-            formData.append("excludes", data.excludes || "");
+            formData.append("point_exchange", data.point_exchange ? "1" : "0");
         }
 
         if (data.start_date) {
             formData.append("start_date", data.start_date);
         }
-
-        formData.append("point_exchange", data.point_exchange ? "1" : "0");
 
         if (isEdit) {
             if (data.remove_featured_image) {
@@ -617,11 +913,15 @@ export default function ProjectForm({
                 clearErrors(field);
                 return;
             }
-
-            if (
-                !data[field] ||
-                (Array.isArray(data[field]) && data[field].length === 0)
-            ) {
+            if (Array.isArray(data[field])) {
+                if (data[field].length === 0 && field !== "skills") {
+                    // skills might be optional
+                    isValid = false;
+                    setError(field, "At least one option must be selected");
+                }
+            }
+            // Handle string validation
+            else if (!data[field]) {
                 isValid = false;
                 setError(field, "This field is required");
             } else {
@@ -998,8 +1298,8 @@ export default function ProjectForm({
                                     setData("type_of_project", e.target.value);
                                     if (e.target.value === "Free") {
                                         setData("fees", "");
-                                        setData("includes", "");
-                                        setData("excludes", "");
+                                        setData("includes", []);
+                                        setData("excludes", []);
                                         setData("category_of_charge", "");
                                     }
                                 }}
@@ -1051,27 +1351,36 @@ export default function ProjectForm({
                                             error={errors.category_of_charge}
                                         />
                                     </div>
-
-                                    <FormTextarea
+                                    {/* NEW: Multi-select for includes */}
+                                    <EnhancedIncludesExcludesDropdown
                                         label="Fees Includes"
                                         name="includes"
                                         value={data.includes}
-                                        onChange={(e) =>
-                                            setData("includes", e.target.value)
+                                        onChange={(field, value) =>
+                                            setData(field, value)
                                         }
+                                        options={includesOptions}
                                         error={errors.includes}
+                                        placeholder="Select what's included..."
+                                        required={
+                                            data.type_of_project === "Paid"
+                                        }
                                     />
 
-                                    <FormTextarea
+                                    <EnhancedIncludesExcludesDropdown
                                         label="Fees Excludes"
                                         name="excludes"
                                         value={data.excludes}
-                                        onChange={(e) =>
-                                            setData("excludes", e.target.value)
+                                        onChange={(field, value) =>
+                                            setData(field, value)
                                         }
+                                        options={excludesOptions}
                                         error={errors.excludes}
+                                        placeholder="Select what's not included..."
+                                        required={
+                                            data.type_of_project === "Paid"
+                                        }
                                     />
-
                                     <FormCheckbox
                                         label="Accept Points Exchange"
                                         name="point_exchange"

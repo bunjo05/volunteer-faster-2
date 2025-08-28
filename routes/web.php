@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\SponsorController;
 use Inertia\Inertia;
 use App\Models\VolunteerBooking;
 use Illuminate\Support\Facades\Auth;
@@ -62,6 +63,11 @@ Route::get('/dashboard', function () {
     if ($user->role === "Volunteer") {
         return redirect()->route('volunteer.dashboard');
     }
+
+    if ($user->role === 'Sponsor') {
+        return redirect()->route('sponsor.dashboard');
+    }
+
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
@@ -83,6 +89,11 @@ Route::get('/verify-otp', [OtpVerificationController::class, 'show'])->name('otp
 Route::post('/verify-otp', [OtpVerificationController::class, 'store'])->name('otp.verify.store');
 
 Route::post('/otp/resend', [AuthenticatedSessionController::class, 'resend'])->name('otp.resend');
+
+// Sponsor Routes
+Route::prefix('sponsor')->middleware(['check.role:Sponsor', 'auth'])->group(function () {
+    Route::get('/dashboard', [SponsorController::class, 'index'])->name('sponsor.dashboard');
+});
 
 // Admin Routes
 Route::prefix('admin')->name('admin.')->group(function () {

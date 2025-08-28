@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->enum('role', ['Volunteer', 'Organization']);
+            $table->enum('role', ['Volunteer', 'Organization', 'Sponsor']);
             $table->boolean('is_active')->default(true);
             $table->enum('status', ['Active', 'Suspended', 'Pending']);
             $table->string('otp')->nullable();

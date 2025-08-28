@@ -689,7 +689,7 @@ export default function Home({ projects, auth, platformReviews }) {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         {[
                             {
-                                name: "Hope Foundation",
+                                name: "Panmark Charity",
                                 mission: "Education for children",
                                 logo: "/hope-foundation.jpg",
                             },

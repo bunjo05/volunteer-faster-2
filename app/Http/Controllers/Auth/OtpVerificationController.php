@@ -67,6 +67,8 @@ class OtpVerificationController extends Controller
                 return route('volunteer.dashboard');
             case 'organization':
                 return route('organization.dashboard');
+            case 'sponsor':
+                return route('sponsor.dashboard');
             default:
                 return route('home');
         }

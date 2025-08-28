@@ -32,8 +32,8 @@ return new class extends Migration
             $table->decimal('fees', 10, 2)->nullable();
             $table->string('currency')->default('USD')->nullable();
             $table->string('category_of_charge')->nullable();
-            $table->text('includes')->nullable();
-            $table->text('excludes')->nullable();
+            $table->json('includes')->nullable();
+            $table->json('excludes')->nullable();
             $table->text('activities');
             $table->json('suitable')->nullable();
             $table->json('availability_months')->nullable();

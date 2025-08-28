@@ -8,6 +8,7 @@ use App\Models\Project;
 use Illuminate\Http\Request;
 use App\Models\VolunteerBooking;
 use App\Models\VolunteerProfile;
+use App\Models\VolunteerSponsorship;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -85,10 +86,36 @@ class BookingController extends Controller
             'phone' => 'nullable|string',
             'start_date' => 'required|date',
             'end_date' => 'required|date',
-            'number_of_travellers' => 'required|integer',
+            'number_of_travellers' => 'nullable|integer',
             'message' => 'nullable|string',
             'project_id' => 'required|exists:projects,id',
-            'booking_status' => 'required'
+            'booking_status' => 'required',
+
+            // Sponsorship fields
+            'total_amount' => 'nullable|numeric|min:0',
+            'accommodation' => 'nullable|numeric|min:0',
+            'meals' => 'nullable|numeric|min:0',
+            'travel' => 'nullable|numeric|min:0',
+            'living_expenses' => 'nullable|numeric|min:0',
+            'visa_fees' => 'nullable|numeric|min:0',
+            'project_fees_amount' => 'nullable|numeric|min:0',
+            'self_introduction' => 'nullable|string',
+            'impact' => 'nullable|string',
+            'commitment' => 'nullable|boolean',
+            'agreement' => 'nullable|boolean',
+            'aspect_needs_funding' => 'nullable|array',
+            'skills' => 'nullable|array',
+        ]);
+
+
+        // 1. Create user
+        $user = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+            'role' => 'Volunteer',
+            'is_active' => 1,
+            'status' => 'Active',
         ]);
 
         // Check if user already has a pending booking for this project
@@ -119,18 +146,6 @@ class BookingController extends Controller
                 $hasRestrictedContent = true;
             }
         }
-
-        // 1. Create user
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'role' => 'Volunteer',
-            'is_active' => 1,
-            'status' => 'Active',
-        ]);
-
-
 
         // 2. Create profile
         $profile = VolunteerProfile::create([
@@ -150,10 +165,32 @@ class BookingController extends Controller
             'project_id' => $validated['project_id'],
             'start_date' => $validated['start_date'],
             'end_date' => $validated['end_date'],
-            'number_of_travellers' => $validated['number_of_travellers'],
+            'number_of_travellers' => $validated['number_of_travellers'] ?? 1,
             'message' => $filteredMessage ?? null,
             'booking_status' => $validated['booking_status']
         ]);
+
+        // 4. Create sponsorship if sponsorship data is provided
+        // if (!empty($validated['total_amount']) || !empty($validated['self_introduction'])) {
+        $sponsorship =  VolunteerSponsorship::create([
+            'user_id' => $user->id,
+            'booking_id' => $booking->id,
+            'total_amount' => $validated['total_amount'] ?? 0,
+            'accommodation' => $validated['accommodation'] ?? 0,
+            'meals' => $validated['meals'] ?? 0,
+            'living_expenses' => $validated['living_expenses'] ?? 0,
+            'travel' => $validated['travel'] ?? 0,
+            'visa_fees' => $validated['visa_fees'] ?? 0,
+            'project_fees_amount' => $validated['project_fees_amount'] ?? 0,
+            'self_introduction' => $validated['self_introduction'] ?? '',
+            'impact' => $validated['impact'] ?? '',
+            'commitment' => $validated['commitment'] ?? false,
+            'agreement' => $validated['agreement'] ?? false,
+            'aspect_needs_funding' => $validated['aspect_needs_funding'] ?? [],
+            'skills' => $validated['skills'] ?? [],
+            // 'updates' => $validated['updates'] ?? false
+        ]);
+        // }
 
         // Get project details
         $project = Project::with('organizationProfile')->find($validated['project_id']);
@@ -173,6 +210,8 @@ class BookingController extends Controller
 
     public function authStore(Request $request)
     {
+        $user = Auth::user();
+
         $validated = $request->validate([
             'start_date' => 'required|date',
             'end_date' => 'required|date',
@@ -182,8 +221,37 @@ class BookingController extends Controller
             'booking_status' => 'required',
             'sender_id' => 'nullable',
             'receiver_id' => 'nullable',
-            'status' => 'nullable'
+            'status' => 'nullable',
+
+
+            // Sponsorship fields
+            'total_amount' => 'nullable|numeric|min:0',
+            'travel' => 'nullable|numeric|min:0',
+            'accommodation' => 'nullable|numeric|min:0',
+            'meals' => 'nullable|numeric|min:0',
+            'living_expenses' => 'nullable|numeric|min:0',
+            'visa_fees' => 'nullable|numeric|min:0',
+            'project_fees_amount' => 'nullable|numeric|min:0',
+            'self_introduction' => 'nullable|string',
+            'impact' => 'nullable|string',
+            'commitment' => 'nullable|boolean',
+            'agreement' => 'nullable|boolean',
+            'aspect_needs_funding' => 'nullable|array',
+            'skills' => 'nullable|array',
+            // 'updates' => 'nullable|string'
         ]);
+
+        // Check if user already has a pending booking for this project
+        $existingBooking = VolunteerBooking::where('user_id', $user->id)
+            ->where('project_id', $validated['project_id'])
+            ->where('booking_status', 'Pending')
+            ->first();
+
+        if ($existingBooking) {
+            return redirect()->back()->withErrors([
+                'booking' => 'You already have a pending booking for this project. Please wait until it is processed.'
+            ]);
+        }
 
         // Filter restricted content
         $patterns = [
@@ -204,30 +272,40 @@ class BookingController extends Controller
 
 
 
-        $user = Auth::user();
-
-        // Check if user already has a pending booking for this project
-        $existingBooking = VolunteerBooking::where('user_id', $user->id)
-            ->where('project_id', $validated['project_id'])
-            ->where('booking_status', 'Pending')
-            ->first();
-
-        if ($existingBooking) {
-            return redirect()->back()->withErrors([
-                'booking' => 'You already have a pending booking for this project. Please wait until it is processed.'
-            ]);
-        }
-
         // Create booking
         $booking = VolunteerBooking::create([
             'user_id' => $user->id,
             'project_id' => $validated['project_id'],
             'start_date' => $validated['start_date'],
             'end_date' => $validated['end_date'],
-            'number_of_travellers' => $validated['number_of_travellers'],
+            'number_of_travellers' => $validated['number_of_travellers'] ?? 1,
             'message' => $filteredMessage ?? null,
             'booking_status' => $validated['booking_status']
         ]);
+
+
+
+        // Create sponsorship if sponsorship data is provided
+        // if (!empty($validated['total_amount']) || !empty($validated['self_introduction'])) {
+        $sponsorship = VolunteerSponsorship::create([
+            'user_id' => $user->id,
+            'booking_id' => $booking->id,
+            'total_amount' => $validated['total_amount'] ?? 0,
+            'travel' => $validated['travel'] ?? 0,
+            'accommodation' => $validated['accommodation'] ?? 0,
+            'meals' => $validated['meals'] ?? 0,
+            'living_expenses' => $validated['living_expenses'] ?? 0,
+            'visa_fees' => $validated['visa_fees'] ?? 0,
+            'project_fees_amount' => $validated['project_fees_amount'] ?? 0,
+            'self_introduction' => $validated['self_introduction'] ?? '',
+            'impact' => $validated['impact'] ?? '',
+            'commitment' => $validated['commitment'] ?? false,
+            'agreement' => $validated['agreement'] ?? false,
+            'aspect_needs_funding' => $validated['aspect_needs_funding'] ?? [],
+            'skills' => $validated['skills'] ?? [],
+            // 'updates' => $validated['updates'] ?? false
+        ]);
+        // }
 
         // Get project details
         $project = Project::with('organizationProfile')->find($validated['project_id']);

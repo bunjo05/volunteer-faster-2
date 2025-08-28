@@ -6,15 +6,16 @@ use App\Models\Admin;
 use App\Models\Contact;
 use App\Models\Project;
 use Illuminate\Http\Request;
+use App\Models\PlatformReview;
 use App\Models\ReportCategory;
 use App\Mail\NewContactMessage;
 use App\Models\FeaturedProject;
+use App\Models\VolunteerBooking;
 use App\Models\OrganizationProfile;
 use App\Models\ProjectRemarkComment;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use App\Models\OrganizationVerification;
-use App\Models\PlatformReview;
 
 class HomeController extends Controller
 {
@@ -158,7 +159,7 @@ class HomeController extends Controller
 
     public function verifyCertificate($id, $hash)
     {
-        $booking = \App\Models\VolunteerBooking::with(['user', 'project'])->findOrFail($id);
+        $booking = VolunteerBooking::with(['user', 'project'])->findOrFail($id);
 
         $valid = sha1($booking->id . config('app.key')) === $hash;
 
