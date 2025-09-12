@@ -29,7 +29,7 @@ class OrganizationController extends Controller
     {
         $user = Auth::user();
 
-        $projects = Project::where('user_id', $user->id)
+        $projects = Project::where('user_public_id', $user->public_id)
             ->with('category', 'subcategory')
             ->latest()
             ->get();
@@ -54,18 +54,18 @@ class OrganizationController extends Controller
 
         $bookings = VolunteerBooking::with([
             'project' => function ($query) use ($user) {
-                $query->where('user_id', $user->id);
+                $query->where('user_public_id', $user->public_id);
             },
             'user.volunteerProfile',
             'user.volunteerProfile.verification', // Add this to load verification
             'payments',
             'pointTransactions' => function ($query) use ($user) {
-                $query->where('organization_id', $user->id)
+                $query->where('organization_public_id', $user->public_id)
                     ->where('type', 'credit');
             }
         ])
             ->whereHas('project', function ($query) use ($user) {
-                $query->where('user_id', $user->id);
+                $query->where('user_public_id', $user->public_id);
             })
             ->latest()
             ->get()
@@ -79,7 +79,8 @@ class OrganizationController extends Controller
                 $pointsAmount = $hasPointsPayment ? $booking->pointTransactions->sum('points') : 0;
 
                 return [
-                    'id' => $booking->id,
+                    'public_id' => $booking->public_id, // Make sure this is included
+                    // 'id' => $booking->id,
                     'start_date' => $booking->start_date,
                     'end_date' => $booking->end_date,
                     'number_of_travellers' => $booking->number_of_travellers,
@@ -90,7 +91,7 @@ class OrganizationController extends Controller
                     'points_amount' => $pointsAmount,
                     'payments' => $booking->payments->map(function ($payment) {
                         return [
-                            'id' => $payment->id,
+                            'public_id' => $payment->public_id,
                             'amount' => $payment->amount,
                             'status' => $payment->status,
                             'created_at' => $payment->created_at->format('M d, Y'),
@@ -100,7 +101,7 @@ class OrganizationController extends Controller
                         'name' => $booking->user->name,
                         'email' => $booking->user->email,
                         'volunteer_profile' => $booking->user->volunteerProfile ? [
-                            'id' => $booking->user->volunteerProfile->id,
+                            'public_id' => $booking->user->volunteerProfile->public_id,
                             'gender' => $booking->user->volunteerProfile->gender,
                             'dob' => $booking->user->volunteerProfile->dob,
                             'country' => $booking->user->volunteerProfile->country,
@@ -146,6 +147,8 @@ class OrganizationController extends Controller
 
         // Send completion email if status is Completed and flag is set
         if ($validated['booking_status'] === 'Completed' && ($request->send_completion_email ?? false)) {
+            // Load the necessary relationships
+            $booking->load(['user', 'project.user']);
             Mail::to($booking->user->email)
                 ->send(new BookingCompleted($booking));
         }
@@ -156,10 +159,10 @@ class OrganizationController extends Controller
     public function profile()
     {
         $user = Auth::user();
-        $organization = OrganizationProfile::where('user_id', $user->id)->first();
+        $organization = OrganizationProfile::where('user_public_id', $user->public_id)->first();
 
         $organization_verification = $organization
-            ? OrganizationVerification::where('organization_profile_id', $organization->id)->first()
+            ? OrganizationVerification::where('organization_profile_public_id', $organization->public_id)->first()
             : null;
 
         return Inertia::render('Organizations/Profile', [
@@ -175,7 +178,7 @@ class OrganizationController extends Controller
 
     public function updateProfile(Request $request)
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         $data = $request->validate([
             'name' => 'required|string|max:255',
@@ -226,7 +229,7 @@ class OrganizationController extends Controller
         if ($user->organization) {
             $user->organization->update($data);
         } else {
-            $data['user_id'] = $user->id;
+            $data['user_public_id'] = $user->public_id;
             OrganizationProfile::create($data);
         }
 
@@ -351,7 +354,7 @@ class OrganizationController extends Controller
         // Check if user has made payment for paid projects
         $hasPayment = false;
         if ($isPaidProject) {
-            $hasPayment = VolunteerBooking::where('user_id', $user->id)
+            $hasPayment = VolunteerBooking::where('user_public_id', $user->public_id)
                 ->where('project_id', $project->id)
                 ->where('booking_status', 'Approved')
                 ->whereHas('payments', function ($query) {
@@ -419,7 +422,7 @@ class OrganizationController extends Controller
                     ->orWhere('is_active', true);
             }
         ])
-            ->where('user_id', $user->id)
+            ->where('user_public_id', $user->public_id)
             ->latest()
             ->get();
 
@@ -439,20 +442,21 @@ class OrganizationController extends Controller
         ]);
     }
 
-    public function requestReview(Project $project)
+    public function requestReview($projectPublicId)
     {
-        if ($project->user_id !== auth()->id()) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
+        $project = Project::where('public_id', $projectPublicId)->first();
+
+        if (!$project || $project->user_public_id !== Auth::user()->public_id) {
+            return back()->with('error', 'Unauthorized.');
         }
 
         if ($project->request_for_approval) {
-            return response()->json(['message' => 'Review already requested.'], 409);
+            return back()->with('error', 'Review already requested.');
         }
 
         $project->update(['request_for_approval' => true]);
 
         $adminEmails = Admin::pluck('email')->toArray();
-
         foreach ($adminEmails as $email) {
             Mail::to($email)->send(new ProjectReviewRequested($project));
         }
@@ -477,7 +481,7 @@ class OrganizationController extends Controller
 
         if ($isEdit) {
             $project = Project::where('slug', $slug)
-                ->where('user_id', auth()->id())
+                ->where('user_public_id', Auth::user()->public_id)
                 ->firstOrFail();
         } else {
             $project = new Project();
@@ -550,7 +554,7 @@ class OrganizationController extends Controller
         $data = $request->validate($rules);
         $data['skills'] = $request->input('skills', []);
 
-        $data['user_id'] = Auth::id();
+        $data['user_public_id'] = Auth::user()->public_id;
         $data['status'] = $isEdit ? $project->status : 'Pending';
 
         // Handle featured image
@@ -596,7 +600,7 @@ class OrganizationController extends Controller
             foreach ($request->file('gallery_images') as $image) {
                 $path = $image->store('projects/gallery', 'public');
                 GalleryImage::create([
-                    'project_id' => $project->id,
+                    'project_public_id' => $project->public_id,
                     'image_path' => $path,
                 ]);
             }
@@ -621,7 +625,7 @@ class OrganizationController extends Controller
     {
         $project = Project::with(['category', 'subcategory', 'galleryImages'])
             ->where('slug', $slug)
-            ->where('user_id', auth()->id())
+            ->where('user_public_id', Auth::user()->public_id)
             ->firstOrFail();
 
         $categories = Category::with('subcategories')->get();
@@ -637,7 +641,7 @@ class OrganizationController extends Controller
     public function updateProject(Request $request, $slug)
     {
         $project = Project::where('slug', $slug)
-            ->where('user_id', auth()->id())
+            ->where('user_public_id', Auth::user()->public_id)
             ->firstOrFail();
 
         $data = $request->validate([
@@ -709,7 +713,7 @@ class OrganizationController extends Controller
             foreach ($request->file('gallery_images') as $image) {
                 $path = $image->store('projects/gallery', 'public');
                 GalleryImage::create([
-                    'project_id' => $project->id,
+                    'project_public_id' => $project->public_id,
                     'image_path' => $path,
                 ]);
             }
@@ -723,7 +727,7 @@ class OrganizationController extends Controller
 
     public function deleteProject($slug)
     {
-        $project = Project::where('slug', $slug)->where('user_id', auth()->id())->firstOrFail();
+        $project = Project::where('slug', $slug)->where('user_public_id', Auth::user()->public_id)->firstOrFail();
 
         // Delete gallery images
         foreach ($project->galleryImages as $image) {
@@ -763,12 +767,12 @@ class OrganizationController extends Controller
         $user = Auth::user();
 
         // Get total earned points (credits)
-        $earnedPoints = PointTransaction::where('user_id', $user->id)
+        $earnedPoints = PointTransaction::where('user_public_id', $user->public_id)
             ->where('type', 'credit')
             ->sum('points');
 
         // Get total spent points (debits)
-        $spentPoints = PointTransaction::where('user_id', $user->id)
+        $spentPoints = PointTransaction::where('user_public_id', $user->public_id)
             ->where('type', 'debit')
             ->sum('points');
 
@@ -786,7 +790,7 @@ class OrganizationController extends Controller
             'booking.project',
             'user' // Ensure user relationship is loaded
         ])
-            ->where('user_id', $user->id)
+            ->where('user_public_id', $user->public_id)
             ->where('type', 'credit')
             ->orderBy('created_at', 'desc')
             ->get()
@@ -810,7 +814,7 @@ class OrganizationController extends Controller
             });
 
         // Calculate total points (only credits count for user)
-        $totalPoints = PointTransaction::where('user_id', $user->id)
+        $totalPoints = PointTransaction::where('user_public_id', $user->public_id)
             ->where('type', 'credit')
             ->sum('points');
 
@@ -827,7 +831,7 @@ class OrganizationController extends Controller
     public function verification()
     {
         $user = Auth::user();
-        $organization_profile = OrganizationProfile::where('user_id', $user->id)->first();
+        $organization_profile = OrganizationProfile::where('user_public_id', $user->public_id)->first();
 
         if (!$organization_profile) {
             return redirect()->route('organization.profile')->with('error', 'Organization profile not found.');

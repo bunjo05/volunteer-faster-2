@@ -13,9 +13,13 @@ return new class extends Migration
     {
         Schema::create('payments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('booking_id')->constrained('volunteer_bookings')->onDelete('cascade');
-            $table->foreignId('project_id')->constrained()->onDelete('cascade');
+            $table->ulid('public_id')->unique();
+            // $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignUlid('user_public_id')->constrained('users', 'public_id')->onDelete('cascade');
+            $table->foreignUlid('booking_public_id')->constrained('volunteer_bookings', 'public_id')->onDelete('cascade');
+            $table->foreignUlid('project_public_id')->constrained('projects', 'public_id')->onDelete('cascade');
+            // $table->foreignId('booking_id')->constrained('volunteer_bookings')->onDelete('cascade');
+            // $table->foreignId('project_id')->constrained()->onDelete('cascade');
             $table->decimal('amount', 10, 2);
             $table->string('stripe_payment_id');
             $table->string('status');

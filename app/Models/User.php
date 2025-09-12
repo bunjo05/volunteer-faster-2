@@ -3,16 +3,18 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
+use App\Models\VolunteerBooking;
+use App\Traits\MustVerifyEmailWithUlid;
 use Illuminate\Notifications\Notifiable;
 
-use App\Models\VolunteerBooking;
+use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, MustVerifyEmailWithUlid;
 
     /**
      * The attributes that are mass assignable.
@@ -28,6 +30,7 @@ class User extends Authenticatable
         'status',
         'referral_code',
         'referred_by',
+        'public_id',
     ];
 
     /**
@@ -53,14 +56,26 @@ class User extends Authenticatable
         ];
     }
 
+    // public function sendEmailVerificationNotification(): void
+    // {
+    //     $this->notify(new VerifyEmail());
+    // }
+
     protected static function boot()
     {
         parent::boot();
 
         static::creating(function ($user) {
-            $user->referral_code = self::generateUniqueReferralCode();
+            if (!$user->public_id) {
+                $user->public_id = (string) \Illuminate\Support\Str::ulid();
+            }
+
+            if (!$user->referral_code) {
+                $user->referral_code = self::generateUniqueReferralCode();
+            }
         });
     }
+
 
     public static function generateUniqueReferralCode()
     {
@@ -75,17 +90,17 @@ class User extends Authenticatable
 
     public function referrer()
     {
-        return $this->belongsTo(User::class, 'referred_by');
+        return $this->belongsTo(User::class, 'referred_by', 'public_id');
     }
 
     public function referrals()
     {
-        return $this->hasMany(Referral::class, 'referrer_id');
+        return $this->hasMany(Referral::class, 'referrer_public_id', 'public_id');
     }
 
     public function referee()
     {
-        return $this->hasMany(Referral::class, 'referee_id');
+        return $this->hasMany(Referral::class, 'referee_public_id', 'public_id');
     }
 
     public function devices()
@@ -95,17 +110,17 @@ class User extends Authenticatable
 
     public function organization()
     {
-        return $this->hasOne(OrganizationProfile::class);
+        return $this->hasOne(OrganizationProfile::class, 'user_public_id', 'public_id');
     }
 
     public function organizationProfile()
     {
-        return $this->hasOne(OrganizationProfile::class);
+        return $this->hasOne(OrganizationProfile::class, 'user_public_id', 'public_id');
     }
 
     public function volunteerProfile()
     {
-        return $this->hasOne(VolunteerProfile::class);
+        return $this->hasOne(VolunteerProfile::class, 'user_public_id', 'public_id');
     }
 
     public function project()
@@ -135,7 +150,7 @@ class User extends Authenticatable
     }
     public function bookings()
     {
-        return $this->hasMany(VolunteerBooking::class);
+        return $this->hasMany(VolunteerBooking::class, 'user_public_id', 'public_id');
     }
 
     public function volunteerPoints()
@@ -157,13 +172,19 @@ class User extends Authenticatable
     public function isFollowing(OrganizationProfile $organization)
     {
         return $this->followingOrganizations()
-            ->where('organization_id', $organization->id)
+            ->where('organization_public_id', $organization->id)
             ->exists();
     }
 
     public function followingOrganizations()
     {
-        return $this->belongsToMany(OrganizationProfile::class, 'volunteer_following_organizations', 'user_id', 'organization_id')
-            ->withTimestamps();
+        return $this->belongsToMany(
+            OrganizationProfile::class,
+            'volunteer_following_organizations',
+            'user_public_id', // Foreign key on the pivot table
+            'organization_public_id', // Foreign key on the pivot table
+            'public_id', // Local key on users table
+            'public_id' // Foreign key on organization_profiles table
+        )->withTimestamps();
     }
 }

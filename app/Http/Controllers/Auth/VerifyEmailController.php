@@ -2,20 +2,26 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Models\User;
 use App\Http\Controllers\Controller;
 use Illuminate\Auth\Events\Verified;
-use Illuminate\Foundation\Auth\EmailVerificationRequest;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\RedirectResponse;
 
 class VerifyEmailController extends Controller
 {
     /**
      * Mark the authenticated user's email address as verified.
      */
-    public function __invoke(EmailVerificationRequest $request): RedirectResponse
+    public function __invoke($ulid, $hash): RedirectResponse
     {
-        $user = $request->user();
+        // Find user by ULID instead of ID
+        $user = User::where('public_id', $ulid)->firstOrFail();
+
+        // Verify the hash matches
+        if (!hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
+            abort(403, 'Invalid verification link');
+        }
 
         if ($user->hasVerifiedEmail()) {
             return $this->redirectByRole($user->role);
@@ -41,7 +47,7 @@ class VerifyEmailController extends Controller
             case 'Sponsor':
                 return redirect()->intended(route('sponsor.dashboard'))->with('success', 'Email verified!');
             default:
-                Auth::logout(); // optional security fallback
+                Auth::logout();
                 return redirect('/')->withErrors(['role' => 'Unknown user role. Access denied.']);
         }
     }

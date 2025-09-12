@@ -13,15 +13,15 @@ class VolunteerPointsService
     public function awardPointsForCompletedBooking(VolunteerBooking $booking)
     {
         // Check if points already awarded for this booking
-        if (VolunteerPoint::where('booking_id', $booking->id)->exists()) {
+        if (VolunteerPoint::where('booking_public_id', $booking->public_id)->exists()) {
             return false;
         }
 
         $days = $booking->calculateDaysSpent();
 
         return VolunteerPoint::create([
-            'user_id' => $booking->user_id,
-            'booking_id' => $booking->id,
+            'user_public_id' => $booking->user_public_id,
+            'booking_public_id' => $booking->public_id,
             'points_earned' => $days,
             'notes' => "Awarded for completed booking from {$booking->start_date} to {$booking->end_date}"
         ]);
@@ -29,28 +29,28 @@ class VolunteerPointsService
 
     protected function getTotalPoints()
     {
-        $credited = PointTransaction::where('user_id', Auth::id())
+        $credited = PointTransaction::where('user_public_id', Auth::id())
             ->where('type', 'credit')
             ->sum('points');
 
-        $debited = PointTransaction::where('user_id', Auth::id())
+        $debited = PointTransaction::where('user_public_id', Auth::id())
             ->where('type', 'debit')
             ->sum('points');
 
         return $credited - $debited;
     }
 
-    public function getTotalPointsForOrganization($organizationId)
+    public function getTotalPointsForOrganization($organizationPublicId)
     {
-        return PointTransaction::where('organization_id', $organizationId)
+        return PointTransaction::where('organization_public_id', $organizationPublicId)
             ->where('type', 'credit')
             ->sum('points');
     }
 
-    public function getPointsHistoryForOrganization($organizationId)
+    public function getPointsHistoryForOrganization($organizationPublicId)
     {
         return PointTransaction::with(['user', 'booking.project'])
-            ->where('organization_id', $organizationId)
+            ->where('organization_public_id', $organizationPublicId)
             ->where('type', 'credit')
             ->orderBy('created_at', 'desc')
             ->get()

@@ -79,13 +79,13 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                 preserveScroll: true,
                 onSuccess: () => {
                     const updatedBookings = bookings.map((booking) =>
-                        booking.id === selectedBookingId
+                        booking.public_id === selectedBookingId
                             ? { ...booking, booking_status: selectedStatus }
                             : booking
                     );
                     setBookings(updatedBookings);
 
-                    if (activeBooking?.id === selectedBookingId) {
+                    if (activeBooking?.public_id === selectedBookingId) {
                         setActiveBooking((prev) => ({
                             ...prev,
                             booking_status: selectedStatus,
@@ -235,9 +235,10 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                 <div className="flex-1 overflow-y-auto">
                                     {bookings.map((booking) => (
                                         <div
-                                            key={booking.id}
+                                            key={booking.public_id}
                                             className={`p-4 border-b border-gray-100 cursor-pointer transition-colors group ${
-                                                activeBooking?.id === booking.id
+                                                activeBooking?.public_id ===
+                                                booking.public_id
                                                     ? "bg-blue-50 border-l-4 border-blue-500"
                                                     : "hover:bg-gray-50"
                                             }`}
@@ -295,8 +296,8 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                 </div>
                                                 <ChevronRight
                                                     className={`w-5 h-5 text-gray-400 group-hover:text-blue-500 ${
-                                                        activeBooking?.id ===
-                                                        booking.id
+                                                        activeBooking?.public_id ===
+                                                        booking.public_id
                                                             ? "text-blue-500"
                                                             : ""
                                                     }`}
@@ -744,7 +745,9 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                         ) => (
                                                                             <div
                                                                                 key={
-                                                                                    payment.id
+                                                                                    payment.id ||
+                                                                                    payment.public_id ||
+                                                                                    `payment-${index}`
                                                                                 }
                                                                                 className="bg-gray-50 p-4 rounded-lg border border-gray-200"
                                                                             >
@@ -859,11 +862,11 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                     "Pending" ||
                                                                 (statusChanges[
                                                                     activeBooking
-                                                                        .id
+                                                                        .public_id
                                                                 ] &&
                                                                     statusChanges[
                                                                         activeBooking
-                                                                            .id
+                                                                            .public_id
                                                                     ] ===
                                                                         "Pending")
                                                                     ? [
@@ -883,7 +886,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                     const isActive =
                                                                         (statusChanges[
                                                                             activeBooking
-                                                                                .id
+                                                                                .public_id
                                                                         ] ||
                                                                             activeBooking.booking_status) ===
                                                                         value;
@@ -895,7 +898,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                             onClick={() =>
                                                                                 !isActive &&
                                                                                 handleUpdateStatus(
-                                                                                    activeBooking.id,
+                                                                                    activeBooking.public_id,
                                                                                     value
                                                                                 )
                                                                             }

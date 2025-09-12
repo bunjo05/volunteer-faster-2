@@ -39,6 +39,8 @@ export default function Projects({
     const [successMessage, setSuccessMessage] = useState("");
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+    const [projectsData, setProjectsData] = useState(projects);
+
     // Get stripeKey from shared props
     const stripeKey = props?.stripeKey || import.meta.env.VITE_STRIPE_KEY;
 
@@ -126,7 +128,7 @@ export default function Projects({
         setSelectedPlan(null);
     };
 
-    const projectsWithFeaturedStatus = projects.map((project) => {
+    const projectsWithFeaturedStatus = projectsData.map((project) => {
         const featuredProjects = project.featured_projects || [];
 
         const hasPendingFeature = featuredProjects.some(
@@ -220,7 +222,7 @@ export default function Projects({
             axios.defaults.headers.common["Accept"] = "application/json";
 
             const response = await axios.post(route("featured.checkout"), {
-                project_id: selectedProject.id,
+                project_public_id: selectedProject.public_id,
                 plan_type: selectedPlan,
             });
 
@@ -257,17 +259,34 @@ export default function Projects({
         }
     };
 
-    const handleRequestReview = (projectId) => {
-        post(route("projects.requestReview", projectId), {
+    const handleRequestReview = (projectPublicId) => {
+        post(route("projects.requestReview", projectPublicId), {
             preserveScroll: true,
             onSuccess: () => {
                 setShowSuccessBadge(true);
                 setSuccessMessage("Review request submitted successfully!");
+
+                // Update local state
+                setProjectsData((prevProjects) =>
+                    prevProjects.map((project) =>
+                        project.public_id === projectPublicId
+                            ? { ...project, request_for_approval: 1 }
+                            : project
+                    )
+                );
+
                 setTimeout(() => setShowSuccessBadge(false), 5000);
             },
             onError: (errors) => {
                 console.error("Review request error:", errors);
-                alert("Failed to submit review request. Please try again.");
+
+                if (errors.response?.status === 409) {
+                    alert(
+                        "A review request has already been submitted for this project."
+                    );
+                } else {
+                    alert("Failed to submit review request. Please try again.");
+                }
             },
         });
     };
@@ -728,7 +747,7 @@ export default function Projects({
                         ) : (
                             filteredProjects.map((project) => (
                                 <div
-                                    key={project.id}
+                                    key={project.public_id}
                                     className="bg-white rounded-lg shadow hover:shadow-md transition duration-300 overflow-hidden"
                                 >
                                     <div className="p-6 flex flex-col md:flex-row gap-6">
@@ -868,29 +887,31 @@ export default function Projects({
 
                                             {/* Action Buttons */}
                                             <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t border-gray-100">
-                                                {project.status === "Pending" &&
-                                                    project.request_for_approval ===
-                                                        0 && (
-                                                        <button
-                                                            onClick={() =>
-                                                                handleRequestReview(
-                                                                    project.id
-                                                                )
-                                                            }
-                                                            disabled={
-                                                                project.request_for_approval
-                                                            }
-                                                            className={`px-4 py-2 text-sm font-medium rounded-md transition duration-200 ${
-                                                                project.request_for_approval
-                                                                    ? "bg-gray-400 text-white cursor-not-allowed"
-                                                                    : "bg-green-600 hover:bg-green-700 text-white"
-                                                            }`}
-                                                        >
-                                                            {project.request_for_approval
-                                                                ? "Review Requested"
-                                                                : "Request for Review"}
-                                                        </button>
-                                                    )}
+                                                {project.status ===
+                                                    "Pending" && (
+                                                    <button
+                                                        onClick={() =>
+                                                            handleRequestReview(
+                                                                project.public_id
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            project.request_for_approval ===
+                                                            1
+                                                        }
+                                                        className={`px-4 py-2 text-sm font-medium rounded-md transition duration-200 ${
+                                                            project.request_for_approval ===
+                                                            1
+                                                                ? "bg-gray-400 text-white cursor-not-allowed"
+                                                                : "bg-green-600 hover:bg-green-700 text-white"
+                                                        }`}
+                                                    >
+                                                        {project.request_for_approval ===
+                                                        1
+                                                            ? "Review Requested"
+                                                            : "Request for Review"}
+                                                    </button>
+                                                )}
 
                                                 {project.status !== "Pending" &&
                                                     !project.is_featured &&

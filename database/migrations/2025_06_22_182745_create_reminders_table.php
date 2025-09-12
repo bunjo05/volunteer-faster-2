@@ -13,9 +13,13 @@ return new class extends Migration
     {
         Schema::create('reminders', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained();
-            $table->foreignId('project_id')->constrained();
-            $table->foreignId('booking_id')->constrained('volunteer_bookings');
+            $table->foreignUlid('user_public_id')->constrained('users', 'public_id')->onDelete('cascade');
+            $table->foreignUlid('project_public_id')->constrained('projects', 'public_id')->onDelete('cascade');
+            $table->foreignUlid('booking_public_id')->constrained('volunteer_bookings', 'public_id')->onDelete('cascade');
+
+            // $table->foreignId('user_id')->constrained();
+            // $table->foreignId('project_id')->constrained();
+            // $table->foreignId('booking_id')->constrained('volunteer_bookings');
             $table->enum('stage', ['first', 'second', 'final']);
             $table->text('message');
             $table->timestamps();

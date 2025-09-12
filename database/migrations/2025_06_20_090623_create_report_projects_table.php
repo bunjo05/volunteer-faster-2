@@ -13,8 +13,11 @@ return new class extends Migration
     {
         Schema::create('report_projects', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->foreignId('project_id')->constrained('projects')->onDelete('cascade');
+            $table->foreignUlid('user_public_id')->constrained('users', 'public_id')->onDelete('cascade');
+            $table->foreignUlid('project_public_id')->constrained('projects', 'public_id')->onDelete('cascade');
+
+            // $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            // $table->foreignId('project_id')->constrained('projects')->onDelete('cascade');
             $table->foreignId('report_category_id')->constrained('report_categories')->onDelete('cascade');
             $table->foreignId('report_subcategory_id')->constrained('report_subcategories')->onDelete('cascade');
             $table->text('description')->nullable();

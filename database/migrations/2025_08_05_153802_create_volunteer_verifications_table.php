@@ -13,14 +13,17 @@ return new class extends Migration
     {
         Schema::create('volunteer_verifications', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('volunteer_id')->constrained('volunteer_profiles')->onDelete('cascade');
+            $table->foreignUlid('volunteer_public_id')->constrained('volunteer_profiles', 'public_id')->onDelete('cascade');
             $table->string('verification_type'); // e.g., 'ID', 'Background Check', 'Reference'
             $table->string('document')->nullable(); // Path to the verification document
             $table->enum('status', ['Pending', 'Approved', 'Rejected'])->default('Pending');
             $table->text('comments')->nullable(); // Admin comments on the verification
             $table->dateTime('verified_at')->nullable(); // Timestamp when the verification was completed
-            $table->foreignId('admin_id')->nullable()->constrained('users')->onDelete('cascade');
+            $table->foreignUlid('admin_public_id')->nullable()->constrained('users', 'public_id')->onDelete('cascade');
             $table->timestamps();
+
+            // $table->foreign('volunteer_public_id')->references('public_id')->on('volunteer_profiles')->onDelete('cascade');
+            // $table->foreign('admin_public_id')->references('public_id')->on('users')->onDelete('cascade');
         });
     }
 

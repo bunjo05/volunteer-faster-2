@@ -56,9 +56,9 @@ class RegisteredUserController extends Controller
         if ($request->referral_code) {
             $referrer = User::where('referral_code', $request->referral_code)->first();
 
-            // Prevent self-referral
+            // Prevent self-referralb
             if ($referrer && $referrer->email !== $request->email) {
-                $userData['referred_by'] = $referrer->id;
+                $userData['referred_by'] = $referrer->public_id;
             }
         }
 
@@ -67,8 +67,8 @@ class RegisteredUserController extends Controller
         // Create referral record if applicable
         if ($user->referred_by) {
             Referral::create([
-                'referrer_id' => $user->referred_by,
-                'referee_id' => $user->id,
+                'referrer_public_id' => $user->referred_by,
+                'referee_public_id' => $user->public_id,
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ]);

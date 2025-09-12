@@ -20,7 +20,7 @@ class ReferralService
 
             // Award points to referrer (credit)
             $this->createPointTransaction(
-                $referral->referrer_id,
+                $referral->referrer_public_id,
                 $referrerPoints,
                 'credit',
                 'Referral bonus for referring ' . $referral->referee->email
@@ -28,7 +28,7 @@ class ReferralService
 
             // Award points to referee (credit)
             $this->createPointTransaction(
-                $referral->referee_id,
+                $referral->referee_public_id,
                 $refereePoints,
                 'credit',
                 'Sign-up bonus via referral from ' . $referral->referrer->email
@@ -38,12 +38,12 @@ class ReferralService
         });
     }
 
-    protected function createPointTransaction($userId, $points, $type, $description)
+    protected function createPointTransaction($userPublicId, $points, $type, $description)
     {
         return PointTransaction::create([
-            'user_id' => $userId,
-            'organization_id' => null, // Not applicable for referrals
-            'booking_id' => null, // Not applicable for referrals
+            'user_public_id' => $userPublicId,
+            'organization_public_id' => null, // Not applicable for referrals
+            'booking_public_id' => null, // Not applicable for referrals
             'points' => $points,
             'type' => $type,
             'description' => $description,

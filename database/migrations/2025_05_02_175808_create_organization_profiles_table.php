@@ -13,7 +13,9 @@ return new class extends Migration
     {
         Schema::create('organization_profiles', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->ulid('public_id')->unique();
+            // $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignUlid('user_public_id')->constrained('users', 'public_id')->onDelete('cascade');
             $table->string('name');
             $table->string('slug')->unique();
             $table->string('city')->nullable();

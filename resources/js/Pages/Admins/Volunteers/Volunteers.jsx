@@ -42,7 +42,7 @@ export default function Volunteers({ volunteers, verifications }) {
     // Combine volunteers with their verification status
     const volunteersWithVerification = volunteers.map((volunteer) => {
         const verification = verifications.find(
-            (v) => v.volunteer_id === volunteer.id
+            (v) => v.volunteer_public_id === volunteer.public_id
         );
         return { ...volunteer, verification };
     });

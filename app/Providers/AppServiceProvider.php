@@ -3,10 +3,11 @@
 namespace App\Providers;
 
 use Illuminate\Routing\Router;
+use App\Notifications\VerifyEmail;
 use Illuminate\Support\Facades\Vite;
-use Illuminate\Support\Facades\Route;
 // use App\Http\Middleware\CheckUserRole;
 
+use Illuminate\Support\Facades\Route;
 use App\Http\Middleware\CheckUserRole;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Broadcast;
@@ -26,6 +27,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+
+
         $this->app->booted(function () {
             $router = $this->app->make(Router::class);
             $router->aliasMiddleware('check.role', CheckUserRole::class);

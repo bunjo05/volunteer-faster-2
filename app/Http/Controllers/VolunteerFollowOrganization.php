@@ -16,8 +16,8 @@ class VolunteerFollowOrganization extends Controller
         // Check if already following
         if (!$user->isFollowing($organization)) {
             VolunteerFollowingOrganization::create([
-                'organization_id' => $organization->id,
-                'user_id' => $user->id
+                'organization_public_id' => $organization->public_id,
+                'user_public_id' => $user->public_id
             ]);
 
             return back()->with('success', 'You are now following this organization');
@@ -31,7 +31,7 @@ class VolunteerFollowOrganization extends Controller
         $user = Auth::user();
 
         $user->followingOrganizations()
-            ->where('organization_id', $organization->id)
+            ->where('organization_public_id', $organization->public_id)
             ->delete();
 
         return back()->with('success', 'You have unfollowed this organization');

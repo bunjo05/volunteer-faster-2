@@ -23,6 +23,7 @@ use App\Models\VolunteerProfile;
 use App\Models\ReportSubcategory;
 use App\Services\ReferralService;
 use App\Models\OrganizationProfile;
+use App\Models\VolunteerSponsorship;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\FeaturedProjectApproved;
 use App\Mail\FeaturedProjectRejected;
@@ -150,7 +151,7 @@ class AdminsController extends Controller
     public function volunteerVerifications($id)
     {
         $volunteer = VolunteerProfile::where('id', $id)->with('user')->firstOrFail();
-        $verification = VolunteerVerification::where('volunteer_id', $volunteer->id)->first();
+        $verification = VolunteerVerification::where('volunteer_public_id', $volunteer->public_id)->first();
 
         return inertia('Admins/Volunteers/Verify', [
             'volunteer' => $volunteer,  // Changed from 'organization' to 'volunteer' to match what you're actually returning
@@ -294,19 +295,19 @@ class AdminsController extends Controller
     public function storeRemark(Request $request)
     {
         $request->validate([
-            'project_id' => 'required|exists:projects,id',
+            'project_public_id' => 'required|exists:projects,id',
             'remark' => 'required|string|max:1000',
         ]);
 
         ProjectRemark::create([
-            'project_id' => $request->project_id,
-            'admin_id' => auth('admin')->id(),
+            'project_public_id' => $request->project_public_id,
+            'admin_public_id' => auth('admin')->id(),
             'remark' => $request->remark,
             'status' => null,
         ]);
 
         // Optionally update the project status
-        $project = Project::find($request->project_id);
+        $project = Project::find($request->project_public_id);
         $project->status = 'Rejected';
         $project->save();
 
@@ -769,5 +770,68 @@ class AdminsController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Review status updated successfully.');
+    }
+
+    public function sponsorIndex(Request $request)
+    {
+        $sponsorships = VolunteerSponsorship::with(['user', 'booking.project'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($sponsorship) {
+                return [
+                    'id' => $sponsorship->id,
+                    'user_name' => $sponsorship->user->name,
+                    'user_email' => $sponsorship->user->email,
+                    'project_title' => $sponsorship->booking->project->title ?? 'N/A',
+                    'start_date' => $sponsorship->booking?->start_date
+                        ? \Carbon\Carbon::parse($sponsorship->booking->start_date)->format('M d, Y')
+                        : 'N/A',
+                    'end_date' => $sponsorship->booking?->end_date
+                        ? \Carbon\Carbon::parse($sponsorship->booking->end_date)->format('M d, Y')
+                        : 'N/A',
+                    'total_amount' => $sponsorship->total_amount,
+                    'travel' => $sponsorship->travel,
+                    'accommodation' => $sponsorship->accommodation,
+                    'meals' => $sponsorship->meals,
+                    'living_expenses' => $sponsorship->living_expenses,
+                    'visa_fees' => $sponsorship->visa_fees,
+                    'project_fees_amount' => $sponsorship->project_fees_amount,
+                    'aspect_needs_funding' => $sponsorship->aspect_needs_funding,
+                    'self_introduction' => $sponsorship->self_introduction,
+                    'skills' => $sponsorship->skills,
+                    'impact' => $sponsorship->impact,
+                    'commitment' => $sponsorship->commitment,
+                    'status' => $sponsorship->status,
+                    'agreement' => $sponsorship->agreement,
+                    'created_at' => $sponsorship->created_at->format('M d, Y H:i'),
+                    'updated_at' => $sponsorship->updated_at->format('M d, Y H:i'),
+                ];
+            });
+
+        return Inertia::render('Admins/Sponsors/Index', [
+            'sponsorships' => $sponsorships
+        ]);
+    }
+
+
+    public function updateSponsorStatus(Request $request, $id)
+    {
+        $request->validate([
+            'status' => 'required|in:Pending,Approved,Rejected'
+        ]);
+
+        $sponsorship = VolunteerSponsorship::findOrFail($id);
+        $sponsorship->status = $request->status;
+        $sponsorship->save();
+
+        return redirect()->back()->with('success', 'Sponsorship status updated successfully.');
+    }
+
+    public function destroySponsor($id)
+    {
+        $sponsorship = VolunteerSponsorship::findOrFail($id);
+        $sponsorship->delete();
+
+        return redirect()->back()->with('success', 'Sponsorship request deleted successfully.');
     }
 }

@@ -13,6 +13,7 @@ use App\Models\FeaturedProject;
 use App\Models\VolunteerBooking;
 use App\Models\OrganizationProfile;
 use App\Models\ProjectRemarkComment;
+use App\Models\VolunteerSponsorship;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use App\Models\OrganizationVerification;
@@ -116,7 +117,7 @@ class HomeController extends Controller
         $isFollowing = false;
         if (auth()->check()) {
             $isFollowing = auth()->user()->followingOrganizations()
-                ->where('organization_id', $project->organizationProfile->id)
+                ->where('organization_public_id', $project->organizationProfile->public_id)
                 ->exists();
         }
 
@@ -157,16 +158,41 @@ class HomeController extends Controller
         return inertia('Home/Organization');
     }
 
-    public function verifyCertificate($id, $hash)
+    public function verifyCertificate($public_id, $hash)
     {
-        $booking = VolunteerBooking::with(['user', 'project'])->findOrFail($id);
+        try {
+            // Find booking by public_id instead of id
+            $booking = VolunteerBooking::where('public_id', $public_id)
+                ->with(['user', 'project'])
+                ->firstOrFail();
 
-        $valid = sha1($booking->id . config('app.key')) === $hash;
+            // Verify hash
+            $expectedHash = sha1($public_id . config('app.key'));
 
-        return view('certificates.verification', [
-            'booking' => $booking,
-            'valid' => $valid,
-        ]);
+            $valid = ($hash === $expectedHash);
+
+            // Additional verification checks
+            $verificationDetails = [
+                'valid' => $valid,
+                'booking_exists' => true,
+                'hash_matches' => $valid,
+                'booking_status' => $booking->booking_status,
+                'is_completed' => $booking->booking_status === 'Completed',
+                'verification_date' => now()->format('Y-m-d H:i:s'),
+                'certificate_id' => 'VOL-' . strtoupper(substr(sha1($booking->public_id), 0, 8))
+            ];
+
+            return view('certificates.verification', compact('booking', 'verificationDetails'));
+        } catch (\Exception $e) {
+            $verificationDetails = [
+                'valid' => false,
+                'booking_exists' => false,
+                'hash_matches' => false,
+                'error' => 'Certificate not found or invalid verification link'
+            ];
+
+            return view('certificates.verification', compact('verificationDetails'));
+        }
     }
 
     public function contactUs()
@@ -225,7 +251,7 @@ class HomeController extends Controller
         $isFollowing = false;
         if (auth()->check()) {
             $isFollowing = auth()->user()->followingOrganizations()
-                ->where('organization_id', $project->user->organizationProfile->id)
+                ->where('organization_profiles.public_id', $project->organizationProfile->public_id)
                 ->exists();
         }
 
@@ -261,5 +287,76 @@ class HomeController extends Controller
         $comment->load('user');
 
         return back()->with('success', 'Comment posted successfully!');
+    }
+
+
+    public function sponsorshipPage()
+    {
+        $sponsorships = VolunteerSponsorship::with(['user', 'booking.project', 'volunteer_profile'])
+            ->where('status', 'Approved')
+            ->get()
+            ->filter(function ($s) {
+                // Calculate remaining amount
+                $remaining = $s->total_amount - $s->funded_amount;
+
+                // Only include if still needs funds
+                return $remaining > 0;
+            })
+            ->values(); // reset array keys
+
+        // ✅ Include funded_amount in the JSON response
+        $sponsorships->each->append('funded_amount');
+
+        return inertia('Sponsorship/Sponsorship', [
+            'sponsorships' => $sponsorships
+        ]);
+    }
+
+
+
+
+
+    public function sponsorshipPageIndividual($sponsorship_public_id)
+    {
+        // Find the volunteer sponsorship by public_id
+        $sponsorship = VolunteerSponsorship::with([
+            'user',
+            'booking.project',
+            'volunteer_profile',
+            'booking.project.organizationProfile',
+            'sponsorships.user'
+        ])
+            ->where('status', 'Approved')
+            ->where('public_id', $sponsorship_public_id) // Changed to use public_id
+            ->firstOrFail();
+
+        // Check if sponsorship is fully funded
+        $fundedAmount = $sponsorship->sponsorships
+            ->where('status', 'completed')
+            ->sum('amount');
+
+        // If fully funded, return 404
+        if ($fundedAmount >= $sponsorship->total_amount) {
+            abort(404, 'This sponsorship has been fully funded and is no longer accepting contributions.');
+        }
+
+        // Get related sponsorships for the sidebar (filter out fully funded ones)
+        $relatedSponsorships = VolunteerSponsorship::with(['user', 'booking.project', 'sponsorships'])
+            ->where('status', 'Approved')
+            ->where('public_id', '!=', $sponsorship_public_id) // Changed to use public_id
+            ->get()
+            ->filter(function ($relatedSponsorship) {
+                $relatedFundedAmount = $relatedSponsorship->sponsorships
+                    ->where('status', 'completed')
+                    ->sum('amount');
+
+                return $relatedFundedAmount < $relatedSponsorship->total_amount;
+            })
+            ->take(3);
+
+        return inertia('Sponsorship/ViewIndividual', [
+            'sponsorship' => $sponsorship,
+            'relatedSponsorships' => $relatedSponsorships->values()
+        ]);
     }
 }

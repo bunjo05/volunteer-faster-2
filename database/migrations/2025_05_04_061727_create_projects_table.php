@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('projects', function (Blueprint $table) {
             $table->id();
+            $table->ulid('public_id')->unique();
             $table->string('title');
             $table->string('slug')->unique();
             $table->string('featured_image')->nullable();
@@ -39,7 +40,9 @@ return new class extends Migration
             $table->json('availability_months')->nullable();
             $table->date('start_date')->nullable();
             $table->enum('status', ['Active', 'Pending', 'Suspended', 'Rejected'])->default('Pending');
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            // $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignUlid('user_public_id')->constrained('users', 'public_id')->onDelete('cascade')->onDelete('cascade');
+
             $table->boolean('request_for_approval')->default(false);
             $table->boolean('point_exchange')->default(false); // Added point exchange column
             $table->timestamps();

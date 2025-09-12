@@ -1,5 +1,5 @@
 import { useForm } from "@inertiajs/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function OtpVerify({ email, message }) {
     const { data, setData, post, errors, processing } = useForm({
@@ -7,20 +7,20 @@ export default function OtpVerify({ email, message }) {
         otp: "",
     });
 
-    const [timeLeft, setTimeLeft] = useState(600); // 10 minutes in seconds
+    const [timeLeft, setTimeLeft] = useState(600); // 10 minutes
     const [expired, setExpired] = useState(false);
     const [resendMessage, setResendMessage] = useState("");
+
+    const otpInputs = useRef([]);
 
     useEffect(() => {
         if (timeLeft <= 0) {
             setExpired(true);
             return;
         }
-
         const interval = setInterval(() => {
             setTimeLeft((prev) => prev - 1);
         }, 1000);
-
         return () => clearInterval(interval);
     }, [timeLeft]);
 
@@ -32,6 +32,28 @@ export default function OtpVerify({ email, message }) {
         return `${mins}:${secs}`;
     };
 
+    const handleChange = (index, value) => {
+        if (!/^\d?$/.test(value)) return; // only digits
+
+        const otpArray = data.otp
+            .split("")
+            .concat(Array(6).fill(""))
+            .slice(0, 6);
+        otpArray[index] = value;
+        const newOtp = otpArray.join("").trim();
+        setData("otp", newOtp);
+
+        if (value && index < 5) {
+            otpInputs.current[index + 1]?.focus();
+        }
+    };
+
+    const handleKeyDown = (index, e) => {
+        if (e.key === "Backspace" && !data.otp[index] && index > 0) {
+            otpInputs.current[index - 1]?.focus();
+        }
+    };
+
     const submit = (e) => {
         e.preventDefault();
         post(route("otp.verify.store"));
@@ -40,7 +62,7 @@ export default function OtpVerify({ email, message }) {
     const resendOtp = () => {
         post(route("otp.resend"), {
             onSuccess: () => {
-                setTimeLeft(600); // Reset countdown
+                setTimeLeft(600);
                 setExpired(false);
                 setResendMessage("A new OTP has been sent to your email.");
             },
@@ -76,20 +98,30 @@ export default function OtpVerify({ email, message }) {
                 )}
 
                 <form onSubmit={submit}>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Enter the OTP sent to your email
+                    <label className="block text-sm font-medium text-gray-700 mb-3 text-center">
+                        Enter the 6-digit OTP sent to your email
                     </label>
-                    <input
-                        type="text"
-                        placeholder="6-digit code"
-                        maxLength="6"
-                        className="block w-full border border-gray-300 rounded-lg px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
-                        value={data.otp}
-                        onChange={(e) => setData("otp", e.target.value)}
-                    />
+
+                    {/* Elegant OTP Inputs */}
+                    <div className="flex justify-center gap-3 mb-4">
+                        {[...Array(6)].map((_, i) => (
+                            <input
+                                key={i}
+                                type="text"
+                                maxLength="1"
+                                ref={(el) => (otpInputs.current[i] = el)}
+                                value={data.otp[i] || ""}
+                                onChange={(e) =>
+                                    handleChange(i, e.target.value)
+                                }
+                                onKeyDown={(e) => handleKeyDown(i, e)}
+                                className="w-12 h-14 text-center text-xl border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        ))}
+                    </div>
 
                     {errors.otp && (
-                        <div className="text-red-600 text-sm mb-3">
+                        <div className="text-red-600 text-sm text-center mb-3">
                             {errors.otp}
                         </div>
                     )}

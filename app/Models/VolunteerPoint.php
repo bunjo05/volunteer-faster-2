@@ -8,19 +8,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class VolunteerPoint extends Model
 {
     protected $fillable = [
-        'user_id',
-        'booking_id',
+        'user_public_id',
+        'booking_public_id',
         'points_earned',
         'notes'
     ];
 
-    public function user(): BelongsTo
+    public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_public_id', 'public_id');
     }
 
-    public function booking(): BelongsTo
+    public function booking()
     {
-        return $this->belongsTo(VolunteerBooking::class);
+        return $this->belongsTo(VolunteerBooking::class, 'booking_public_id', 'public_id');
     }
 }

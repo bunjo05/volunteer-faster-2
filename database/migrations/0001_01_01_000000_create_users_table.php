@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
+            $table->ulid('public_id');
             $table->string('name');
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
@@ -23,12 +24,15 @@ return new class extends Migration
             $table->string('otp')->nullable();
             $table->timestamp('otp_expires_at')->nullable();
             $table->string('referral_code')->unique()->nullable();
-            $table->unsignedBigInteger('referred_by')->nullable();
+            $table->ulid('referred_by')->nullable();
             $table->rememberToken();
             $table->timestamps();
 
-            // Add foreign key constraint separately
-            $table->foreign('referred_by')->references('id')->on('users');
+            // Add explicit unique index for public_id
+            $table->unique('public_id');
+
+            // Add foreign key constraint
+            $table->foreign('referred_by')->references('public_id')->on('users');
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

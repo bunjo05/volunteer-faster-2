@@ -38,7 +38,7 @@ const statusColors = {
 
 export default function Projects({ auth, payments, points, totalPoints }) {
     const [messageContent, setMessageContent] = useState("");
-    const { bookings = [], flash } = usePage().props;
+    const { bookings = [], flash } = usePage().props.props || usePage().props;
     const [activeBooking, setActiveBooking] = useState(bookings[0] || null);
     const [showSuccess, setShowSuccess] = useState(false);
     const [stripePromise, setStripePromise] = useState(null);
@@ -58,7 +58,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
         message: "",
         sender_id: "",
         receiver_id: "",
-        project_id: "",
+        project_public_id: "",
         status: "",
     });
 
@@ -135,7 +135,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
         try {
             const response = await axios.post(
                 route("payment.checkout"),
-                { booking_id: booking.id },
+                { booking_public_id: booking.public_id },
                 {
                     headers: {
                         "X-CSRF-TOKEN": document.querySelector(
@@ -167,16 +167,16 @@ export default function Projects({ auth, payments, points, totalPoints }) {
 
         if (
             !activeBooking?.project?.user ||
-            activeBooking.project.user.id === auth.user.id
+            activeBooking.project.user.public_id === auth.user.public_id
         ) {
             return alert("Cannot send message - invalid recipient");
         }
 
         const messageData = {
             message: messageContent,
-            sender_id: auth.user.id,
-            receiver_id: activeBooking.project.user.id,
-            project_id: activeBooking.project.id,
+            sender_id: auth.user.public_id,
+            receiver_id: activeBooking.project.user.public_id,
+            project_public_id: activeBooking.project.public_id,
             status: "Unread",
         };
 
@@ -226,7 +226,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
         try {
             const response = await axios.post(
                 route("volunteer.pay-with-points", {
-                    booking: activeBooking.id,
+                    booking: activeBooking.public_id,
                 }),
                 {},
                 {
@@ -363,9 +363,10 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                         AlertCircle;
                                     return (
                                         <div
-                                            key={booking.id}
+                                            key={booking.public_id}
                                             className={`p-4 border-b cursor-pointer transition-colors hover:bg-base-200 ${
-                                                activeBooking?.id === booking.id
+                                                activeBooking?.public_id ===
+                                                booking.public_id
                                                     ? "bg-primary/10"
                                                     : ""
                                             }`}
@@ -689,7 +690,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                                 ) => (
                                                                                     <div
                                                                                         key={
-                                                                                            payment.id
+                                                                                            payment.public_id
                                                                                         }
                                                                                         className="card bg-base-100"
                                                                                     >
@@ -835,7 +836,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                                 "volunteer.send-reminder",
                                                                                 {
                                                                                     bookingId:
-                                                                                        activeBooking.id,
+                                                                                        activeBooking.public_id,
                                                                                 }
                                                                             )
                                                                         )

@@ -13,8 +13,11 @@ return new class extends Migration
     {
         Schema::create('volunteer_points', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('booking_id')->constrained('volunteer_bookings')->onDelete('cascade');
+            $table->foreignUlid('user_public_id')->constrained('users', 'public_id')->onDelete('cascade');
+            $table->foreignUlid('booking_public_id')->constrained('volunteer_bookings', 'public_id')->onDelete('cascade');
+
+            // $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            // $table->foreignId('booking_id')->constrained('volunteer_bookings')->onDelete('cascade');
             $table->integer('points_earned');
             $table->text('notes')->nullable();
             $table->timestamps();

@@ -54,8 +54,8 @@ class BookingCompleted extends Mailable
 
         // Generate verification URL
         $verificationUrl = route('certificate.verify', [
-            'id' => $this->booking->id,
-            'hash' => sha1($this->booking->id . config('app.key'))
+            'public_id' => $this->booking->public_id,
+            'hash' => sha1($this->booking->public_id . config('app.key'))
         ]);
 
         // Generate QR code
@@ -96,7 +96,7 @@ class BookingCompleted extends Mailable
 
         // Store PDF
         Storage::disk('public')->makeDirectory('certificates');
-        $certificatePath = 'certificates/cert_' . $this->booking->id . '_' . time() . '.pdf';
+        $certificatePath = 'certificates/cert_' . $this->booking->public_id . '_' . time() . '.pdf';
         Storage::disk('public')->put($certificatePath, $pdf->output());
 
         return Storage::disk('public')->path($certificatePath);

@@ -18,8 +18,8 @@ class FeaturedProject extends Model
     use HasFactory;
 
     protected $fillable = [
-        'project_id',
-        'user_id',
+        'project_public_id',
+        'user_public_id',
         'plan_type',
         'amount',
         'stripe_payment_id',
@@ -56,12 +56,12 @@ class FeaturedProject extends Model
 
     public function project()
     {
-        return $this->belongsTo(Project::class);
+        return $this->belongsTo(Project::class, 'project_public_id', 'public_id');
     }
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_public_id', 'public_id');
     }
 
     public function scopeActive($query)

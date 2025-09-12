@@ -1,18 +1,18 @@
 <?php
 
-use App\Http\Controllers\SponsorController;
 use Inertia\Inertia;
 use App\Models\VolunteerBooking;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Application;
-
 use App\Http\Controllers\ChatController;
+
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\AdminsController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SponsorController;
 use App\Http\Controllers\VolunteerController;
 use App\Http\Controllers\SocialAuthController;
 use App\Http\Controllers\OrganizationController;
@@ -21,13 +21,13 @@ use App\Http\Controllers\Admin\ReferralController;
 use App\Http\Controllers\FeaturedProjectController;
 use App\Http\Controllers\Admin\Auth\LoginController;
 use App\Http\Controllers\VolunteerFollowOrganization;
+use App\Http\Controllers\SponsorshipPaymentController;
 use App\Http\Controllers\Auth\OtpVerificationController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 
 Route::get('/api/check-volunteer-profile', function () {
     $user = Auth::user();
     $hasProfile = $user->volunteerProfile()->exists();
-
     return response()->json(['hasProfile' => $hasProfile]);
 })->middleware('auth');
 
@@ -47,6 +47,15 @@ Route::post('/send-verification-code', [BookingController::class, 'volunteerEmai
 Route::post('/check-email-exists', [BookingController::class, 'checkEmailExists'])->name('volunteer.email.exists');
 Route::post('/volunteer/email/verify', [BookingController::class, 'verify'])->name('volunteer.email.verify');
 Route::post('/volunteer-booking/store', [BookingController::class, 'store'])->name('volunteer.booking.store');
+
+Route::get('/corporate-impact-sponsorship', [HomeController::class, 'sponsorshipPage'])->name('guest.sponsorship.page');
+Route::get('/corporate-impact-sponsorship/{sponsorship_public_id}', [HomeController::class, 'sponsorshipPageIndividual'])->name('volunteer.guest.sponsorship.page.with.volunteer');
+
+Route::post('/sponsorship/payment', [SponsorshipPaymentController::class, 'createCheckoutSession']);
+Route::get('/sponsorship/payment/success', [SponsorshipPaymentController::class, 'handleSuccess'])->name('sponsorship.payment.success');
+Route::get('/sponsorship/payment/cancel', [SponsorshipPaymentController::class, 'handleCancel'])->name('sponsorship.payment.cancel');
+Route::post('/stripe/sponsorship-webhook', [SponsorshipPaymentController::class, 'handleWebhook']);
+
 
 Route::post('/auth/volunteer-booking/store', [BookingController::class, 'authStore'])->name('auth.volunteer.booking.store');
 
@@ -92,7 +101,8 @@ Route::post('/otp/resend', [AuthenticatedSessionController::class, 'resend'])->n
 
 // Sponsor Routes
 Route::prefix('sponsor')->middleware(['check.role:Sponsor', 'auth'])->group(function () {
-    Route::get('/dashboard', [SponsorController::class, 'index'])->name('sponsor.dashboard');
+    Route::get('/dashboard', [SponsorController::class, 'dashboard'])->name('sponsor.dashboard');
+    // Route::get('/')
 });
 
 // Admin Routes
@@ -119,7 +129,6 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
 
     Route::get('/volunteers/{volunteer}/verifications', [AdminsController::class, 'volunteerVerifications'])->name('admin.volunteers.verifications');
     Route::post('/volunteers/{volunteer}/verifications/{verification}', [AdminsController::class, 'updateVolunteerVerification'])->name('admin.volunteers.verification.update');
-
     Route::get('/volunteers', [AdminsController::class, 'volunteers'])->name('admin.volunteers');
     Route::get('/projects', [AdminsController::class, 'projects'])->name('admin.projects');
     Route::get('/projects/{slug}', [AdminsController::class, 'viewProject'])->name('admin.projects.view');
@@ -200,6 +209,10 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
 
     Route::get('/platform-reviews', [AdminsController::class, 'platformReview'])->name('admin.platform.reviews');
     Route::post('/platform-reviews/{review}/status', [AdminsController::class, 'updatePlatformStatus'])->name('admin.platform-reviews.update-status');
+
+    Route::get('/sponsors', [AdminsController::class, 'sponsorIndex'])->name('admin.sponsor.index');
+    Route::post('/sponsors/{id}/status', [AdminsController::class, 'updateSponsorStatus'])->name('admin.sponsors.updateStatus');
+    Route::delete('/sponsors/{id}', [AdminsController::class, 'destroySponsor'])->name('admin.sponsors.destroy');
 });
 
 Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
@@ -227,7 +240,6 @@ Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(
         ->name('volunteer.verification.store');
     Route::post('/reviews', [VolunteerController::class, 'storeReview'])
         ->name('volunteer.reviews.stores');
-
     Route::post('/platform/reviews', [VolunteerController::class, 'platformReview'])->name('platform.review');
 });
 
@@ -333,7 +345,7 @@ Route::get('/mail-preview/owner', function () {
 // Stripe webhook
 Route::post('/stripe/webhook', [FeaturedProjectController::class, 'handleWebhook']);
 
-Route::get('/certificate/verify/{id}/{hash}', [HomeController::class, 'verifyCertificate'])
+Route::get('/certificate/verify/{public_id}/{hash}', [HomeController::class, 'verifyCertificate'])
     ->name('certificate.verify');
 
 Route::get('/terms-and-conditions', function () {

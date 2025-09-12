@@ -2,9 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Model;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class Project extends Model
@@ -12,6 +13,8 @@ class Project extends Model
     use HasFactory;
 
     protected $fillable = [
+        'public_id',
+        'user_public_id',
         'title',
         'slug',
         'featured_image',
@@ -37,10 +40,11 @@ class Project extends Model
         'availability_months',
         'start_date',
         'status',
-        'user_id',
+        // 'user_id',
         'request_for_approval',
         'point_exchange', // Added point exchange column
-        'skills'
+        'skills',
+        // 'user_public_id'
     ];
 
     protected $casts = [
@@ -53,6 +57,16 @@ class Project extends Model
         'max_duration' => 'integer',
     ];
 
+    protected static function booted()
+    {
+        // parent::booted();
+        static::creating(function ($project) {
+            if (!$project->public_id) {
+                $project->public_id = (string) Str::ulid();
+            }
+        });
+    }
+
     public function category()
     {
         return $this->belongsTo(Category::class);
@@ -63,47 +77,48 @@ class Project extends Model
     }
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_public_id', 'public_id');
     }
     public function organizationProfile()
     {
         return $this->hasOneThrough(
             OrganizationProfile::class,
             User::class,
-            'id',               // Foreign key on User table
-            'user_id',          // Foreign key on OrganizationProfile table
-            'user_id',          // Local key on Project table
-            'id'                // Local key on User table
+            'public_id',          // Foreign key on User table (changed from 'id')
+            'user_public_id',           // Foreign key on OrganizationProfile table
+            'user_public_id',    // Local key on Project table (changed from 'user_id')
+            'id'                 // Local key on User table
         );
     }
 
     public function galleryImages()
     {
-        return $this->hasMany(GalleryImage::class);
+        return $this->hasMany(GalleryImage::class, 'project_public_id', 'public_id');
     }
 
     public function projectRemarks()
     {
-        return $this->hasMany(ProjectRemark::class);
+        return $this->hasMany(ProjectRemark::class, 'project_public_id', 'public_id');
     }
 
     public function owner()
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(User::class, 'user_public_id', 'public_id');
     }
-
     public function featured()
     {
-        return $this->hasOne(FeaturedProject::class)->where('is_active', true);
+        return $this->hasOne(FeaturedProject::class, 'project_public_id', 'public_id')
+            ->where('is_active', true);
     }
 
     public function featuredRequests()
     {
-        return $this->hasMany(FeaturedProject::class);
+        return $this->hasMany(FeaturedProject::class, 'project_public_id', 'public_id');
     }
+
     public function featuredProjects()
     {
-        return $this->hasMany(FeaturedProject::class);
+        return $this->hasMany(FeaturedProject::class, 'project_public_id', 'public_id');
     }
 
     public function getIsFeaturedAttribute()

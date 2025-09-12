@@ -10,8 +10,8 @@ class Referral extends Model
     use HasFactory;
 
     protected $fillable = [
-        'referrer_id',
-        'referee_id',
+        'referrer_public_id',
+        'referee_public_id',
         'referrer_points',
         'referee_points',
         'status',
@@ -21,11 +21,11 @@ class Referral extends Model
 
     public function referrer()
     {
-        return $this->belongsTo(User::class, 'referrer_id');
+        return $this->belongsTo(User::class, 'referrer_public_id', 'public_id');
     }
 
     public function referee()
     {
-        return $this->belongsTo(User::class, 'referee_id');
+        return $this->belongsTo(User::class, 'referee_public_id', 'public_id');
     }
 }

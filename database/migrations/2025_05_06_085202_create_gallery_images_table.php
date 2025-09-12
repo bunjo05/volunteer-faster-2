@@ -13,7 +13,8 @@ return new class extends Migration
     {
         Schema::create('gallery_images', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('project_id')->constrained()->onDelete('cascade');
+            $table->foreignUlid('project_public_id')->constrained('projects', 'public_id')->onDelete('cascade');
+            // $table->foreignId('project_id')->constrained()->onDelete('cascade');
             $table->string('image_path');
             $table->timestamps();
         });

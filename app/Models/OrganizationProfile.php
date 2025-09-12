@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
@@ -10,7 +11,8 @@ class OrganizationProfile extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
+        'public_id',
+        'user_public_id',
         'name',
         'slug',
         'city',
@@ -33,12 +35,24 @@ class OrganizationProfile extends Model
         'logo'
     ];
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($organizationProfile) {
+            if (!$organizationProfile->public_id) {
+                $organizationProfile->public_id = (string) Str::ulid();
+            }
+        });
+    }
+
+
     /**
      * Get the user that owns the organization profile.
      */
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_public_id', 'public_id');
     }
 
     public function verification()
@@ -51,7 +65,13 @@ class OrganizationProfile extends Model
      */
     public function followers()
     {
-        return $this->belongsToMany(User::class, 'volunteer_following_organizations', 'organization_id', 'user_id')
-            ->withTimestamps();
+        return $this->belongsToMany(
+            User::class,
+            'volunteer_following_organizations',
+            'organization_public_id', // Foreign key on the pivot table
+            'user_public_id', // Foreign key on the pivot table
+            'public_id', // Local key on organization_profiles table
+            'public_id' // Foreign key on users table
+        )->withTimestamps();
     }
 }

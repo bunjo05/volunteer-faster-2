@@ -13,8 +13,12 @@ return new class extends Migration
     {
         Schema::create('featured_projects', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('project_id')->constrained()->onDelete('cascade');
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            // $table->foreignId('project_id')->constrained()->onDelete('cascade');
+            $table->foreignUlid('project_public_id')->constrained('projects', 'public_id')->onDelete('cascade');
+
+            // $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignUlid('user_public_id')->constrained('users', 'public_id')->onDelete('cascade');
+
             $table->string('plan_type'); // 1_month, 3_months, 6_months, 1_year
             $table->decimal('amount', 10, 2);
             $table->string('stripe_payment_id');

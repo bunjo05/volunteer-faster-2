@@ -13,15 +13,17 @@ return new class extends Migration
     {
         Schema::create('referrals', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('referrer_id');
-            $table->unsignedBigInteger('referee_id');
+            // $table->unsignedBigInteger('referrer_id');
+            // $table->unsignedBigInteger('referee_id');
+            $table->foreignUlid('referrer_public_id')->constrained('users', 'public_id')->onDelete('cascade');
+            $table->foreignUlid('referee_public_id')->constrained('users', 'public_id')->onDelete('cascade');
             $table->integer('referrer_points')->default(0);
             $table->integer('referee_points')->default(0);
             $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
             $table->string('ip_address')->nullable();
             $table->text('user_agent')->nullable();
-            $table->foreign('referrer_id')->references('id')->on('users');
-            $table->foreign('referee_id')->references('id')->on('users');
+            // $table->foreign('referrer_id')->references('id')->on('users');
+            // $table->foreign('referee_id')->references('id')->on('users');
             $table->timestamps();
         });
     }

@@ -4,14 +4,16 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class VolunteerSponsorship extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
-        'booking_id',
+        'public_id',
+        'user_public_id',
+        'booking_public_id',
         'total_amount',
         'accommodation',
         'meals',
@@ -25,7 +27,7 @@ class VolunteerSponsorship extends Model
         'agreement',
         'aspect_needs_funding',
         'skills',
-        // 'updates'
+        'privacy'
     ];
 
     protected $casts = [
@@ -42,13 +44,43 @@ class VolunteerSponsorship extends Model
         'project_fees_amount' => 'decimal:2',
     ];
 
+    protected $appends = ['funded_amount'];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($volunteer_sponsorship) {
+            if (!$volunteer_sponsorship->public_id) {
+                $volunteer_sponsorship->public_id = (string) Str::ulid();
+            }
+        });
+    }
+
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_public_id', 'public_id');
     }
 
     public function booking()
     {
-        return $this->belongsTo(VolunteerBooking::class)->with('user'); // Add with('user') to always load the user
+        return $this->belongsTo(VolunteerBooking::class, 'booking_public_id', 'public_id')->with('user');
+    }
+
+    public function volunteer_profile()
+    {
+        return $this->hasOne(VolunteerProfile::class, 'user_public_id', 'user_public_id');
+    }
+
+    public function sponsorships()
+    {
+        return $this->hasMany(Sponsorship::class, 'sponsorship_public_id', 'public_id');
+    }
+
+    public function getFundedAmountAttribute()
+    {
+        return $this->sponsorships()
+            ->where('status', 'completed')
+            ->sum('amount');
     }
 }

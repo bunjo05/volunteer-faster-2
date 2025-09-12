@@ -80,6 +80,11 @@ export default function AdminLayout({ children }) {
             href: route("admin.contacts.index"),
             icon: Users,
         },
+        {
+            name: "User Referrals",
+            href: route("admin.referrals.index"),
+            icon: Users,
+        },
         { name: "Settings", href: "#", icon: Settings },
     ];
 

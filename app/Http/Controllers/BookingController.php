@@ -88,7 +88,7 @@ class BookingController extends Controller
             'end_date' => 'required|date',
             'number_of_travellers' => 'nullable|integer',
             'message' => 'nullable|string',
-            'project_id' => 'required|exists:projects,id',
+            'project_public_id' => 'required|exists:projects,public_id',
             'booking_status' => 'required',
 
             // Sponsorship fields
@@ -103,6 +103,7 @@ class BookingController extends Controller
             'impact' => 'nullable|string',
             'commitment' => 'nullable|boolean',
             'agreement' => 'nullable|boolean',
+            'privacy' => 'nullable|boolean',
             'aspect_needs_funding' => 'nullable|array',
             'skills' => 'nullable|array',
         ]);
@@ -119,8 +120,8 @@ class BookingController extends Controller
         ]);
 
         // Check if user already has a pending booking for this project
-        $existingBooking = VolunteerBooking::where('user_id', $user->id)
-            ->where('project_id', $validated['project_id'])
+        $existingBooking = VolunteerBooking::where('user_public_id', $user->public_id)
+            ->where('project_public_id', $validated['project_public_id'])
             ->where('booking_status', 'Pending')
             ->first();
 
@@ -149,7 +150,7 @@ class BookingController extends Controller
 
         // 2. Create profile
         $profile = VolunteerProfile::create([
-            'user_id' => $user->id,
+            'user_public_id' => $user->public_id,
             'gender' => $validated['gender'],
             'dob' => $validated['dob'],
             'country' => $validated['country'],
@@ -161,8 +162,8 @@ class BookingController extends Controller
 
         // 3. Create booking
         $booking = VolunteerBooking::create([
-            'user_id' => $user->id,
-            'project_id' => $validated['project_id'],
+            'user_public_id' => Auth::user()->public_id,
+            'project_public_id' => $validated['project_public_id'],
             'start_date' => $validated['start_date'],
             'end_date' => $validated['end_date'],
             'number_of_travellers' => $validated['number_of_travellers'] ?? 1,
@@ -173,8 +174,8 @@ class BookingController extends Controller
         // 4. Create sponsorship if sponsorship data is provided
         // if (!empty($validated['total_amount']) || !empty($validated['self_introduction'])) {
         $sponsorship =  VolunteerSponsorship::create([
-            'user_id' => $user->id,
-            'booking_id' => $booking->id,
+            'user_public_id' => Auth::user()->public_id,
+            'booking_public_id' => $booking->public_id,
             'total_amount' => $validated['total_amount'] ?? 0,
             'accommodation' => $validated['accommodation'] ?? 0,
             'meals' => $validated['meals'] ?? 0,
@@ -186,6 +187,7 @@ class BookingController extends Controller
             'impact' => $validated['impact'] ?? '',
             'commitment' => $validated['commitment'] ?? false,
             'agreement' => $validated['agreement'] ?? false,
+            'privacy' => $validated['privacy'] ?? false,
             'aspect_needs_funding' => $validated['aspect_needs_funding'] ?? [],
             'skills' => $validated['skills'] ?? [],
             // 'updates' => $validated['updates'] ?? false
@@ -193,7 +195,7 @@ class BookingController extends Controller
         // }
 
         // Get project details
-        $project = Project::with('organizationProfile')->find($validated['project_id']);
+        $project = Project::with('organizationProfile')->find($validated['project_public_id']);
 
         // Send confirmation email to volunteer
         Mail::to($user->email)->send(new VolunteerBookingConfirmation($booking, $project));
@@ -217,7 +219,7 @@ class BookingController extends Controller
             'end_date' => 'required|date',
             'number_of_travellers' => 'required|integer',
             'message' => 'nullable|string',
-            'project_id' => 'required|exists:projects,id',
+            'project_public_id' => 'required|exists:projects,public_id',
             'booking_status' => 'required',
             'sender_id' => 'nullable',
             'receiver_id' => 'nullable',
@@ -236,14 +238,15 @@ class BookingController extends Controller
             'impact' => 'nullable|string',
             'commitment' => 'nullable|boolean',
             'agreement' => 'nullable|boolean',
+            'privacy' => 'nullable|boolean',
             'aspect_needs_funding' => 'nullable|array',
             'skills' => 'nullable|array',
             // 'updates' => 'nullable|string'
         ]);
 
         // Check if user already has a pending booking for this project
-        $existingBooking = VolunteerBooking::where('user_id', $user->id)
-            ->where('project_id', $validated['project_id'])
+        $existingBooking = VolunteerBooking::where('user_public_id', $user->public_id)
+            ->where('project_public_id', $validated['project_public_id'])
             ->where('booking_status', 'Pending')
             ->first();
 
@@ -274,8 +277,8 @@ class BookingController extends Controller
 
         // Create booking
         $booking = VolunteerBooking::create([
-            'user_id' => $user->id,
-            'project_id' => $validated['project_id'],
+            'user_public_id' => Auth::user()->public_id,
+            'project_public_id' => $validated['project_public_id'],
             'start_date' => $validated['start_date'],
             'end_date' => $validated['end_date'],
             'number_of_travellers' => $validated['number_of_travellers'] ?? 1,
@@ -288,8 +291,8 @@ class BookingController extends Controller
         // Create sponsorship if sponsorship data is provided
         // if (!empty($validated['total_amount']) || !empty($validated['self_introduction'])) {
         $sponsorship = VolunteerSponsorship::create([
-            'user_id' => $user->id,
-            'booking_id' => $booking->id,
+            'user_public_id' => Auth::user()->public_id, // Add this
+            'booking_public_id' => $booking->public_id,
             'total_amount' => $validated['total_amount'] ?? 0,
             'travel' => $validated['travel'] ?? 0,
             'accommodation' => $validated['accommodation'] ?? 0,
@@ -301,6 +304,7 @@ class BookingController extends Controller
             'impact' => $validated['impact'] ?? '',
             'commitment' => $validated['commitment'] ?? false,
             'agreement' => $validated['agreement'] ?? false,
+            'privacy' => $validated['privacy'] ?? false,
             'aspect_needs_funding' => $validated['aspect_needs_funding'] ?? [],
             'skills' => $validated['skills'] ?? [],
             // 'updates' => $validated['updates'] ?? false
@@ -308,7 +312,7 @@ class BookingController extends Controller
         // }
 
         // Get project details
-        $project = Project::with('organizationProfile')->find($validated['project_id']);
+        $project = Project::with('organizationProfile')->find($validated['project_public_id']);
 
         // Send confirmation email to volunteer
         Mail::to($user->email)->send(new VolunteerBookingConfirmation($booking, $project));
@@ -322,10 +326,10 @@ class BookingController extends Controller
         // Only create message if one was provided
         if (!empty($validated['message'])) {
             Message::create([
-                'sender_id' => $user->id,
-                'receiver_id' => $project->user_id,
+                'sender_id' => $user->public_id,
+                'receiver_id' => $project->user_public_id,
                 'message' => $filteredMessage,
-                'project_id' => $validated['project_id'],
+                'project_public_id' => $validated['project_public_id'],
                 'status' => 'Unread',
             ]);
         }

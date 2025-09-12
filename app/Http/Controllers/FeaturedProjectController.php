@@ -53,14 +53,15 @@ class FeaturedProjectController extends Controller
     {
         try {
             $request->validate([
-                'project_id' => 'required|exists:projects,id',
+                'project_public_id' => 'required|exists:projects,public_id',
                 'plan_type' => 'required|in:1_month,3_months,6_months,1_year',
             ]);
 
-            $project = Project::findOrFail($request->project_id);
+            // Use where() to find by public_id instead of findOrFail()
+            $project = Project::where('public_id', $request->project_public_id)->firstOrFail();
             $user = Auth::user();
 
-            if ($project->user_id !== $user->id) {
+            if ($project->user_public_id !== $user->public_id) {
                 return response()->json([
                     'error' => 'You do not own this project',
                     'code' => 'FORBIDDEN'
@@ -102,8 +103,8 @@ class FeaturedProjectController extends Controller
                 'success_url' => route('featured.success') . '?session_id={CHECKOUT_SESSION_ID}',
                 'cancel_url' => route('featured.cancel'),
                 'metadata' => [
-                    'project_id' => $project->id,
-                    'user_id' => $user->id,
+                    'project_public_id' => $project->public_id,
+                    'user_public_id' => $user->public_id,
                     'plan_type' => $request->plan_type,
                     'amount' => $amount,
                     'duration_days' => $selectedPlan['duration_days'],
@@ -130,38 +131,41 @@ class FeaturedProjectController extends Controller
         $session = Session::retrieve($sessionId);
 
         if ($session->payment_status === 'paid') {
-            $projectId = $session->metadata->project_id;
-            $userId = $session->metadata->user_id;
+            $projectPublicId = $session->metadata->project_public_id;
+            $userPublicId = $session->metadata->user_public_id;
             $planType = $session->metadata->plan_type;
             $amount = $session->metadata->amount;
             $durationDays = $session->metadata->duration_days;
 
-            $project = Project::find($projectId);
+            // Use where() to find by public_id
+            $project = Project::where('public_id', $projectPublicId)->first();
 
-            // Create featured project record (status will be pending until admin approves)
-            FeaturedProject::create([
-                'project_id' => $projectId,
-                'user_id' => $userId,
-                'plan_type' => $planType,
-                'amount' => $amount,
-                'stripe_payment_id' => $session->payment_intent,
-                'status' => 'pending',
-                'is_active' => false,
-            ]);
+            if ($project) {
+                // Create featured project record
+                FeaturedProject::create([
+                    'project_public_id' => $projectPublicId,
+                    'user_public_id' => $userPublicId,
+                    'plan_type' => $planType,
+                    'amount' => $amount,
+                    'stripe_payment_id' => $session->payment_intent,
+                    'status' => 'pending',
+                    'is_active' => false,
+                ]);
 
-            // Send email to project owner
-            Mail::to($project->user->email)
-                ->send(new ProjectFeatureRequestReceived($project));
+                // Send email to project owner
+                Mail::to($project->user->email)
+                    ->send(new ProjectFeatureRequestReceived($project));
 
-            // Send email to all admins
-            $admins = Admin::all();
-            foreach ($admins as $admin) {
-                Mail::to($admin->email)
-                    ->send(new NewFeatureRequestNotification($project));
+                // Send email to all admins
+                $admins = Admin::all();
+                foreach ($admins as $admin) {
+                    Mail::to($admin->email)
+                        ->send(new NewFeatureRequestNotification($project));
+                }
+
+                return redirect()->route('organization.projects')
+                    ->with('success', 'Payment successful! Your project will be featured after admin approval.');
             }
-
-            return redirect()->route('organization.projects')
-                ->with('success', 'Payment successful! Your project will be featured after admin approval.');
         }
 
         return redirect()->route('featured.cancel');
@@ -202,33 +206,37 @@ class FeaturedProjectController extends Controller
     protected function handleCheckoutSessionCompleted($session)
     {
         if ($session->payment_status === 'paid') {
-            $projectId = $session->metadata->project_id;
-            $userId = $session->metadata->user_id;
+            $projectPublicId = $session->metadata->project_public_id;
+            $userPublicId = $session->metadata->user_public_id;
             $planType = $session->metadata->plan_type;
             $amount = $session->metadata->amount;
             $durationDays = $session->metadata->duration_days;
 
-            $project = Project::find($projectId);
+            // Use where() to find by public_id
+            $project = Project::where('public_id', $projectPublicId)->first();
 
-            // Create featured project record (status will be pending until admin approves)
-            FeaturedProject::create([
-                'project_id' => $projectId,
-                'user_id' => $userId,
-                'plan_type' => $planType,
-                'amount' => $amount,
-                'stripe_payment_id' => $session->payment_intent,
-                'status' => 'pending',
-                'is_active' => false,
-            ]);
-            // Send email to project owner
-            Mail::to($project->user->email)
-                ->send(new ProjectFeatureRequestReceived($project));
+            if ($project) {
+                // Create featured project record
+                FeaturedProject::create([
+                    'project_public_id' => $projectPublicId,
+                    'user_public_id' => $userPublicId,
+                    'plan_type' => $planType,
+                    'amount' => $amount,
+                    'stripe_payment_id' => $session->payment_intent,
+                    'status' => 'pending',
+                    'is_active' => false,
+                ]);
 
-            // Send email to all admins
-            $admins = Admin::all();
-            foreach ($admins as $admin) {
-                Mail::to($admin->email)
-                    ->send(new NewFeatureRequestNotification($project));
+                // Send email to project owner
+                Mail::to($project->user->email)
+                    ->send(new ProjectFeatureRequestReceived($project));
+
+                // Send email to all admins
+                $admins = Admin::all();
+                foreach ($admins as $admin) {
+                    Mail::to($admin->email)
+                        ->send(new NewFeatureRequestNotification($project));
+                }
             }
         }
     }

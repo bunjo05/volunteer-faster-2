@@ -33,6 +33,12 @@ export default function GeneralPages({ children, auth }) {
                             Volunteer Programs
                         </Link>
                         <Link
+                            href={route("guest.sponsorship.page")}
+                            className="text-base-content hover:text-primary font-medium"
+                        >
+                            Corporate Impact Sponsorship
+                        </Link>
+                        <Link
                             href={route("guide")}
                             className="text-base-content hover:text-primary font-medium"
                         >
@@ -132,6 +138,12 @@ export default function GeneralPages({ children, auth }) {
                                 className="btn btn-ghost justify-start"
                             >
                                 Volunteer Programs
+                            </Link>
+                            <Link
+                                href={route("guest.sponsorship.page")}
+                                className="btn btn-ghost justify-start"
+                            >
+                                Corporate Impact Sponsorship
                             </Link>
                             <Link
                                 href={route("guide")}

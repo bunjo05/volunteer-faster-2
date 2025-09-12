@@ -10,7 +10,7 @@ class PlatformReview extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
+        'user_public_id',
         'status',
         'message',
         'admin_id',
@@ -19,12 +19,12 @@ class PlatformReview extends Model
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_public_id', 'public_id');
     }
 
     public function admin()
     {
-        return $this->belongsTo(Admin::class);
+        return $this->belongsTo(Admin::class, 'admin_public_id', 'public_id');
     }
 
     // Fix this relationship - it should be through the user

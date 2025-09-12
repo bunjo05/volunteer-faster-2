@@ -79,26 +79,26 @@ class StripePaymentController extends Controller
     {
         try {
             if ($session->payment_status === 'paid') {
-                $bookingId = $session->metadata->booking_id ?? null;
-                $userId = $session->metadata->user_id ?? null;
+                $bookingPublicId = $session->metadata->booking_public_id ?? null;
+                $userPublicId = $session->metadata->user_public_id ?? null;
                 $fullAmount = isset($session->metadata->full_amount) ? (float) $session->metadata->full_amount : null;
                 $depositAmount = isset($session->metadata->deposit_amount) ? (float) $session->metadata->deposit_amount : null;
 
-                if (!$bookingId || !$userId) {
+                if (!$bookingPublicId || !$userPublicId) {
                     Log::error('Stripe webhook: Missing metadata in session', ['session_id' => $session->id]);
                     return;
                 }
 
                 // $booking = VolunteerBooking::with(['user', 'project.user'])
                 $booking = VolunteerBooking::with(['user', 'project.organizationProfile', 'project.user'])
-                    ->where('id', $bookingId)
-                    ->where('user_id', $userId)
+                    ->where('public_id', $bookingPublicId)
+                    ->where('user_public_id', $userPublicId)
                     ->first();
 
                 if (!$booking) {
                     Log::error('Stripe webhook: Booking not found', [
-                        'booking_id' => $bookingId,
-                        'user_id' => $userId
+                        'booking_public_id' => $bookingPublicId,
+                        'user_public_id' => $userPublicId
                     ]);
                     return;
                 }
@@ -113,9 +113,9 @@ class StripePaymentController extends Controller
 
                 // Create payment record with explicit type casting
                 $payment = Payment::create([
-                    'user_id' => $userId,
-                    'booking_id' => $bookingId,
-                    'project_id' => $booking->project_id,
+                    'user_public_id' => $userPublicId,
+                    'booking_public_id' => $bookingPublicId,
+                    'project_public_id' => $booking->project_public_id,
                     'amount' => $depositAmount,
                     'full_amount' => $fullAmount,
                     'stripe_payment_id' => $session->payment_intent,
@@ -137,7 +137,7 @@ class StripePaymentController extends Controller
                 $this->sendPaymentNotifications($booking, $payment);
 
                 Log::info('Stripe webhook: Deposit payment processed successfully', [
-                    'booking_id' => $bookingId,
+                    'booking_public_id' => $bookingPublicId,
                     'payment_intent' => $session->payment_intent,
                     'deposit_amount' => $depositAmount,
                     'full_amount' => $fullAmount
@@ -159,12 +159,12 @@ class StripePaymentController extends Controller
 
     protected function handlePaymentIntentFailed($paymentIntent)
     {
-        $bookingId = $paymentIntent->metadata->booking_id ?? null;
-        $userId = $paymentIntent->metadata->user_id ?? null;
+        $bookingPublicId = $paymentIntent->metadata->booking_public_id ?? null;
+        $userPublicId = $paymentIntent->metadata->user_public_id ?? null;
 
-        if ($bookingId && $userId) {
-            $booking = VolunteerBooking::where('id', $bookingId)
-                ->where('user_id', $userId)
+        if ($bookingPublicId && $userPublicId) {
+            $booking = VolunteerBooking::where('public_id', $bookingPublicId)
+                ->where('user_public_id', $userPublicId)
                 ->first();
 
             if ($booking) {
@@ -174,7 +174,7 @@ class StripePaymentController extends Controller
                 ]);
 
                 Log::info('Payment failed for booking', [
-                    'booking_id' => $bookingId,
+                    'booking_public_id' => $bookingPublicId,
                     'payment_intent' => $paymentIntent->id,
                     'failure_message' => $paymentIntent->last_payment_error->message ?? null
                 ]);
@@ -186,12 +186,17 @@ class StripePaymentController extends Controller
     {
         try {
             $request->validate([
-                'booking_id' => 'required|exists:volunteer_bookings,id'
+                'booking_public_id' => 'required|exists:volunteer_bookings,public_id'
             ]);
 
-            $booking = $request->user()->bookings()
-                ->with(['project.user'])
-                ->findOrFail($request->booking_id);
+            $booking = VolunteerBooking::with(['project.user'])
+                ->where('public_id', $request->booking_public_id)
+                ->firstOrFail();
+
+            // Optional: Add security check to ensure user owns this booking
+            if ($booking->user_public_id !== $request->user()->public_id) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
 
             if (!$booking->project) {
                 throw new \Exception('Project not found for this booking');
@@ -227,8 +232,8 @@ class StripePaymentController extends Controller
                 'success_url' => route('payment.success') . '?session_id={CHECKOUT_SESSION_ID}',
                 'cancel_url' => route('payment.cancel'),
                 'metadata' => [
-                    'booking_id' => $booking->id,
-                    'user_id' => $request->user()->id,
+                    'booking_public_id' => $booking->public_id,
+                    'user_public_id' => $request->user()->public_id,
                     'full_amount' => (float)$fullAmount,
                     'deposit_amount' => (float)$depositAmount,
                 ],
@@ -255,17 +260,24 @@ class StripePaymentController extends Controller
         $session = Session::retrieve($sessionId);
 
         if ($session->payment_status === 'paid') {
-            $booking = $request->user()->bookings()
-                ->with(['project.organizationProfile', 'project.user'])
-                ->findOrFail($session->metadata->booking_id);
+            // FIX: Use proper query to find booking by public_id
+            $booking = VolunteerBooking::with(['project.organizationProfile', 'project.user'])
+                ->where('public_id', $session->metadata->booking_public_id)
+                ->firstOrFail();
+
+            // Security check to ensure the booking belongs to the authenticated user
+            if ($booking->user_public_id !== $request->user()->public_id) {
+                return redirect()->route('payment.cancel')
+                    ->with('error', 'Unauthorized access to booking.');
+            }
 
             $fullAmount = (float)($session->metadata->full_amount ?? 0);
             $depositAmount = (float)($session->metadata->deposit_amount ?? 0);
 
             $payment = Payment::create([
-                'user_id' => $request->user()->id,
-                'booking_id' => $booking->id,
-                'project_id' => $booking->project_id,
+                'user_public_id' => $request->user()->public_id,
+                'booking_public_id' => $booking->public_id,
+                'project_public_id' => $booking->project_public_id,
                 'amount' => $depositAmount,
                 'full_amount' => $fullAmount,
                 'stripe_payment_id' => $session->payment_intent,
@@ -297,7 +309,7 @@ class StripePaymentController extends Controller
             $booking = $booking->fresh(['project.organizationProfile', 'project.user', 'user']);
 
             Log::info('Sending payment notifications', [
-                'booking_id' => $booking->id,
+                'booking_public_id' => $booking->public_id,
                 'user_email' => $booking->user->email,
                 'project_owner_email' => $booking->project->user->email ?? null
             ]);

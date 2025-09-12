@@ -892,7 +892,7 @@ export default function Profile({ volunteer, auth, verification }) {
                             </div>
                         </ProfileSection>
 
-                        <div className="flex justify-end space-x-4 pt-6">
+                        <div className="flex justify-center space-x-4 pt-6">
                             <button
                                 type="button"
                                 onClick={() => setIsEditing(false)}

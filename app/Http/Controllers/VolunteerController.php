@@ -35,14 +35,14 @@ class VolunteerController extends Controller
 
         // Get chats where the user is a participant
         $chats = Chat::whereHas('participants', function ($query) use ($user) {
-            $query->where('user_id', $user->id);
+            $query->where('user_public_id', $user->public_id);
         })
             ->with(['latestMessage'])
             ->orderBy('updated_at', 'desc')
             ->get()
             ->map(function ($chat) use ($user) {
                 return [
-                    'id' => $chat->id,
+                    'id' => $chat->public_id,
                     'updated_at' => $chat->updated_at,
                     'unread_count' => $chat->messages()
                         ->where('sender_type', 'App\Models\Admin')
@@ -63,14 +63,14 @@ class VolunteerController extends Controller
 
         // Check if user already has a pending chat
         $pendingChat = Chat::whereHas('participants', function ($query) use ($user) {
-            $query->where('user_id', $user->id);
+            $query->where('user_public_id', $user->public_id);
         })->where('status', 'pending')->first();
 
         if ($pendingChat) {
             return response()->json([
                 'error' => 'You already have a pending chat',
                 'existing_chat' => [
-                    'id' => $pendingChat->id,
+                    'id' => $pendingChat->public_id,
                     'updated_at' => $pendingChat->updated_at,
                     'unread_count' => 0
                 ]
@@ -79,7 +79,7 @@ class VolunteerController extends Controller
 
         // Check if user has too many active chats
         $activeChatCount = Chat::whereHas('participants', function ($query) use ($user) {
-            $query->where('user_id', $user->id);
+            $query->where('user_public_id', $user->public_id);
         })->where('status', 'active')->count();
 
         if ($activeChatCount >= 1) { // Adjust this number as needed
@@ -95,12 +95,12 @@ class VolunteerController extends Controller
 
         // Add the user as a participant
         $chat->participants()->create([
-            'user_id' => $user->id
+            'user_public_id' => $user->public_id
         ]);
 
         return response()->json([
             'chat' => [
-                'id' => $chat->id,
+                'id' => $chat->public_id,
                 'updated_at' => $chat->updated_at,
                 'unread_count' => 0,
             ]
@@ -112,7 +112,7 @@ class VolunteerController extends Controller
         $user = Auth::user();
 
         // Verify the user is a participant in this chat
-        if (!$chat->participants()->where('user_id', $user->id)->exists()) {
+        if (!$chat->participants()->where('user_public_id', $user->public_id)->exists()) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -121,7 +121,7 @@ class VolunteerController extends Controller
             ->get()
             ->map(function ($message) {
                 return [
-                    'id' => $message->id,
+                    'id' => $message->public_id,
                     'content' => $message->content,
                     'sender_id' => $message->sender_id,
                     'sender_type' => $message->sender_type,
@@ -143,7 +143,7 @@ class VolunteerController extends Controller
         $user = Auth::user();
 
         // Verify the user is a participant in this chat
-        if (!$chat->participants()->where('user_id', $user->id)->exists()) {
+        if (!$chat->participants()->where('user_public_id', $user->public_id)->exists()) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -167,12 +167,12 @@ class VolunteerController extends Controller
         $chat = Chat::findOrFail($request->chat_id);
 
         // Verify the user is a participant in this chat
-        if (!$chat->participants()->where('user_id', $user->id)->exists()) {
+        if (!$chat->participants()->where('user_public_id', $user->public_id)->exists()) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
         $message = $chat->messages()->create([
-            'sender_id' => $user->id,
+            'sender_id' => $user->public_id,
             'sender_type' => 'App\Models\User',
             'content' => $request->content,
             // Don't need to set status here since it has a default
@@ -185,7 +185,7 @@ class VolunteerController extends Controller
 
         return response()->json([
             'message' => [
-                'id' => $message->id,
+                'id' => $message->public_id,
                 'content' => $message->content,
                 'sender_id' => $message->sender_id,
                 'sender_type' => $message->sender_type,
@@ -203,17 +203,17 @@ class VolunteerController extends Controller
         $user = Auth::user();
 
         // Get total earned points (credits)
-        $earnedOtherPoints = PointTransaction::where('user_id', $user->id)
+        $earnedOtherPoints = PointTransaction::where('user_public_id', $user->public_id)
             ->where('type', 'credit')
             ->sum('points');
 
-        $earnedVolunteerPoints = VolunteerPoint::where('user_id', $user->id)
+        $earnedVolunteerPoints = VolunteerPoint::where('user_public_id', $user->public_id)
             ->sum('points_earned');
 
         $earnedPoints = $earnedOtherPoints + $earnedVolunteerPoints;
 
         // Get total spent points (debits)
-        $spentPoints = PointTransaction::where('user_id', $user->id)
+        $spentPoints = PointTransaction::where('user_public_id', $user->public_id)
             ->where('type', 'debit')
             ->sum('points');
 
@@ -221,6 +221,7 @@ class VolunteerController extends Controller
 
         return $earnedPoints - $spentPoints;
     }
+
     public function index()
     {
         $user = Auth::user();
@@ -229,7 +230,7 @@ class VolunteerController extends Controller
         $totalPoints = $this->getTotalPoints();
 
         // Get booking counts by status
-        $bookingCounts = VolunteerBooking::where('user_id', $user->id)
+        $bookingCounts = VolunteerBooking::where('user_public_id', $user->public_id)
             ->selectRaw('count(*) as total')
             ->selectRaw('sum(case when booking_status = "Pending" then 1 else 0 end) as pending')
             ->selectRaw('sum(case when booking_status = "Approved" then 1 else 0 end) as approved')
@@ -239,7 +240,7 @@ class VolunteerController extends Controller
 
         // Get recent activities (last 5 points earned)
         $recentActivities = VolunteerPoint::with(['booking.project'])
-            ->where('user_id', $user->id)
+            ->where('user_public_id', $user->public_id)
             ->orderBy('created_at', 'desc')
             ->take(5)
             ->get()
@@ -270,8 +271,8 @@ class VolunteerController extends Controller
     }
     public function projects()
     {
-        $bookings = VolunteerBooking::with(['project', 'reminders', 'payments', 'pointTransactions'])
-            ->where('user_id', Auth::id())
+        $bookings = VolunteerBooking::with(['project', 'reminders', 'payments', 'pointTransactions', 'project.user'])
+            ->where('user_public_id',  Auth::user()->public_id)
             ->get()
             ->map(function ($booking) {
                 $daysPending = $booking->created_at->diffInDays(now());
@@ -311,16 +312,16 @@ class VolunteerController extends Controller
 
         $user = Auth::user();
 
-        $earnedPoints = VolunteerPoint::where('user_id', $user->id)
+        $earnedPoints = VolunteerPoint::where('user_public_id', $user->public_id)
             ->sum('points_earned');
 
-        $earnedReferralPoints = PointTransaction::where('user_id', $user->id)
+        $earnedReferralPoints = PointTransaction::where('user_public_id', $user->public_id)
             ->where('type', 'credit')
             ->sum('points');
 
         $grandEarnedPoints = $earnedPoints + $earnedReferralPoints;
 
-        $spentPoints = PointTransaction::where('user_id', $user->id)
+        $spentPoints = PointTransaction::where('user_public_id', $user->public_id)
             ->where('type', 'debit')
             ->sum('points');
 
@@ -342,34 +343,34 @@ class VolunteerController extends Controller
         // Get all messages where user is either sender or receiver
         $messages = Message::with(['sender', 'receiver', 'originalMessage.sender', 'booking', 'project'])
             ->where(function ($query) use ($user) {
-                $query->where('receiver_id', $user->id)
-                    ->orWhere('sender_id', $user->id);
+                $query->where('receiver_id', $user->public_id)
+                    ->orWhere('sender_id', $user->public_id);
             })
             ->orderBy('created_at', 'asc')
             ->get();
 
         // Group messages by conversation partner
         $groupedMessages = $messages->groupBy(function ($message) use ($user) {
-            // Use a composite key that includes booking_id if available
-            $baseKey = $message->sender_id === $user->id
+            // Use a composite key that includes booking_public_id if available
+            $baseKey = $message->sender_id === $user->public_id
                 ? $message->receiver_id
                 : $message->sender_id;
 
-            return $message->booking_id
-                ? "{$baseKey}-{$message->booking_id}"
+            return $message->booking_public_id
+                ? "{$baseKey}-{$message->booking_public_id}"
                 : $baseKey;
         });
 
         // Prepare conversations with replied messages
         $conversations = $groupedMessages->map(function ($messages, $otherUserId) use ($user) {
-            $otherUser = $messages->first()->sender_id === $user->id
+            $otherUser = $messages->first()->sender_id === $user->public_id
                 ? $messages->first()->receiver
                 : $messages->first()->sender;
 
             // Add replied message data to each message
             $enhancedMessages = $messages->map(function ($message) {
                 return [
-                    'id' => $message->id,
+                    'id' => $message->public_id,
                     'message' => $message->message,
                     'sender_id' => $message->sender_id,
                     'receiver_id' => $message->receiver_id,
@@ -377,11 +378,11 @@ class VolunteerController extends Controller
                     'created_at' => $message->created_at,
                     'reply_to' => $message->reply_to,
                     'original_message' => $message->originalMessage ? [
-                        'id' => $message->originalMessage->id,
+                        'id' => $message->originalMessage->public_id,
                         'message' => $message->originalMessage->message,
                         'sender_id' => $message->originalMessage->sender_id,
                         'sender' => $message->originalMessage->sender ? [
-                            'id' => $message->originalMessage->sender->id,
+                            'id' => $message->originalMessage->sender->public_id,
                             'name' => $message->originalMessage->sender->name,
                             'email' => $message->originalMessage->sender->email,
                         ] : null,
@@ -391,12 +392,12 @@ class VolunteerController extends Controller
 
             return [
                 'sender' => [
-                    'id' => $otherUser->id,
+                    'id' => $otherUser->public_id,
                     'name' => $otherUser->name,
                     'email' => $otherUser->email,
                 ],
                 'messages' => $enhancedMessages,
-                'unreadCount' => $messages->where('receiver_id', $user->id)
+                'unreadCount' => $messages->where('receiver_id', $user->public_id)
                     ->where('status', 'Unread')
                     ->count(),
                 'latestMessage' => $messages->sortByDesc('created_at')->first()
@@ -417,7 +418,7 @@ class VolunteerController extends Controller
 
         // Verify the sender exists and has messages with the current user
         $messages = Message::where('sender_id', $senderId)
-            ->where('receiver_id', $user->id)
+            ->where('receiver_id', $user->public_id)
             ->where('status', 'Unread')
             ->get();
 
@@ -427,7 +428,7 @@ class VolunteerController extends Controller
 
         // Mark all unread messages as read
         Message::where('sender_id', $senderId)
-            ->where('receiver_id', $user->id)
+            ->where('receiver_id', $user->public_id)
             ->where('status', 'Unread')
             ->update(['status' => 'Read']);
 
@@ -440,13 +441,13 @@ class VolunteerController extends Controller
             'receiver_id' => 'required|exists:users,id',
             'message' => 'required|string|max:1000',
             'reply_to' => 'nullable|exists:messages,id',
-            'project_id' => 'nullable|exists:projects,id',
-            'booking_id' => 'nullable|exists:volunteer_bookings,id',
+            'project_public_id' => 'nullable|exists:projects,id',
+            'booking_public_id' => 'nullable|exists:volunteer_bookings,id',
         ]);
 
         $user = Auth::user();
-        $project = $request->project_id ? Project::find($request->project_id) : null;
-        $booking = $request->booking_id ? VolunteerBooking::find($request->booking_id) : null;
+        $project = $request->project_public_id ? Project::find($request->project_public_id) : null;
+        $booking = $request->booking_public_id ? VolunteerBooking::find($request->booking_public_id) : null;
 
         // If we have a booking but no project, get project from booking
         if ($booking && !$project) {
@@ -487,13 +488,13 @@ class VolunteerController extends Controller
         }
 
         $message = Message::create([
-            'sender_id' => $user->id,
+            'sender_id' => $user->public_id,
             'receiver_id' => $request->receiver_id,
             'message' => $filteredMessage,
             'status' => 'Unread',
             'reply_to' => $request->reply_to,
-            'project_id' => $project ? $project->id : null,
-            'booking_id' => $booking ? $booking->id : null,
+            'project_public_id' => $project ? $project->public_id : null,
+            'booking_public_id' => $booking ? $booking->public_id : null,
         ]);
 
         // Load relationships before broadcasting
@@ -518,14 +519,14 @@ class VolunteerController extends Controller
             'message' => 'required|string|max:1000',
             'sender_id' => 'required|exists:users,id',
             'receiver_id' => 'required|exists:users,id',
-            'project_id' => 'required|exists:projects,id',
+            'project_public_id' => 'required|exists:projects,id',
         ]);
 
         // $message = Message::create([
         //     'sender_id' => $request->sender_id,
         //     'receiver_id' => $request->receiver_id,
         //     'message' => $request->message,
-        //     'project_id' => $request->project_id,
+        //     'project_public_id' => $request->project_public_id,
         //     'status' => 'Unread',
         // ]);
 
@@ -535,7 +536,7 @@ class VolunteerController extends Controller
     public function storeProjectReport(Request $request)
     {
         $validated = $request->validate([
-            'project_id' => 'required|exists:projects,id',
+            'project_public_id' => 'required|exists:projects,id',
             'report_category_id' => 'required|exists:report_categories,id',
             'report_subcategory_id' => 'required|exists:report_subcategories,id',
             'description' => 'required',
@@ -544,8 +545,8 @@ class VolunteerController extends Controller
         $user = Auth::user();
 
         $report_project = ReportProject::create([
-            'user_id' => $user->id,
-            'project_id' => $validated['project_id'],
+            'user_public_id' => $user->public_id,
+            'project_public_id' => $validated['project_public_id'],
             'report_category_id' => $validated['report_category_id'],
             'report_subcategory_id' => $validated['report_subcategory_id'],
             'description' => $validated['description'],
@@ -558,7 +559,7 @@ class VolunteerController extends Controller
     {
         $booking = VolunteerBooking::with(['project.user', 'user', 'reminders'])
             ->where('id', $bookingId)
-            ->where('user_id', Auth::id())
+            ->where('user_public_id', Auth::id())
             ->firstOrFail();
 
         $daysPending = $booking->created_at->diffInDays(now());
@@ -585,17 +586,17 @@ class VolunteerController extends Controller
         // Create a message record
         Message::create([
             'sender_id' => Auth::id(),
-            'receiver_id' => $booking->project->user_id,
+            'receiver_id' => $booking->project->user_public_id,
             'message' => ucfirst($stage) . ' reminder sent about the bookingthat was made on ' . $booking->created_at->format('F j, Y'),
-            'project_id' => $booking->project_id,
+            'project_public_id' => $booking->project_public_id,
             'status' => 'Unread',
         ]);
 
         // Create reminder record
         Reminder::create([
-            'user_id' => Auth::id(),
-            'project_id' => $booking->project_id,
-            'booking_id' => $booking->id,
+            'user_public_id' => Auth::id(),
+            'project_public_id' => $booking->project_public_id,
+            'booking_public_id' => $booking->public_id,
             'stage' => $stage,
             'message' => ucfirst($stage) . ' reminder sent about the bookingthat was made on ' . $booking->created_at->format('F j, Y'),
         ]);
@@ -605,10 +606,10 @@ class VolunteerController extends Controller
     public function profile()
     {
         $user = Auth::user();
-        $volunteer = VolunteerProfile::where('user_id', $user->id)->first();
+        $volunteer = VolunteerProfile::where('user_public_id', $user->public_id)->first();
 
         $verification = $volunteer
-            ? VolunteerVerification::where('volunteer_id', $volunteer->id)->first()
+            ? VolunteerVerification::where('volunteer_public_id', $volunteer->public_id)->first()
             : null;
 
         return Inertia::render('Volunteers/Profile', [
@@ -625,7 +626,7 @@ class VolunteerController extends Controller
         $user = Auth::user();
 
         // Verify the volunteer profile belongs to the authenticated user
-        if ($volunteer->user_id !== $user->id) {
+        if ($volunteer->user_public_id !== $user->public_id) {
             abort(403);
         }
 
@@ -634,7 +635,7 @@ class VolunteerController extends Controller
             'auth' => [
                 'user' => $user,
             ],
-            'volunteer' => $volunteer->id,
+            'volunteer' => $volunteer->public_id,
         ]);
     }
     public function storeVerification(Request $request, $volunteer_profile)
@@ -647,7 +648,7 @@ class VolunteerController extends Controller
         ]);
 
         // Check if volunteer already has a verification record
-        $existingVerification = VolunteerVerification::where('volunteer_id', $volunteerProfile->id)->first();
+        $existingVerification = VolunteerVerification::where('volunteer_public_id', $volunteerProfile->public_id)->first();
 
         // Store the new document file
         if ($request->hasFile('document')) {
@@ -660,7 +661,7 @@ class VolunteerController extends Controller
         }
 
         // Add the volunteer profile ID to the data
-        $data['volunteer_id'] = $volunteerProfile->id;
+        $data['volunteer_public_id'] = $volunteerProfile->public_id;
         $data['status'] = 'Pending'; // Reset status to Pending for new submission
 
         // Update or create the verification record
@@ -704,7 +705,7 @@ class VolunteerController extends Controller
         ]);
 
         // Find or create the volunteer profile
-        $volunteer = VolunteerProfile::firstOrNew(['user_id' => $user->id]);
+        $volunteer = VolunteerProfile::firstOrNew(['user_public_id' => $user->public_id]);
 
         // Handle profile picture upload/removal
         if ($request->hasFile('profile_picture')) {
@@ -724,6 +725,11 @@ class VolunteerController extends Controller
             $data['profile_picture'] = $request->input('current_profile_picture');
         }
 
+        // Set user_public_id if creating new profile
+        if (!$volunteer->exists) {
+            $data['user_public_id'] = $user->public_id;
+        }
+
         // Update or create the volunteer profile
         $volunteer->fill($data);
         $volunteer->save();
@@ -737,12 +743,12 @@ class VolunteerController extends Controller
 
         // Get all point transactions
         $transactions = PointTransaction::with(['booking.project'])
-            ->where('user_id', $user->id)
+            ->where('user_public_id', $user->public_id)
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($transaction) {
                 return [
-                    'id' => $transaction->id,
+                    'id' => $transaction->public_id,
                     'source' => 'transaction', // identify type
                     'type' => $transaction->type,
                     'points' => $transaction->points,
@@ -753,12 +759,12 @@ class VolunteerController extends Controller
             });
 
         // Get volunteer points
-        $volunteerPoints = VolunteerPoint::where('user_id', $user->id)
+        $volunteerPoints = VolunteerPoint::where('user_public_id', $user->public_id)
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($vp) {
                 return [
-                    'id' => $vp->id,
+                    'id' => $vp->public_id,
                     'booking' => $vp->booking, // identify type
                     'type' => 'credit',
                     'points' => $vp->points_earned,
@@ -780,7 +786,8 @@ class VolunteerController extends Controller
             'points' => [
                 'total' => $this->getTotalPoints(),
                 'history' => $history,
-            ]
+            ],
+            'timestamp' => now()->timestamp // Add this to bust cache
         ]);
     }
 
@@ -791,12 +798,12 @@ class VolunteerController extends Controller
 
     //     // Get all point transactions ordered by date
     //     $transactions = PointTransaction::with(['booking.project'])
-    //         ->where('user_id', $user->id)
+    //         ->where('user_public_id', $user->public_id)
     //         ->orderBy('created_at', 'desc')
     //         ->get()
     //         ->map(function ($transaction) {
     //             return [
-    //                 'id' => $transaction->id,
+    //                 'id' => $transaction->public_id,
     //                 'type' => $transaction->type,
     //                 'points' => $transaction->points,
     //                 'description' => $transaction->description,
@@ -805,7 +812,7 @@ class VolunteerController extends Controller
     //             ];
     //         });
 
-    //     $volunteerPoints = VolunteerPoint::where('user_id', $user->id);
+    //     $volunteerPoints = VolunteerPoint::where('user_public_id', $user->public_id);
 
 
     //     return inertia('Volunteers/Points', [
@@ -879,9 +886,9 @@ class VolunteerController extends Controller
 
             // 2. Deduct points from volunteer (debit transaction)
             $this->createPointTransaction(
-                $user->id,
-                $organization->id,
-                $booking->id,
+                $user->public_id,
+                $organization->public_id,
+                $booking->public_id,
                 $pointsNeeded,
                 'debit',
                 'Points used for booking payment for project: ' . $booking->project->title
@@ -889,9 +896,9 @@ class VolunteerController extends Controller
 
             // 3. Add points to organization (credit transaction)
             $this->createPointTransaction(
-                $organization->id,
-                $organization->id,
-                $booking->id,
+                $organization->public_id,
+                $organization->public_id,
+                $booking->public_id,
                 $pointsNeeded,
                 'credit',
                 'Points received from volunteer for project: ' . $booking->project->title
@@ -915,9 +922,9 @@ class VolunteerController extends Controller
     protected function createPointTransaction($userId, $organizationId, $bookingId, $points, $type, $description)
     {
         return PointTransaction::create([
-            'user_id' => $userId,
+            'user_public_id' => $userId,
             'organization_id' => $organizationId,
-            'booking_id' => $bookingId,
+            'booking_public_id' => $bookingId,
             'points' => $points,
             'type' => $type,
             'description' => $description,
@@ -927,9 +934,9 @@ class VolunteerController extends Controller
     {
         // Create debit transaction
         PointTransaction::create([
-            'user_id' => $user->id,
-            'organization_id' => $booking->project->user_id,
-            'booking_id' => $booking->id,
+            'user_public_id' => $user->public_id,
+            'organization_id' => $booking->project->user_public_id,
+            'booking_public_id' => $booking->public_id,
             'points' => $points,
             'type' => 'debit',
             'description' => 'Points used for booking payment'
@@ -940,9 +947,9 @@ class VolunteerController extends Controller
     {
         // Create credit transaction
         PointTransaction::create([
-            'user_id' => Auth::id(),
-            'organization_id' => $organization->id,
-            'booking_id' => $booking->id,
+            'user_public_id' => Auth::id(),
+            'organization_id' => $organization->public_id,
+            'booking_public_id' => $booking->public_id,
             'points' => $points,
             'type' => 'credit',
             'description' => 'Points received from volunteer'
@@ -955,8 +962,8 @@ class VolunteerController extends Controller
     public function storeReview(Request $request)
     {
         $validated = $request->validate([
-            'project_id' => 'required|exists:projects,id',
-            'booking_id' => 'required|exists:volunteer_bookings,id',
+            'project_public_id' => 'required|exists:projects,public_id',
+            'booking_public_id' => 'required|exists:volunteer_bookings,public_id',
             'rating' => 'required|integer|between:1,5',
             'comment' => 'nullable|string|max:1000',
             'status' => 'nullable|string'
@@ -965,12 +972,12 @@ class VolunteerController extends Controller
         $user = Auth::user();
 
         // Verify booking belongs to user
-        $booking = VolunteerBooking::where('id', $validated['booking_id'])
-            ->where('user_id', $user->id)
+        $booking = VolunteerBooking::where('public_id', $validated['booking_public_id'])
+            ->where('user_public_id', $user->public_id)
             ->firstOrFail();
 
         // Verify project matches booking
-        if ($booking->project_id != $validated['project_id']) {
+        if ($booking->project_public_id != $validated['project_public_id']) {
             return back()->with('error', 'Invalid project for this booking');
         }
 
@@ -980,8 +987,8 @@ class VolunteerController extends Controller
         }
 
         // Check for existing review
-        if (ProjectRemark::where('user_id', $user->id)
-            ->where('project_id', $validated['project_id'])
+        if (ProjectRemark::where('user_public_id', $user->public_id)
+            ->where('project_public_id', $validated['project_public_id'])
             ->exists()
         ) {
             return back()->with('error', 'You have already reviewed this project');
@@ -989,9 +996,9 @@ class VolunteerController extends Controller
 
         // Create review
         ProjectRemark::create([
-            'user_id' => Auth::id(),
-            'project_id' => $validated['project_id'],
-            'booking_id' => $validated['booking_id'],
+            'user_public_id' => Auth::id(),
+            'project_public_id' => $validated['project_public_id'],
+            'booking_public_id' => $validated['booking_public_id'],
             'rating' => $validated['rating'],
             'comment' => $validated['comment'],
             'status' => 'Pending'
@@ -1010,14 +1017,14 @@ class VolunteerController extends Controller
         $user = Auth::user();
 
         // Check if user already submitted a review
-        $existingReview = PlatformReview::where('user_id', $user->id)->first();
+        $existingReview = PlatformReview::where('user_public_id', $user->public_id)->first();
         if ($existingReview) {
             return back()->with('error', 'You have already submitted a review for our platform.');
         }
 
         // Create review
         $platformReview = PlatformReview::create([
-            'user_id' => $user->id,
+            'user_public_id' => $user->public_id,
             'rating' => $validated['rating'],
             'message' => $validated['message'] ?? null,
             'status' => 'Pending',

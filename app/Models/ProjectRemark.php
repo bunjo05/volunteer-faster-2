@@ -7,10 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 class ProjectRemark extends Model
 {
     protected $fillable = [
-        'project_id',
-        'admin_id',
-        'booking_id',
-        'user_id',
+        'project_public_id',
+        'admin_public_id',
+        'booking_public_id',
+        'user_public_id',
         'comment',
         'status',
         'rating'
@@ -18,22 +18,22 @@ class ProjectRemark extends Model
 
     public function project()
     {
-        return $this->belongsTo(Project::class);
+        return $this->belongsTo(Project::class, 'project_public_id', 'public_id');
     }
 
     public function admin()
     {
-        return $this->belongsTo(Admin::class);
+        return $this->belongsTo(Admin::class, 'admin_public_id', 'public_id');
     }
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_public_id', 'public_id');
     }
 
     public function booking()
     {
-        return $this->belongsTo(VolunteerBooking::class);
+        return $this->belongsTo(VolunteerBooking::class, 'booking_public_id', 'public_id');
     }
 
     public function comments()
