@@ -56,7 +56,6 @@ Route::get('/sponsorship/payment/success', [SponsorshipPaymentController::class,
 Route::get('/sponsorship/payment/cancel', [SponsorshipPaymentController::class, 'handleCancel'])->name('sponsorship.payment.cancel');
 Route::post('/stripe/sponsorship-webhook', [SponsorshipPaymentController::class, 'handleWebhook']);
 
-
 Route::post('/auth/volunteer-booking/store', [BookingController::class, 'authStore'])->name('auth.volunteer.booking.store');
 
 Route::get('/volunteer-programs/{slug}/{organization_profile}', [HomeController::class, 'OrganizationProfile'])
@@ -241,6 +240,13 @@ Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(
     Route::post('/reviews', [VolunteerController::class, 'storeReview'])
         ->name('volunteer.reviews.stores');
     Route::post('/platform/reviews', [VolunteerController::class, 'platformReview'])->name('platform.review');
+
+    Route::get('/contact-requests', [VolunteerController::class, 'getContactRequests'])
+        ->name('volunteer.contact.requests');
+    Route::post('/contact-requests/{requestId}/respond', [VolunteerController::class, 'respondToContactRequest'])
+        ->name('volunteer.contact.respond');
+    Route::get('/shared-contacts', [VolunteerController::class, 'getSharedContacts'])
+        ->name('volunteer.shared.contacts');
 });
 
 Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->group(function () {
@@ -290,6 +296,13 @@ Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->
         ->name('organization.verification.store');
 
     Route::get('/{volunteer_profile}', [OrganizationController::class, 'volunteerProfile'])->name('organization.volunteer.profile');
+
+    Route::post('/contact-request', [OrganizationController::class, 'requestContactAccess'])
+        ->name('organization.contact.request');
+    Route::get('/contact-requests', [OrganizationController::class, 'getContactRequests'])
+        ->name('organization.contact.requests');
+    Route::get('/shared-contacts', [OrganizationController::class, 'getSharedContacts'])
+        ->name('organization.shared.contacts');
 });
 
 // routes/web.php

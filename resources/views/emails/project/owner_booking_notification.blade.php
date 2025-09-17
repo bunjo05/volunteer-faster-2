@@ -8,9 +8,9 @@ You have received a new volunteer booking for your project **{{ $project->title 
 **Volunteer Details:**
 - Name: {{ $volunteer->name }}
 {{-- - Email: {{ $volunteer->email }} --}}
-@if($volunteer->volunteerProfile && $volunteer->volunteerProfile->phone)
+{{-- @if($volunteer->volunteerProfile && $volunteer->volunteerProfile->phone)
 - Phone: {{ $volunteer->volunteerProfile->phone }}
-@endif
+@endif --}}
 
 **Booking Details:**
 - Start Date: {{ \Carbon\Carbon::parse($booking->start_date)->format('F j, Y') }}

@@ -32,6 +32,18 @@ class Sponsorship extends Model
         return $this->belongsTo(User::class, 'user_public_id', 'public_id');
     }
 
+    public function organization()
+    {
+        return $this->hasOneThrough(
+            OrganizationProfile::class,
+            VolunteerBooking::class,
+            'public_id', // Foreign key on VolunteerBooking table
+            'user_public_id', // Foreign key on OrganizationProfile table
+            'booking_public_id', // Local key on Sponsorship table
+            'user_public_id' // Local key on VolunteerBooking table
+        );
+    }
+
     public function booking()
     {
         return $this->belongsTo(VolunteerBooking::class, 'booking_public_id', 'public_id');
@@ -40,5 +52,20 @@ class Sponsorship extends Model
     public function sponsorship()
     {
         return $this->belongsTo(VolunteerSponsorship::class, 'sponsorship_public_id', 'public_id');
+    }
+
+    // Helper method to calculate volunteers sponsored
+    public function calculateVolunteersSponsored()
+    {
+        if ($this->booking && $this->booking->project) {
+            // This is a simple example - you might have more complex logic
+            return $this->booking->project->volunteers_count ?? 1;
+        }
+        return 1;
+    }
+
+    public function organizationProfile()
+    {
+        return $this->belongsTo(OrganizationProfile::class, 'organization_public_id', 'public_id');
     }
 }

@@ -10,22 +10,23 @@ use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Reminder;
 use App\Events\NewMessage;
+use App\Models\ShareContact;
 use Illuminate\Http\Request;
 use App\Models\ProjectRemark;
 use App\Models\ReportProject;
 use App\Models\PlatformReview;
 use App\Models\VolunteerPoint;
+use App\Mail\PlatformReviewMail;
 use App\Models\PointTransaction;
 use App\Models\VolunteerBooking;
 use App\Models\VolunteerProfile;
 use App\Mail\OrganizationReminder;
-use App\Mail\PlatformReview as MailPlatformReview;
-use App\Mail\PlatformReviewMail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use App\Models\VolunteerVerification;
 use Illuminate\Support\Facades\Storage;
+use App\Mail\PlatformReview as MailPlatformReview;
 
 class VolunteerController extends Controller
 {
@@ -1037,5 +1038,69 @@ class VolunteerController extends Controller
         }
 
         return back()->with('success', 'Thank you for your review! Your feedback helps us improve our platform.');
+    }
+
+    public function getContactRequests(Request $request)
+    {
+        $user = Auth::user();
+
+        $requests = ShareContact::with(['organization.organizationProfile'])
+            ->where('volunteer_public_id', $user->public_id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'requests' => $requests
+        ]);
+    }
+
+    public function respondToContactRequest(Request $request, $requestId)
+    {
+        $validated = $request->validate([
+            'status' => 'required|in:approved,rejected',
+            'response_message' => 'nullable|string|max:500',
+        ]);
+
+        $user = Auth::user();
+
+        $contactRequest = ShareContact::where([
+            'public_id' => $requestId,
+            'volunteer_public_id' => $user->public_id,
+        ])->firstOrFail();
+
+        if (!$contactRequest->isPending()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This request has already been processed.'
+            ], 400);
+        }
+
+        $contactRequest->update([
+            'status' => $validated['status'],
+            'approved_at' => $validated['status'] === 'approved' ? now() : null,
+        ]);
+
+        // TODO: Send notification to organization about the response
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Contact request ' . $validated['status'] . ' successfully.',
+            'request' => $contactRequest
+        ]);
+    }
+
+    public function getSharedContacts(Request $request)
+    {
+        $user = Auth::user();
+
+        $sharedContacts = ShareContact::with(['organization.organizationProfile'])
+            ->where('volunteer_public_id', $user->public_id)
+            ->where('status', 'approved')
+            ->orderBy('approved_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'shared_contacts' => $sharedContacts
+        ]);
     }
 }

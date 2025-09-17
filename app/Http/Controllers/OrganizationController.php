@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Inertia\Inertia;
 use App\Models\Admin;
 use App\Models\Message;
@@ -10,6 +11,7 @@ use App\Models\Category;
 use App\Events\NewMessage;
 use Illuminate\Support\Str;
 use App\Models\GalleryImage;
+use App\Models\ShareContact;
 use Illuminate\Http\Request;
 use App\Mail\BookingCompleted;
 use App\Models\PointTransaction;
@@ -57,6 +59,7 @@ class OrganizationController extends Controller
                 $query->where('user_public_id', $user->public_id);
             },
             'user.volunteerProfile',
+            'user',
             'user.volunteerProfile.verification', // Add this to load verification
             'payments',
             'pointTransactions' => function ($query) use ($user) {
@@ -100,6 +103,7 @@ class OrganizationController extends Controller
                     'volunteer' => [
                         'name' => $booking->user->name,
                         'email' => $booking->user->email,
+                        'public_id' => $booking->user->public_id,
                         'volunteer_profile' => $booking->user->volunteerProfile ? [
                             'public_id' => $booking->user->volunteerProfile->public_id,
                             'gender' => $booking->user->volunteerProfile->gender,
@@ -118,6 +122,7 @@ class OrganizationController extends Controller
                         ] : null
                     ],
                     'project' => [
+                        'public_id' => $booking->project->public_id,
                         'title' => $booking->project->title,
                         'slug' => $booking->project->slug,
                         'location' => $booking->project->location,
@@ -874,5 +879,81 @@ class OrganizationController extends Controller
 
         // Redirect to profile page with success message
         return redirect()->route('organization.profile')->with('success', 'Verification documents submitted successfully!');
+    }
+
+    public function requestContactAccess(Request $request)
+    {
+        $validated = $request->validate([
+            'volunteer_public_id' => 'required|exists:users,public_id',
+            'project_public_id' => 'required|exists:projects,public_id',
+            'message' => 'nullable|string|max:500',
+        ]);
+
+        $user = Auth::user();
+
+        // Check if volunteer exists and is actually a volunteer
+        $volunteer = User::where('public_id', $validated['volunteer_public_id'])
+            ->where('role', 'Volunteer')
+            ->firstOrFail();
+
+        // Check if a request already exists
+        $existingRequest = ShareContact::where([
+            'organization_public_id' => $user->public_id,
+            'volunteer_public_id' => $volunteer->public_id,
+        ])->first();
+
+        if ($existingRequest) {
+            return response()->json([
+                'success' => false,
+                'message' => 'A contact request already exists for this volunteer.'
+            ], 409);
+        }
+
+        // Create the contact share request
+        $contactShare = ShareContact::create([
+            'public_id' => (string) Str::ulid(),
+            'organization_public_id' => $user->public_id,
+            'volunteer_public_id' => $volunteer->public_id,
+            'status' => 'pending',
+            'message' => $validated['message'] ?? null, // Use null if message is empty
+            'requested_at' => now(),
+        ]);
+
+        // TODO: Send notification to volunteer (email, in-app notification, etc.)
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Contact request sent successfully.',
+            'request' => $contactShare
+        ]);
+    }
+
+    public function getContactRequests(Request $request)
+    {
+        $user = Auth::user();
+
+        $requests = ShareContact::with(['volunteer.volunteerProfile'])
+            ->where('organization_public_id', $user->public_id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'requests' => $requests
+        ]);
+    }
+
+    public function getSharedContacts(Request $request)
+    {
+        $user = Auth::user();
+
+        $sharedContacts = ShareContact::with(['volunteer.volunteerProfile'])
+            ->where('organization_public_id', $user->public_id)
+            ->where('status', 'approved')
+            ->orderBy('approved_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'shared_contacts' => $sharedContacts
+        ]);
     }
 }

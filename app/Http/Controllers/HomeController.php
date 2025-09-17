@@ -322,7 +322,7 @@ class HomeController extends Controller
         $sponsorship = VolunteerSponsorship::with([
             'user',
             'booking.project',
-            'volunteer_profile',
+            'volunteer_profile.verification',
             'booking.project.organizationProfile',
             'sponsorships.user'
         ])

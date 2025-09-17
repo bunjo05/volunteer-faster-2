@@ -14,6 +14,9 @@ import {
     CheckCircle2,
     Clock as ClockIcon,
     XCircle,
+    ArrowLeft,
+    Grid3X3,
+    ArrowLeftCircle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { loadStripe } from "@stripe/stripe-js";
@@ -43,15 +46,26 @@ export default function Projects({ auth, payments, points, totalPoints }) {
     const [showSuccess, setShowSuccess] = useState(false);
     const [stripePromise, setStripePromise] = useState(null);
     const [showMessageModal, setShowMessageModal] = useState(false);
-
     const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+    const [mobileView, setMobileView] = useState("list"); // 'list' or 'details'
 
-    // Function to handle project selection (will close mobile sidebar)
+    // Function to handle project selection (will show details on mobile)
     const handleProjectSelect = (booking) => {
         setActiveBooking(booking);
         setPointsPaymentSuccess(false);
         setShowPointsPaymentModal(false);
-        setShowMobileSidebar(false); // Close sidebar when project is selected
+        setShowMobileSidebar(false);
+
+        // On mobile, switch to details view
+        if (window.innerWidth < 1024) {
+            setMobileView("details");
+        }
+    };
+
+    // Function to go back to list view on mobile
+    const handleBackToList = () => {
+        setMobileView("list");
+        setActiveBooking(null);
     };
 
     const { post, setData, errors, data, processing } = useForm({
@@ -275,6 +289,20 @@ export default function Projects({ auth, payments, points, totalPoints }) {
         return totalAmount * 0.2;
     };
 
+    // Check if we're on mobile view
+    const [isMobileView, setIsMobileView] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobileView(window.innerWidth < 1024);
+        };
+
+        checkMobile();
+        window.addEventListener("resize", checkMobile);
+
+        return () => window.removeEventListener("resize", checkMobile);
+    }, []);
+
     return (
         <VolunteerLayout auth={auth}>
             {/* Success Notification */}
@@ -287,34 +315,24 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                 </div>
             )}
 
-            <div className="container mx-auto px-4 py-8">
-                <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold mb-2">
-                        My Volunteer Projects
-                    </h1>
-                    <p className="text-opacity-80 max-w-2xl mx-auto">
-                        Manage your upcoming volunteer commitments and track
-                        your contributions
-                    </p>
-                </div>
-
+            <div className="">
                 {bookings.length === 0 ? (
-                    <div className="card bg-base-200 max-w-2xl mx-auto">
-                        <div className="card-body items-center text-center">
+                    <div className="card bg-base-200 max-w-2xl mx-auto shadow-lg">
+                        <div className="card-body items-center text-center py-4">
                             <div className="rounded-full bg-primary/10 p-4 mb-4">
                                 <CalendarDays className="h-8 w-8 text-primary" />
                             </div>
-                            <h2 className="card-title">
+                            <h2 className="card-title text-lg mb-2">
                                 No projects booked yet
                             </h2>
-                            <p>
+                            <p className="text-base-content/70 mb-6">
                                 You haven't booked any volunteer projects.
                                 Browse available opportunities to get started.
                             </p>
-                            <div className="card-actions mt-4">
+                            <div className="card-actions">
                                 <Link
                                     href="/projects"
-                                    className="btn btn-primary"
+                                    className="btn btn-primary btn-lg"
                                 >
                                     Browse Volunteer Projects
                                 </Link>
@@ -322,114 +340,150 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                         </div>
                     </div>
                 ) : (
-                    <div className="flex flex-col lg:flex-row gap-6">
-                        {/* Projects List Sidebar */}
-                        {/* Mobile Burger Button - Only shows on small screens */}
-                        <div className="lg:hidden mb-4">
-                            <button
-                                onClick={() =>
-                                    setShowMobileSidebar(!showMobileSidebar)
-                                }
-                                className="btn btn-primary"
-                            >
-                                {showMobileSidebar ? (
-                                    <span>Hide Projects</span>
-                                ) : (
-                                    <span>
-                                        Show Projects ({bookings.length})
-                                    </span>
-                                )}
-                            </button>
-                        </div>
-
-                        {/* Projects List Sidebar - Modified for mobile responsiveness */}
-                        <div
-                            className={`card bg-base-100 w-full lg:w-1/3 ${
-                                showMobileSidebar ? "block" : "hidden lg:block"
-                            }`}
-                        >
-                            <div className="card-title p-4 border-b">
-                                <h3>
-                                    My Projects{" "}
-                                    <span className="text-opacity-70">
-                                        ({bookings.length})
-                                    </span>
-                                </h3>
+                    <div className="flex flex-col lg:flex-row gap-4 lg:max-h-[calc(100vh-120px)]">
+                        {/* Mobile Back Button (only shown in details view on mobile) */}
+                        {isMobileView && mobileView === "details" && (
+                            <div className="lg:hidden fixed py-[2px] rounded-full bg-base-100 shadow-md z-40 mb-4">
+                                {/* <div className="container mx-auto px-2"> */}
+                                <button
+                                    onClick={handleBackToList}
+                                    className="btn btn-ghost btn-sm gap-2 text-primary hover:bg-primary/10"
+                                >
+                                    <ArrowLeftCircle className="w-5 h-5" />
+                                    <span className="font-medium">Back</span>
+                                </button>
+                                {/* </div> */}
                             </div>
-                            <div className="overflow-y-auto max-h-[calc(100vh-220px)]">
-                                {bookings.map((booking) => {
-                                    const StatusIcon =
-                                        statusIcons[booking.booking_status] ||
-                                        AlertCircle;
-                                    return (
-                                        <div
-                                            key={booking.public_id}
-                                            className={`p-4 border-b cursor-pointer transition-colors hover:bg-base-200 ${
-                                                activeBooking?.public_id ===
-                                                booking.public_id
-                                                    ? "bg-primary/10"
-                                                    : ""
-                                            }`}
-                                            onClick={() =>
-                                                handleProjectSelect(booking)
-                                            }
-                                        >
-                                            <div className="flex justify-between items-start">
-                                                <div className="flex-1 min-w-0">
-                                                    <h4 className="font-medium truncate">
-                                                        {booking.project?.title}
-                                                    </h4>
-                                                    <div className="flex items-center mt-1 text-sm opacity-70">
-                                                        <CalendarDays className="w-4 h-4 mr-1.5 flex-shrink-0" />
-                                                        <span>
-                                                            {new Date(
-                                                                booking.start_date
-                                                            ).toLocaleDateString()}{" "}
-                                                            -{" "}
-                                                            {new Date(
-                                                                booking.end_date
-                                                            ).toLocaleDateString()}
-                                                        </span>
+                        )}
+
+                        {/* Projects List Sidebar */}
+                        <div
+                            className={`
+                            w-full lg:w-1/3
+
+                            ${
+                                isMobileView && mobileView === "details"
+                                    ? "hidden"
+                                    : "block"
+                            }
+                        `}
+                        >
+                            <div className="card bg-base-100 shadow-md border border-base-300 h-fit lg:sticky lg:top-0">
+                                <div className="card-title p-4 border-b border-base-300 flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold">
+                                        My Projects
+                                    </h3>
+                                    <span className="badge badge-primary badge-lg">
+                                        {bookings.length}
+                                    </span>
+                                </div>
+                                <div className="overflow-y-auto max-h-[calc(100vh-200px)]">
+                                    {bookings.map((booking) => {
+                                        const StatusIcon =
+                                            statusIcons[
+                                                booking.booking_status
+                                            ] || AlertCircle;
+                                        return (
+                                            <div
+                                                key={booking.public_id}
+                                                className={`p-4 border-b border-base-200 cursor-pointer transition-all duration-200 hover:bg-primary/5 group ${
+                                                    activeBooking?.public_id ===
+                                                    booking.public_id
+                                                        ? "bg-primary/10 border-l-4 border-l-primary"
+                                                        : ""
+                                                }`}
+                                                onClick={() =>
+                                                    handleProjectSelect(booking)
+                                                }
+                                            >
+                                                <div className="flex justify-between items-start">
+                                                    <div className="flex-1 min-w-0">
+                                                        <h4 className="font-semibold text-md truncate group-hover:text-primary transition-colors">
+                                                            {
+                                                                booking.project
+                                                                    ?.title
+                                                            }
+                                                        </h4>
+                                                        <div className="flex items-center mt-2 text-[12px] text-base-content/70">
+                                                            <CalendarDays className="w-4 h-4 mr-2 flex-shrink-0" />
+                                                            <span>
+                                                                {new Date(
+                                                                    booking.start_date
+                                                                ).toLocaleDateString()}{" "}
+                                                                -{" "}
+                                                                {new Date(
+                                                                    booking.end_date
+                                                                ).toLocaleDateString()}
+                                                            </span>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <div className="flex items-center ml-3">
-                                                    <div
-                                                        className={`badge gap-1 ${
-                                                            statusColors[
-                                                                booking
-                                                                    .booking_status
-                                                            ]
-                                                        }`}
-                                                    >
-                                                        <StatusIcon className="w-3 h-3" />
-                                                        {booking.booking_status}
+                                                    <div className="flex items-center ml-4">
+                                                        <div
+                                                            className={`badge text-[12px] badge-sm gap-1 ${
+                                                                statusColors[
+                                                                    booking
+                                                                        .booking_status
+                                                                ]
+                                                            }`}
+                                                        >
+                                                            <StatusIcon className="w-4 h-4" />
+                                                            {
+                                                                booking.booking_status
+                                                            }
+                                                        </div>
+                                                        <ChevronRight className="w-5 h-5 ml-2 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                                                     </div>
-                                                    <ChevronRight className="w-5 h-5 ml-2 opacity-50" />
                                                 </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
 
                         {/* Project Details Panel */}
-                        <div className="card bg-base-100 w-full lg:w-2/3">
-                            {activeBooking ? (
-                                <>
-                                    <div className="card-body p-0">
-                                        <div className="bg-gradient-to-r from-primary to-primary-focus p-6 rounded-t-box">
+                        <div
+                            className={`
+                            w-full lg:w-2/3
+                            ${
+                                isMobileView && mobileView === "list"
+                                    ? "hidden"
+                                    : "block"
+                            }
+                        `}
+                        >
+                            <div className="card bg-base-100 shadow-md border border-base-300 overflow-y-auto lg:max-h-[calc(100vh-120px)]">
+                                {activeBooking ? (
+                                    <>
+                                        {/* Desktop Back Button */}
+                                        {/* {!isMobileView && (
+                                            <div className="p-4 border-b border-base-300 bg-base-200/50">
+                                                <button
+                                                    onClick={() =>
+                                                        setActiveBooking(null)
+                                                    }
+                                                    className="btn btn-ghost btn-sm gap-2 text-base-content/70 hover:text-primary hover:bg-primary/10 transition-colors"
+                                                >
+                                                    <Grid3X3 className="w-4 h-4" />
+                                                    <span className="font-medium">
+                                                        View All Projects
+                                                    </span>
+                                                </button>
+                                            </div>
+                                        )} */}
+
+                                        <div className="bg-primary p-4 lg:pt-[20px] pt-[40px]">
                                             <div className="flex items-center justify-between">
                                                 <div>
-                                                    <h2 className="text-2xl font-bold text-primary-content">
+                                                    <h2 className="text-2xl font-bold text-primary-content mb-2">
                                                         {
                                                             activeBooking
                                                                 .project?.title
                                                         }
                                                     </h2>
-                                                    <div className="flex items-center mt-2 gap-2">
+                                                    <div className="flex items-center gap-3">
                                                         <div
-                                                            className={`badge ${
+                                                            className={`badge badge-lg ${
                                                                 statusColors[
                                                                     activeBooking
                                                                         .booking_status
@@ -443,7 +497,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                         {activeBooking.booking_status ===
                                                             "Completed" &&
                                                             activeBooking.days_spent && (
-                                                                <div className="badge badge-info gap-1">
+                                                                <div className="badge badge-info badge-lg gap-2">
                                                                     <Star className="w-4 h-4" />
                                                                     Earned{" "}
                                                                     {
@@ -457,40 +511,40 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                             </div>
                                         </div>
 
-                                        <div className="p-6">
-                                            <div className="grid grid-cols-1 gap-6">
+                                        <div className="p-4">
+                                            <div className="grid grid-cols-1 gap-4">
                                                 {/* Project Summary Card */}
-                                                <div className="card bg-base-200">
-                                                    <div className="card-body">
-                                                        <h3 className="card-title">
+                                                <div className="card bg-base-200 shadow-sm border border-base-300">
+                                                    <div className="card-body p-4">
+                                                        <h3 className="card-title text-xl font-semibold mb-4">
                                                             Project Summary
                                                         </h3>
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                            <div className="flex items-start gap-3">
-                                                                <div className="bg-primary/10 p-2 rounded-lg">
-                                                                    <MapPin className="h-5 w-5 text-primary" />
+                                                            <div className="flex items-start gap-4">
+                                                                <div className="bg-primary/15 p-3 rounded-xl">
+                                                                    <MapPin className="h-6 w-6 text-primary" />
                                                                 </div>
                                                                 <div>
-                                                                    <h4 className="font-medium">
+                                                                    <h4 className="font-semibold mb-1">
                                                                         Location
                                                                     </h4>
-                                                                    <p className="text-sm opacity-80">
+                                                                    <p className="text-base-content/80">
                                                                         {activeBooking
                                                                             .project
-                                                                            ?.location ||
+                                                                            ?.country ||
                                                                             "Not specified"}
                                                                     </p>
                                                                 </div>
                                                             </div>
-                                                            <div className="flex items-start gap-3">
-                                                                <div className="bg-primary/10 p-2 rounded-lg">
-                                                                    <CalendarDays className="h-5 w-5 text-primary" />
+                                                            <div className="flex items-start gap-4">
+                                                                <div className="bg-primary/15 p-3 rounded-xl">
+                                                                    <CalendarDays className="h-6 w-6 text-primary" />
                                                                 </div>
                                                                 <div>
-                                                                    <h4 className="font-medium">
+                                                                    <h4 className="font-semibold mb-1">
                                                                         Dates
                                                                     </h4>
-                                                                    <p className="text-sm opacity-80">
+                                                                    <p className="text-base-content/80">
                                                                         {new Date(
                                                                             activeBooking.start_date
                                                                         ).toLocaleDateString()}{" "}
@@ -501,16 +555,16 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                     </p>
                                                                 </div>
                                                             </div>
-                                                            <div className="flex items-start gap-3">
-                                                                <div className="bg-primary/10 p-2 rounded-lg">
-                                                                    <Users className="h-5 w-5 text-primary" />
+                                                            <div className="flex items-start gap-4">
+                                                                <div className="bg-primary/15 p-3 rounded-xl">
+                                                                    <Users className="h-6 w-6 text-primary" />
                                                                 </div>
                                                                 <div>
-                                                                    <h4 className="font-medium">
+                                                                    <h4 className="font-semibold mb-1">
                                                                         Group
                                                                         Size
                                                                     </h4>
-                                                                    <p className="text-sm opacity-80">
+                                                                    <p className="text-base-content/80">
                                                                         {
                                                                             activeBooking.number_of_travellers
                                                                         }{" "}
@@ -522,15 +576,15 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                     </p>
                                                                 </div>
                                                             </div>
-                                                            <div className="flex items-start gap-3">
-                                                                <div className="bg-primary/10 p-2 rounded-lg">
-                                                                    <Clock className="h-5 w-5 text-primary" />
+                                                            <div className="flex items-start gap-4">
+                                                                <div className="bg-primary/15 p-3 rounded-xl">
+                                                                    <Clock className="h-6 w-6 text-primary" />
                                                                 </div>
                                                                 <div>
-                                                                    <h4 className="font-medium">
+                                                                    <h4 className="font-semibold mb-1">
                                                                         Duration
                                                                     </h4>
-                                                                    <p className="text-sm opacity-80">
+                                                                    <p className="text-base-content/80">
                                                                         {calculateDuration(
                                                                             activeBooking.start_date,
                                                                             activeBooking.end_date
@@ -543,42 +597,25 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                     </div>
                                                 </div>
 
-                                                {activeBooking.project
-                                                    .point_exchange === 1 && (
-                                                    <div>
-                                                        {pointsPaymentSuccess && (
-                                                            <div className="alert alert-success">
-                                                                <CheckCircle2 className="h-5 w-5" />
-                                                                <span>
-                                                                    Balance
-                                                                    successfully
-                                                                    paid with
-                                                                    points!
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-
                                                 {/* Payment Information Card */}
                                                 {activeBooking.project
                                                     .type_of_project ===
                                                     "Paid" && (
-                                                    <div className="card bg-base-200">
-                                                        <div className="card-body">
-                                                            <h3 className="card-title">
+                                                    <div className="card bg-base-200 shadow-sm border border-base-300">
+                                                        <div className="card-body p-4">
+                                                            <h3 className="card-title text-xl font-semibold mb-6">
                                                                 Payment
                                                                 Information
                                                             </h3>
-                                                            <div className="space-y-4">
+                                                            <div className="space-y-6">
                                                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                                    <div className="card bg-base-100">
-                                                                        <div className="card-body p-4">
-                                                                            <h4 className="text-sm font-medium opacity-70">
+                                                                    <div className="card bg-base-100 shadow-sm border border-base-300">
+                                                                        <div className="card-body p-4 text-center">
+                                                                            <h4 className="text-sm font-medium text-base-content/70 mb-2">
                                                                                 Total
                                                                                 Amount
                                                                             </h4>
-                                                                            <p className="text-xl font-semibold">
+                                                                            <p className="text-2xl font-bold text-primary">
                                                                                 $
                                                                                 {calculateTotalAmount(
                                                                                     activeBooking.start_date,
@@ -594,31 +631,31 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                     </div>
 
                                                                     <div
-                                                                        className={`card ${
+                                                                        className={`card shadow-sm border border-base-300 ${
                                                                             !hasPaidDeposit()
-                                                                                ? "bg-warning/10"
+                                                                                ? "bg-warning/20 border-warning/30"
                                                                                 : "bg-base-100"
                                                                         }`}
                                                                     >
-                                                                        <div className="card-body p-4">
-                                                                            <h4 className="text-sm font-medium opacity-70">
+                                                                        <div className="card-body p-4 text-center">
+                                                                            <h4 className="text-sm font-medium text-base-content/70 mb-2">
                                                                                 Deposit
                                                                                 Fee{" "}
                                                                                 {hasPaidDeposit() &&
                                                                                     "(Paid)"}
                                                                             </h4>
                                                                             <p
-                                                                                className={`text-xl font-semibold ${
+                                                                                className={`text-2xl font-bold ${
                                                                                     !hasPaidDeposit()
                                                                                         ? "text-warning"
-                                                                                        : ""
+                                                                                        : "text-success"
                                                                                 }`}
                                                                             >
                                                                                 $
                                                                                 {calculateDepositAmount().toLocaleString()}
                                                                             </p>
                                                                             {!hasPaidDeposit() && (
-                                                                                <p className="text-xs text-warning mt-1">
+                                                                                <p className="text-xs text-warning mt-2">
                                                                                     20%
                                                                                     deposit
                                                                                     required
@@ -634,20 +671,20 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                         ?.payments
                                                                         ?.length >
                                                                         0 && (
-                                                                        <div className="card bg-base-100">
-                                                                            <div className="card-body p-4">
-                                                                                <h4 className="text-sm font-medium opacity-70">
+                                                                        <div className="card bg-base-100 shadow-sm border border-base-300">
+                                                                            <div className="card-body p-4 text-center">
+                                                                                <h4 className="text-sm font-medium text-base-content/70 mb-2">
                                                                                     {hasPaidDeposit()
                                                                                         ? "Remaining Balance"
                                                                                         : "Amount Paid"}
                                                                                 </h4>
                                                                                 <p
-                                                                                    className={`text-xl font-semibold ${
+                                                                                    className={`text-2xl font-bold ${
                                                                                         hasPaidDeposit() &&
                                                                                         calculateRemainingBalance() >
                                                                                             0
                                                                                             ? "text-warning"
-                                                                                            : ""
+                                                                                            : "text-success"
                                                                                     }`}
                                                                                 >
                                                                                     $
@@ -658,7 +695,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                                 {hasPaidDeposit() &&
                                                                                     calculateRemainingBalance() >
                                                                                         0 && (
-                                                                                        <p className="text-xs text-warning mt-1">
+                                                                                        <p className="text-xs text-warning mt-2">
                                                                                             Balance
                                                                                             must
                                                                                             be
@@ -816,12 +853,12 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                 )}
 
                                                 {/* Project Description Card */}
-                                                <div className="card bg-base-200">
-                                                    <div className="card-body">
-                                                        <h3 className="card-title">
+                                                <div className="card bg-base-200 shadow-sm border border-base-300">
+                                                    <div className="card-body p-4">
+                                                        <h3 className="card-title text-xl font-semibold mb-4">
                                                             Project Details
                                                         </h3>
-                                                        <p className="opacity-80 mb-6">
+                                                        <p className="text-base-content/80 mb-6 leading-relaxed">
                                                             {activeBooking
                                                                 .project
                                                                 ?.short_description ||
@@ -841,7 +878,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                             )
                                                                         )
                                                                     }
-                                                                    className="btn btn-outline"
+                                                                    className="btn btn-outline btn-primary"
                                                                 >
                                                                     Send{" "}
                                                                     {
@@ -872,24 +909,24 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </>
-                            ) : (
-                                <div className="h-full flex items-center justify-center p-12">
-                                    <div className="text-center">
-                                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-base-200 mb-4">
-                                            <CalendarDays className="h-5 w-5 opacity-70" />
+                                    </>
+                                ) : (
+                                    <div className="flex items-center justify-center p-12 min-h-[400px]">
+                                        <div className="text-center">
+                                            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-base-200 mb-4">
+                                                <CalendarDays className="h-8 w-8 opacity-70" />
+                                            </div>
+                                            <h3 className="text-xl font-medium mb-2">
+                                                Select a project
+                                            </h3>
+                                            <p className="text-base-content/70">
+                                                Choose a project from the list
+                                                to view details
+                                            </p>
                                         </div>
-                                        <h3 className="text-lg font-medium">
-                                            Select a project
-                                        </h3>
-                                        <p className="opacity-70">
-                                            Choose a project from the list to
-                                            view details
-                                        </p>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}
@@ -898,12 +935,12 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                 {showMessageModal && activeBooking && (
                     <div className="modal modal-open">
                         <div className="modal-box">
-                            <h3 className="font-bold text-lg">
+                            <h3 className="font-bold text-lg mb-4">
                                 Message Project Owner
                             </h3>
                             <form onSubmit={handleSendMessage}>
                                 <textarea
-                                    className="textarea textarea-bordered w-full h-32 mt-4"
+                                    className="textarea textarea-bordered w-full h-32 mb-4"
                                     placeholder="Type your message here..."
                                     value={messageContent}
                                     onChange={(e) =>
@@ -939,10 +976,10 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                 {showPointsPaymentModal && (
                     <div className="modal modal-open">
                         <div className="modal-box">
-                            <h3 className="font-bold text-lg">
+                            <h3 className="font-bold text-lg mb-4">
                                 Pay with Points
                             </h3>
-                            <p className="py-4">
+                            <p className="mb-4">
                                 You're about to pay $
                                 {calculateRemainingBalance().toLocaleString()}
                                 using your points. This will use{" "}
@@ -951,7 +988,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                 )}{" "}
                                 points.
                             </p>
-                            <p className="text-sm opacity-70 mb-4">
+                            <p className="text-sm text-base-content/70 mb-4">
                                 Current points balance: {pointsState.balance}
                             </p>
                             {pointsState.error && (

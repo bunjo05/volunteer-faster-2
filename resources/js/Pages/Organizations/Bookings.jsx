@@ -153,6 +153,57 @@ export default function Bookings({ bookings: initialBookings, auth }) {
         return totalAmount * 0.2; // 20% deposit
     };
 
+    const [contactRequestStatus, setContactRequestStatus] = useState({
+        loading: false,
+        requested: false,
+        message: "",
+    });
+
+    // Add this function to handle contact requests
+    const handleContactRequest = async (volunteerPublicId, projectPublicId) => {
+        setContactRequestStatus({ ...contactRequestStatus, loading: true });
+
+        try {
+            const response = await axios.post(
+                route("organization.contact.request"),
+                {
+                    volunteer_public_id: volunteerPublicId,
+                    project_public_id: projectPublicId,
+                    message: `I would like to contact you regarding your application for ${activeBooking.project.title}`,
+                }
+            );
+
+            if (response.data.success) {
+                setContactRequestStatus({
+                    loading: false,
+                    requested: true,
+                    message:
+                        "Contact request sent successfully! The volunteer will be notified.",
+                });
+            }
+        } catch (error) {
+            console.error("Contact request error:", error);
+
+            // More detailed error handling
+            let errorMessage = "Failed to send contact request.";
+            if (error.response?.data?.errors) {
+                // Laravel validation errors
+                errorMessage = Object.values(error.response.data.errors)
+                    .flat()
+                    .join(", ");
+            } else if (error.response?.data?.message) {
+                // Custom error message from backend
+                errorMessage = error.response.data.message;
+            }
+
+            setContactRequestStatus({
+                loading: false,
+                requested: false,
+                message: errorMessage,
+            });
+        }
+    };
+
     return (
         <OrganizationLayout auth={auth}>
             <section className="bg-gray-50 min-h-screen">
@@ -396,7 +447,71 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                             }
                                                                         </span>
                                                                     </div>
-                                                                    {activeBooking
+
+                                                                    <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                                                        <h3 className="text-lg font-semibold text-blue-800 mb-2">
+                                                                            Contact
+                                                                            Volunteer
+                                                                        </h3>
+                                                                        <p className="text-sm text-blue-600 mb-3">
+                                                                            Request
+                                                                            access
+                                                                            to
+                                                                            this
+                                                                            volunteer's
+                                                                            contact
+                                                                            information
+                                                                        </p>
+
+                                                                        {contactRequestStatus.requested ? (
+                                                                            <div className="bg-green-50 p-3 rounded-md">
+                                                                                <p className="text-green-700 text-sm">
+                                                                                    ✓{" "}
+                                                                                    {
+                                                                                        contactRequestStatus.message
+                                                                                    }
+                                                                                </p>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <button
+                                                                                onClick={() =>
+                                                                                    handleContactRequest(
+                                                                                        activeBooking
+                                                                                            .volunteer
+                                                                                            .public_id,
+                                                                                        activeBooking
+                                                                                            .project
+                                                                                            .public_id
+                                                                                    )
+                                                                                }
+                                                                                disabled={
+                                                                                    contactRequestStatus.loading
+                                                                                }
+                                                                                className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                                                                            >
+                                                                                {contactRequestStatus.loading ? (
+                                                                                    <span className="loading loading-spinner"></span>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        <Mail className="w-4 h-4 mr-2" />
+                                                                                        Request
+                                                                                        Contact
+                                                                                        Details
+                                                                                    </>
+                                                                                )}
+                                                                            </button>
+                                                                        )}
+
+                                                                        {contactRequestStatus.message &&
+                                                                            !contactRequestStatus.requested && (
+                                                                                <p className="text-red-600 text-sm mt-2">
+                                                                                    {
+                                                                                        contactRequestStatus.message
+                                                                                    }
+                                                                                </p>
+                                                                            )}
+                                                                    </div>
+                                                                    {/* {activeBooking
                                                                         .volunteer
                                                                         .volunteer_profile
                                                                         ?.phone && (
@@ -418,7 +533,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                                 }
                                                                             </span>
                                                                         </div>
-                                                                    )}
+                                                                    )} */}
                                                                 </div>
                                                             )}
                                                         </div>

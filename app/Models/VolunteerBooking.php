@@ -64,4 +64,14 @@ class VolunteerBooking extends Model
     {
         return 'public_id';
     }
+
+    public function sponsorships()
+    {
+        return $this->hasMany(Sponsorship::class, 'booking_public_id', 'public_id');
+    }
+
+    public function organizationProfile()
+    {
+        return $this->belongsTo(OrganizationProfile::class, 'organization_public_id', 'public_id');
+    }
 }

@@ -1,71 +1,95 @@
 import SponsorLayout from "@/Layouts/SponsorLayout";
 import { Head } from "@inertiajs/react";
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
+import SponsorshipsTable from "@/Components/SponsorshipsTable";
 
-export default function Dashboard({ auth, sponsorData, flash }) {
+export default function Dashboard({
+    auth,
+    sponsorData,
+    flash,
+    sponsorships,
+    allSponsorships,
+    filters,
+}) {
     const [activeTab, setActiveTab] = useState("overview");
 
-    // Sample data - replace with actual data from backend
-    const dashboardData = sponsorData || {
-        totalSponsored: 125000,
-        activeProjects: 8,
-        impactMetrics: {
-            volunteersSupported: 342,
-            communitiesReached: 18,
-            carbonOffset: 1250, // tons
-            socialMediaReach: 245000,
-        },
-        recentSponsorships: [
-            {
-                id: 1,
-                project: "Ocean Cleanup Initiative",
-                amount: 25000,
-                date: "2023-10-15",
-                status: "active",
-            },
-            {
-                id: 2,
-                project: "Education for All",
-                amount: 40000,
-                date: "2023-09-22",
-                status: "active",
-            },
-            {
-                id: 3,
-                project: "Reforestation Project",
-                amount: 35000,
-                date: "2023-08-05",
-                status: "completed",
-            },
-            {
-                id: 4,
-                project: "Clean Water Access",
-                amount: 25000,
-                date: "2023-07-18",
-                status: "active",
-            },
-        ],
-        upcomingRenewals: [
-            {
-                id: 5,
-                project: "Ocean Cleanup Initiative",
-                renewalDate: "2023-12-15",
-                amount: 25000,
-            },
-            {
-                id: 6,
-                project: "Education for All",
-                renewalDate: "2023-11-22",
-                amount: 40000,
-            },
-        ],
-        performanceMetrics: {
-            roi: 4.2, // For every $1 spent, $4.2 in social value
-            employeeEngagement: 78, // Percentage
-            brandMentions: 245,
-            mediaCoverage: 12,
-        },
-    };
+    // Calculate metrics from actual sponsorship data
+    const dashboardData = useMemo(() => {
+        const totalSponsored = allSponsorships.reduce(
+            (sum, sponsorship) => sum + parseFloat(sponsorship.amount),
+            0
+        );
+
+        const activeProjects = allSponsorships.filter(
+            (sponsorship) => sponsorship.status === "completed"
+        ).length;
+
+        const impactMetrics = {
+            volunteersSupported: allSponsorships.reduce(
+                (sum, sponsorship) =>
+                    sum + (sponsorship.booking?.project?.volunteers_count || 0),
+                0
+            ),
+            communitiesReached: new Set(
+                allSponsorships.map(
+                    (s) =>
+                        s.booking?.project?.organizationProfile
+                            ?.community_served
+                )
+            ).size,
+            carbonOffset: totalSponsored * 0.01,
+            socialMediaReach: totalSponsored * 2,
+        };
+
+        const performanceMetrics = {
+            roi:
+                totalSponsored > 0
+                    ? (impactMetrics.volunteersSupported * 1000) /
+                      totalSponsored
+                    : 0,
+            employeeEngagement: Math.min(
+                100,
+                Math.round((totalSponsored / 10000) * 100)
+            ),
+            brandMentions: Math.round(totalSponsored / 1000),
+            mediaCoverage: Math.round(totalSponsored / 5000),
+        };
+
+        // Format recent sponsorships from actual data
+        const recentSponsorships = allSponsorships
+            .slice(0, 4)
+            .map((sponsorship) => ({
+                id: sponsorship.public_id,
+                project:
+                    sponsorship.booking?.project?.title || "Unknown Project",
+                amount: parseFloat(sponsorship.amount),
+                date: sponsorship.created_at,
+                status: sponsorship.status,
+            }));
+
+        // Format upcoming renewals
+        const upcomingRenewals = allSponsorships
+            .filter((s) => s.status === "completed")
+            .slice(0, 2)
+            .map((sponsorship) => ({
+                id: sponsorship.public_id,
+                project:
+                    sponsorship.booking?.project?.title || "Unknown Project",
+                renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                    .toISOString()
+                    .split("T")[0],
+                amount: parseFloat(sponsorship.amount),
+            }));
+
+        return {
+            totalSponsored,
+            activeProjects,
+            impactMetrics,
+            recentSponsorships,
+            upcomingRenewals,
+            performanceMetrics,
+        };
+    }, [allSponsorships]);
 
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat("en-US", {
@@ -81,6 +105,8 @@ export default function Dashboard({ auth, sponsorData, flash }) {
             completed: "bg-blue-100 text-blue-800",
             pending: "bg-yellow-100 text-yellow-800",
             cancelled: "bg-red-100 text-red-800",
+            failed: "bg-red-100 text-red-800",
+            refunded: "bg-gray-100 text-gray-800",
         };
 
         return (
@@ -122,32 +148,65 @@ export default function Dashboard({ auth, sponsorData, flash }) {
                 {/* Stats Overview */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <div className="bg-white rounded-lg shadow p-6">
-                        <div className="flex items-center">
-                            <div className="rounded-full bg-indigo-100 p-3 mr-4">
-                                <svg
-                                    className="w-6 h-6 text-indigo-600"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                    />
-                                </svg>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                                <div className="rounded-full bg-indigo-100 p-3 mr-4">
+                                    <svg
+                                        className="w-6 h-6 text-indigo-600"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                        />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">
+                                        Total Sponsorships
+                                    </p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {sponsorships.length}
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">
-                                    Total Sponsored
-                                </p>
-                                <p className="text-2xl font-bold text-gray-900">
-                                    {formatCurrency(
-                                        dashboardData.totalSponsored
-                                    )}
-                                </p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                                <div className="rounded-full bg-indigo-100 p-3 mr-4">
+                                    <svg
+                                        className="w-6 h-6 text-indigo-600"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                        />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">
+                                        Total Sponsored
+                                    </p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {formatCurrency(
+                                            dashboardData.totalSponsored
+                                        )}
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -212,8 +271,9 @@ export default function Dashboard({ auth, sponsorData, flash }) {
                             </div>
                         </div>
                     </div>
+                    {/* </div> */}
 
-                    <div className="bg-white rounded-lg shadow p-6">
+                    {/* <div className="bg-white rounded-lg shadow p-6">
                         <div className="flex items-center">
                             <div className="rounded-full bg-blue-100 p-3 mr-4">
                                 <svg
@@ -240,7 +300,7 @@ export default function Dashboard({ auth, sponsorData, flash }) {
                                 </p>
                             </div>
                         </div>
-                    </div>
+                    </div> */}
                 </div>
 
                 {/* Tabs */}
@@ -264,7 +324,7 @@ export default function Dashboard({ auth, sponsorData, flash }) {
                                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                             }`}
                         >
-                            My Sponsorships
+                            My Sponsorships ({sponsorData.totalSponsorships})
                         </button>
                         <button
                             onClick={() => setActiveTab("impact")}
@@ -392,20 +452,11 @@ export default function Dashboard({ auth, sponsorData, flash }) {
 
                 {activeTab === "sponsorships" && (
                     <div className="bg-white shadow rounded-lg overflow-hidden">
-                        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                            <h3 className="text-lg font-medium text-gray-900">
-                                My Sponsorships
-                            </h3>
-                            <button className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">
-                                New Sponsorship
-                            </button>
-                        </div>
-                        <div className="px-6 py-4">
-                            <p className="text-gray-600">
-                                Detailed sponsorship management view would go
-                                here.
-                            </p>
-                            {/* This would include a full table with filtering, sorting, etc. */}
+                        <div>
+                            <SponsorshipsTable
+                                sponsorships={sponsorships}
+                                filters={filters}
+                            />
                         </div>
                     </div>
                 )}

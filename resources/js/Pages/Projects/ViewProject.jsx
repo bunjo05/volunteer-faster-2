@@ -14,7 +14,14 @@ import {
     LinkedinIcon,
 } from "react-share";
 import { ClipboardDocumentIcon } from "@heroicons/react/24/outline";
-import { ArrowRightCircle } from "lucide-react";
+import {
+    ArrowRightCircle,
+    Calendar,
+    Clock,
+    Users,
+    DollarSign,
+    AlertCircle,
+} from "lucide-react";
 
 export default function ViewProject({
     project,
@@ -211,10 +218,10 @@ export default function ViewProject({
     return (
         <GeneralPages auth={auth}>
             {/* Hero Image Section */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 mb-8">
                 {gallery.length > 0 ? (
                     <div
-                        className="relative w-full h-[500px] aspect-video overflow-hidden rounded-box shadow-lg cursor-pointer"
+                        className="relative w-full h-[500px] aspect-video overflow-hidden rounded-xl shadow-xl cursor-pointer"
                         onClick={openModal}
                     >
                         <img
@@ -222,6 +229,7 @@ export default function ViewProject({
                             alt={`Gallery Image ${currentImageIndex + 1}`}
                             className="w-full h-full object-cover transition-opacity duration-700"
                         />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
                         <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2">
                             {gallery.map((_, idx) => (
                                 <button
@@ -230,17 +238,17 @@ export default function ViewProject({
                                         e.stopPropagation();
                                         setCurrentImageIndex(idx);
                                     }}
-                                    className={`w-2 h-2 rounded-full ${
+                                    className={`w-3 h-3 rounded-full transition-all ${
                                         idx === currentImageIndex
-                                            ? "bg-white"
-                                            : "bg-gray-400"
+                                            ? "bg-white scale-110"
+                                            : "bg-white/60"
                                     }`}
                                 />
                             ))}
                         </div>
                     </div>
                 ) : (
-                    <div className="bg-base-200 rounded-box shadow-lg aspect-video flex items-center justify-center">
+                    <div className="bg-base-200 rounded-xl shadow-xl aspect-video flex items-center justify-center">
                         <img
                             src="/images/placeholder.jpg"
                             alt="Placeholder"
@@ -253,10 +261,10 @@ export default function ViewProject({
             {/* Image Modal */}
             {isModalOpen && (
                 <div className="modal modal-open">
-                    <div className="modal-box max-w-5xl p-0 relative">
+                    <div className="modal-box max-w-5xl p-0 relative bg-transparent shadow-none">
                         <button
                             onClick={closeModal}
-                            className="btn btn-sm btn-circle absolute right-2 top-2"
+                            className="btn btn-sm btn-circle absolute right-4 top-4 z-10 bg-black/30 text-white border-0 hover:bg-black/50"
                         >
                             ✕
                         </button>
@@ -264,17 +272,17 @@ export default function ViewProject({
                             <img
                                 src={`/storage/${gallery[currentImageIndex].image_path}`}
                                 alt={`Full Image ${currentImageIndex + 1}`}
-                                className="w-full max-h-[85vh] object-contain"
+                                className="w-full max-h-[85vh] object-contain rounded-lg"
                             />
                             <button
                                 onClick={goToPrev}
-                                className="absolute left-0 top-1/2 -translate-y-1/2 btn btn-circle btn-ghost text-white text-4xl"
+                                className="absolute left-4 top-1/2 -translate-y-1/2 btn btn-circle btn-ghost text-white text-4xl bg-black/30 hover:bg-black/50 border-0"
                             >
                                 ‹
                             </button>
                             <button
                                 onClick={goToNext}
-                                className="absolute right-0 top-1/2 -translate-y-1/2 btn btn-circle btn-ghost text-white text-4xl"
+                                className="absolute right-4 top-1/2 -translate-y-1/2 btn btn-circle btn-ghost text-white text-4xl bg-black/30 hover:bg-black/50 border-0"
                             >
                                 ›
                             </button>
@@ -285,10 +293,10 @@ export default function ViewProject({
                                         onClick={() =>
                                             setCurrentImageIndex(idx)
                                         }
-                                        className={`w-2 h-2 rounded-full ${
+                                        className={`w-3 h-3 rounded-full transition-all ${
                                             idx === currentImageIndex
-                                                ? "bg-white"
-                                                : "bg-gray-500"
+                                                ? "bg-white scale-110"
+                                                : "bg-white/60"
                                         }`}
                                     />
                                 ))}
@@ -299,90 +307,92 @@ export default function ViewProject({
             )}
 
             {/* Main Content */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-12 grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* Left Column - Main Content */}
-                <div className="md:col-span-2 space-y-6 bg-base-100 p-6 rounded-box shadow">
-                    <div className="space-y-3">
-                        <h1 className="text-3xl font-bold text-base-content">
+                <div className="md:col-span-2 space-y-8">
+                    {/* Project Header */}
+                    <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+                        <h1 className="text-3xl font-bold text-gray-900 mb-4">
                             {project.title}
                         </h1>
-                        <div className="flex flex-wrap gap-2">
-                            <span className="badge badge-primary">
+                        <div className="flex flex-wrap gap-2 mb-6">
+                            <span className="badge badge-primary badge-lg px-3 py-2">
                                 {project.category?.name}
                             </span>
-                            <span className="badge badge-secondary">
+                            <span className="badge badge-secondary badge-lg px-3 py-2">
                                 {project.subcategory?.name}
                             </span>
-                            <span className="badge badge-accent">
-                                📍 {project.address}
+                            <span className="badge badge-accent badge-lg px-3 py-2">
+                                📍
+                                <span>{project.country} </span>
+                                <span>- {project.city}</span>
+                                <>
+                                    {project.state ? (
+                                        <span>- {project.state}</span>
+                                    ) : (
+                                        <span></span>
+                                    )}
+                                </>
                             </span>
                         </div>
-                    </div>
-                    {/* Project Details */}
-                    <section className="space-y-6">
-                        <div className="space-y-3">
-                            <h2 className="text-xl font-semibold text-base-content">
-                                About the Project
-                            </h2>
-                            <p className="text-base-content leading-relaxed">
-                                {project.detailed_description}
-                            </p>
-                        </div>
 
-                        {project.activities && (
-                            <div className="space-y-3">
-                                <h2 className="text-xl font-semibold text-base-content">
-                                    Volunteer Activities
+                        {/* Project Description */}
+                        <section className="space-y-6">
+                            <div className="space-y-4">
+                                <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">
+                                    About the Project
                                 </h2>
-                                <p className="text-base-content leading-relaxed">
-                                    {project.activities}
+                                <p className="text-gray-700 leading-relaxed text-lg">
+                                    {project.detailed_description}
                                 </p>
                             </div>
-                        )}
-                    </section>
-                    {/* Call to Action */}
-                    {!isOrganization && (
-                        <div className="flex items-center justify-between pt-2">
-                            <Link
-                                href={route(
-                                    "project.volunteer.booking",
-                                    project.slug
-                                )}
-                                className="btn btn-primary"
-                            >
-                                Apply to Volunteer
-                            </Link>
-                            {isVolunteer && (
-                                <button
-                                    onClick={() => setIsReportModalOpen(true)}
-                                    className="btn btn-ghost text-error"
-                                >
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        className="h-5 w-5"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                                        />
-                                    </svg>
-                                    Report Project
-                                </button>
+
+                            {project.activities && (
+                                <div className="space-y-4">
+                                    <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">
+                                        Volunteer Activities
+                                    </h2>
+                                    <p className="text-gray-700 leading-relaxed text-lg">
+                                        {project.activities}
+                                    </p>
+                                </div>
                             )}
-                        </div>
-                    )}
+                        </section>
+
+                        {/* Call to Action */}
+                        {!isOrganization && (
+                            <div className="flex items-center justify-between pt-6 mt-6 border-t border-gray-100">
+                                <Link
+                                    href={route(
+                                        "project.volunteer.booking",
+                                        project.slug
+                                    )}
+                                    className="btn btn-primary btn-lg px-8 rounded-full"
+                                >
+                                    Apply to Volunteer
+                                </Link>
+                                {isVolunteer && (
+                                    <button
+                                        onClick={() =>
+                                            setIsReportModalOpen(true)
+                                        }
+                                        className="btn btn-ghost text-error hover:bg-error/10 rounded-full"
+                                    >
+                                        <AlertCircle className="h-5 w-5 mr-2" />
+                                        Report Project
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
                     {/* Project Updates */}
                     {project.project_remarks?.length > 0 && (
-                        <section className="pt-6">
-                            <h2 className="text-xl font-semibold text-base-content mb-4">
+                        <section className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+                            <h2 className="text-xl font-semibold text-gray-900 mb-6 border-b pb-2">
                                 Project Reviews
                             </h2>
-                            <div className="space-y-3">
+                            <div className="space-y-6">
                                 {project.project_remarks.map((remark) => (
                                     <CommentThread
                                         key={remark.id}
@@ -404,20 +414,20 @@ export default function ViewProject({
                 </div>
 
                 {/* Right Column - Sidebar */}
-                <div className="space-y-5">
+                <div className="space-y-6">
                     {/* Organization Card */}
-                    <div className="card bg-base-100 shadow-sm">
+                    <div className="card bg-white shadow-sm border border-gray-100 overflow-hidden">
                         <Link
                             href={route("home.organization.profile", {
                                 slug: project.slug,
                                 organization_profile:
                                     project.organization_profile.slug,
                             })}
-                            className="card-body p-4 hover:bg-base-200 transition"
+                            className="card-body p-6 hover:bg-gray-50 transition-colors"
                         >
                             <div className="flex items-center">
                                 <div className="avatar">
-                                    <div className="w-14 rounded-full">
+                                    <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-white shadow">
                                         <img
                                             src={
                                                 project.organization_profile
@@ -429,20 +439,21 @@ export default function ViewProject({
                                                 project.organization_profile
                                                     ?.name
                                             }
+                                            className="object-cover w-full h-full"
                                         />
                                     </div>
                                 </div>
-                                <div className="ml-3 flex justify-between w-full">
+                                <div className="ml-4 flex justify-between w-full">
                                     <div>
-                                        <h3 className="card-title text-lg">
+                                        <h3 className="card-title text-lg font-semibold text-gray-900">
                                             {project.organization_profile?.name}
                                         </h3>
                                         <p className="text-sm text-gray-500">
                                             Organization
                                         </p>
                                     </div>
-                                    <div className="flex items-center">
-                                        <ArrowRightCircle />
+                                    <div className="flex items-center text-primary">
+                                        <ArrowRightCircle size={20} />
                                     </div>
                                 </div>
                             </div>
@@ -450,55 +461,165 @@ export default function ViewProject({
                     </div>
 
                     {/* Quick Facts Card */}
-                    <div className="card bg-base-100 shadow-sm">
-                        <div className="card-body p-5">
-                            <h3 className="card-title text-lg mb-3">
-                                Quick Facts
-                            </h3>
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    {project.start_date && (
-                                        <div>
-                                            <p className="text-sm text-gray-500">
-                                                Start Date
-                                            </p>
-                                            <p className="font-medium">
-                                                {project.start_date}
-                                            </p>
+                    <div className="card bg-white shadow-md border border-gray-100 overflow-hidden">
+                        <div className="card-body p-6">
+                            <div className="flex items-center mb-5">
+                                <div className="bg-primary/10 p-2 rounded-lg">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-6 w-6 text-primary"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                        />
+                                    </svg>
+                                </div>
+                                <h3 className="card-title text-xl font-semibold ml-3 text-gray-900">
+                                    Quick Facts
+                                </h3>
+                            </div>
+
+                            {/* Fees Section */}
+                            {project.type_of_project === "Paid" && (
+                                <>
+                                    {project.fees && (
+                                        <div className="mb-6 p-4 bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl border border-primary/20">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-600 mb-1">
+                                                        Program Fees
+                                                    </p>
+                                                    <div className="flex items-baseline">
+                                                        <span className="text-2xl font-bold text-primary">
+                                                            {project.currency}{" "}
+                                                            {project.fees}
+                                                        </span>
+                                                        <span className="text-sm text-gray-500 ml-2">
+                                                            /{" "}
+                                                            {
+                                                                project.category_of_charge
+                                                            }
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="bg-primary/10 p-2 rounded-full">
+                                                    <DollarSign className="h-5 w-5 text-primary" />
+                                                </div>
+                                            </div>
+                                            {project.includes && (
+                                                <p className="text-xs text-gray-500 mt-2">
+                                                    {project.includes}
+                                                </p>
+                                            )}
                                         </div>
                                     )}
-                                    <div>
-                                        <p className="text-sm text-gray-500">
-                                            Duration
-                                        </p>
-                                        <p className="font-medium">
-                                            {`${project.min_duration} - ${project.max_duration} `}
-                                            {project.duration_type}
+                                </>
+                            )}
+
+                            {/* Quick Facts Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                {project.start_date && (
+                                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                                        <div className="flex items-center mb-2">
+                                            <Calendar className="h-4 w-4 text-primary mr-2" />
+                                            <p className="text-sm font-medium text-gray-600">
+                                                Start Date
+                                            </p>
+                                        </div>
+                                        <p className="font-semibold text-gray-900">
+                                            {project.start_date}
                                         </p>
                                     </div>
-                                </div>
-                                <div>
-                                    <p className="text-sm text-gray-500">
-                                        Minimum Age
+                                )}
+
+                                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                                    <div className="flex items-center mb-2">
+                                        <Clock className="h-4 w-4 text-primary mr-2" />
+                                        <p className="text-sm font-medium text-gray-600">
+                                            Duration
+                                        </p>
+                                    </div>
+                                    <p className="font-semibold text-gray-900">
+                                        {`${project.min_duration} - ${project.max_duration} `}
+                                        {project.duration_type}
                                     </p>
-                                    <p className="font-medium">
+                                </div>
+
+                                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                                    <div className="flex items-center mb-2">
+                                        <Users className="h-4 w-4 text-primary mr-2" />
+                                        <p className="text-sm font-medium text-gray-600">
+                                            Minimum Age
+                                        </p>
+                                    </div>
+                                    <p className="font-semibold text-gray-900">
                                         {project.minAge || "18+"}
                                     </p>
                                 </div>
+
+                                {project.participants && (
+                                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                                        <div className="flex items-center mb-2">
+                                            <Users className="h-4 w-4 text-primary mr-2" />
+                                            <p className="text-sm font-medium text-gray-600">
+                                                Participants
+                                            </p>
+                                        </div>
+                                        <p className="font-semibold text-gray-900">
+                                            {project.participants}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
 
-                            {/* Includes For */}
+                            {/* Badge Sections with Improved Styling */}
                             {project.includes?.length > 0 && (
-                                <div className="mt-4">
-                                    <p className="text-sm text-gray-500 mb-2">
-                                        Includes
-                                    </p>
+                                <div className="mb-5">
+                                    <div className="flex items-center mb-3">
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            className="h-4 w-4 text-green-500 mr-2"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M5 13l4 4L19 7"
+                                            />
+                                        </svg>
+                                        <p className="text-sm font-medium text-gray-600">
+                                            What's Included
+                                        </p>
+                                    </div>
                                     <div className="flex flex-wrap gap-2">
                                         {project.includes.map((item, index) => (
                                             <span
                                                 key={index}
-                                                className="badge badge-primary"
+                                                className="badge badge-success gap-1 py-2 px-3 rounded-lg border-0"
                                             >
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    className="h-3 w-3"
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                    stroke="currentColor"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={2}
+                                                        d="M5 13l4 4L19 7"
+                                                    />
+                                                </svg>
                                                 {item}
                                             </span>
                                         ))}
@@ -506,18 +627,47 @@ export default function ViewProject({
                                 </div>
                             )}
 
-                            {/* Excludes For */}
                             {project.excludes?.length > 0 && (
-                                <div className="mt-4">
-                                    <p className="text-sm text-gray-500 mb-2">
-                                        Excludes
-                                    </p>
+                                <div className="mb-5">
+                                    <div className="flex items-center mb-3">
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            className="h-4 w-4 text-red-500 mr-2"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M6 18L18 6M6 6l12 12"
+                                            />
+                                        </svg>
+                                        <p className="text-sm font-medium text-gray-600">
+                                            What's Not Included
+                                        </p>
+                                    </div>
                                     <div className="flex flex-wrap gap-2">
                                         {project.excludes.map((item, index) => (
                                             <span
                                                 key={index}
-                                                className="badge bg-red-600 text-white"
+                                                className="badge badge-error gap-1 py-2 px-3 rounded-lg border-0"
                                             >
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    className="h-3 w-3"
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                    stroke="currentColor"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={2}
+                                                        d="M6 18L18 6M6 6l12 12"
+                                                    />
+                                                </svg>
                                                 {item}
                                             </span>
                                         ))}
@@ -525,18 +675,47 @@ export default function ViewProject({
                                 </div>
                             )}
 
-                            {/* Suitable For */}
                             {project.suitable?.length > 0 && (
-                                <div className="mt-4">
-                                    <p className="text-sm text-gray-500 mb-2">
-                                        Suitable For
-                                    </p>
+                                <div className="mb-5">
+                                    <div className="flex items-center mb-3">
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            className="h-4 w-4 text-blue-500 mr-2"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                                            />
+                                        </svg>
+                                        <p className="text-sm font-medium text-gray-600">
+                                            Suitable For
+                                        </p>
+                                    </div>
                                     <div className="flex flex-wrap gap-2">
                                         {project.suitable.map((item, index) => (
                                             <span
                                                 key={index}
-                                                className="badge badge-primary"
+                                                className="badge badge-info gap-1 py-2 px-3 rounded-lg border-0"
                                             >
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    className="h-3 w-3"
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                    stroke="currentColor"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={2}
+                                                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                                                    />
+                                                </svg>
                                                 {item}
                                             </span>
                                         ))}
@@ -544,19 +723,22 @@ export default function ViewProject({
                                 </div>
                             )}
 
-                            {/* Availability */}
                             {project.availability_months?.length > 0 && (
-                                <div className="mt-4">
-                                    <p className="text-sm text-gray-500 mb-2">
-                                        Availability
-                                    </p>
+                                <div>
+                                    <div className="flex items-center mb-3">
+                                        <Calendar className="h-4 w-4 text-purple-500 mr-2" />
+                                        <p className="text-sm font-medium text-gray-600">
+                                            Best Time to Volunteer
+                                        </p>
+                                    </div>
                                     <div className="flex flex-wrap gap-2">
                                         {project.availability_months.map(
                                             (item, index) => (
                                                 <span
                                                     key={index}
-                                                    className="badge badge-secondary"
+                                                    className="badge badge-secondary gap-1 py-2 px-3 rounded-lg border-0"
                                                 >
+                                                    <Calendar className="h-3 w-3" />
                                                     {item}
                                                 </span>
                                             )
@@ -568,9 +750,9 @@ export default function ViewProject({
                     </div>
 
                     {/* Ratings Card */}
-                    <div className="card bg-base-100 shadow-sm">
+                    <div className="card bg-white shadow-sm border border-gray-100 overflow-hidden">
                         <div className="card-body p-6">
-                            <h3 className="card-title text-lg mb-5">
+                            <h3 className="card-title text-lg font-semibold mb-5 text-gray-900">
                                 Volunteer Ratings
                             </h3>
 
@@ -578,7 +760,7 @@ export default function ViewProject({
                                 <div className="space-y-6">
                                     {/* Average Rating */}
                                     <div className="flex items-center justify-center gap-4">
-                                        <div className="text-5xl font-bold text-base-content leading-none">
+                                        <div className="text-5xl font-bold text-gray-900 leading-none">
                                             {averageRating}
                                         </div>
                                         <div className="flex flex-col items-start">
@@ -622,12 +804,12 @@ export default function ViewProject({
                                                 key={stars}
                                                 className="flex items-center"
                                             >
-                                                <div className="w-10 text-sm font-medium text-base-content">
+                                                <div className="w-10 text-sm font-medium text-gray-900">
                                                     {stars} star
                                                 </div>
-                                                <div className="flex-1 mx-3 h-3 bg-gray-100 rounded-full overflow-hidden">
+                                                <div className="flex-1 mx-3 h-2 bg-gray-100 rounded-full overflow-hidden">
                                                     <div
-                                                        className="h-3 bg-gradient-to-r from-yellow-400 to-yellow-300 rounded-full transition-all duration-500"
+                                                        className="h-2 bg-gradient-to-r from-yellow-400 to-yellow-300 rounded-full transition-all duration-500"
                                                         style={{
                                                             width: `${
                                                                 totalRatings > 0
@@ -649,7 +831,7 @@ export default function ViewProject({
                                     </div>
                                 </div>
                             ) : (
-                                <p className="text-sm text-gray-500 italic">
+                                <p className="text-sm text-gray-500 italic text-center py-4">
                                     No ratings yet
                                 </p>
                             )}
@@ -657,9 +839,9 @@ export default function ViewProject({
                     </div>
 
                     {/* Share Card */}
-                    <div className="card bg-base-100 shadow-sm">
-                        <div className="card-body p-5">
-                            <h3 className="card-title text-lg mb-3">
+                    <div className="card bg-white shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="card-body p-6">
+                            <h3 className="card-title text-lg font-semibold mb-3 text-gray-900">
                                 Share This Opportunity
                             </h3>
                             <div className="flex justify-center gap-3 mb-4">
@@ -667,25 +849,25 @@ export default function ViewProject({
                                     url={window.location.href}
                                     quote={`Check out: ${project.title}`}
                                 >
-                                    <FacebookIcon size={32} round />
+                                    <FacebookIcon size={36} round />
                                 </FacebookShareButton>
                                 <TwitterShareButton
                                     url={window.location.href}
                                     title={`Check out: ${project.title}`}
                                 >
-                                    <TwitterIcon size={32} round />
+                                    <TwitterIcon size={36} round />
                                 </TwitterShareButton>
                                 <WhatsappShareButton
                                     url={window.location.href}
                                     title={`Check out: ${project.title}`}
                                 >
-                                    <WhatsappIcon size={32} round />
+                                    <WhatsappIcon size={36} round />
                                 </WhatsappShareButton>
                                 <EmailShareButton
                                     url={window.location.href}
                                     subject={`Volunteer Opportunity: ${project.title}`}
                                 >
-                                    <EmailIcon size={32} round />
+                                    <EmailIcon size={36} round />
                                 </EmailShareButton>
                             </div>
                             <div>
@@ -697,7 +879,7 @@ export default function ViewProject({
                                         type="text"
                                         readOnly
                                         value={window.location.href}
-                                        className="input input-bordered join-item w-full"
+                                        className="input input-bordered join-item w-full bg-gray-50"
                                     />
                                     <button
                                         onClick={() =>
@@ -705,7 +887,7 @@ export default function ViewProject({
                                                 window.location.href
                                             )
                                         }
-                                        className="btn btn-primary join-item"
+                                        className="btn btn-primary join-item rounded-r-lg"
                                     >
                                         <ClipboardDocumentIcon className="h-4 w-4" />
                                     </button>
@@ -716,35 +898,36 @@ export default function ViewProject({
 
                     {/* Suggested Projects */}
                     {suggestedProjects?.length > 0 && (
-                        <div className="card bg-base-100 shadow-sm">
-                            <div className="card-body p-5">
-                                <h3 className="card-title text-lg mb-3">
+                        <div className="card bg-white shadow-sm border border-gray-100 overflow-hidden">
+                            <div className="card-body p-6">
+                                <h3 className="card-title text-lg font-semibold mb-3 text-gray-900">
                                     {hasVolunteerProfile
                                         ? "Projects Matching Your Skills"
                                         : "Suggested Projects"}
                                 </h3>
-                                <div className="space-y-3">
+                                <div className="space-y-4">
                                     {suggestedProjects.map(
                                         (suggestedProject) => (
                                             <Link
-                                                key={suggestedProject.id}
+                                                key={suggestedProject.public_id}
                                                 href={route(
                                                     "projects",
                                                     suggestedProject.slug
                                                 )}
-                                                className="flex gap-3 p-2 hover:bg-base-200 rounded transition"
+                                                className="flex gap-3 p-3 hover:bg-gray-50 rounded-lg transition"
                                             >
                                                 <div className="avatar">
-                                                    <div className="w-12 h-12 rounded">
+                                                    <div className="w-12 h-12 rounded-lg overflow-hidden border border-gray-200">
                                                         {suggestedProject.featured_image ? (
                                                             <img
                                                                 src={`/storage/${suggestedProject.featured_image}`}
                                                                 alt={
                                                                     suggestedProject.title
                                                                 }
+                                                                className="object-cover w-full h-full"
                                                             />
                                                         ) : (
-                                                            <div className="w-full h-full flex items-center justify-center bg-base-200 text-gray-400">
+                                                            <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
                                                                 <svg
                                                                     xmlns="http://www.w3.org/2000/svg"
                                                                     className="h-6 w-6"
@@ -766,7 +949,7 @@ export default function ViewProject({
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <h4 className="text-sm font-medium text-base-content">
+                                                    <h4 className="text-sm font-medium text-gray-900">
                                                         {suggestedProject.title}
                                                     </h4>
                                                     <p className="text-xs text-gray-500">
@@ -789,126 +972,139 @@ export default function ViewProject({
             {/* Report Modal */}
             {isReportModalOpen && (
                 <div className="modal modal-open">
-                    <div className="modal-box max-w-md">
-                        <button
-                            onClick={() => setIsReportModalOpen(false)}
-                            className="btn btn-sm btn-circle absolute right-2 top-2"
-                        >
-                            ✕
-                        </button>
-                        <h2 className="text-lg font-semibold mb-4">
-                            Report Project
-                        </h2>
-                        <form onSubmit={handleSubmitReport}>
-                            <div className="space-y-4">
-                                <div className="form-control">
-                                    <label className="label">
-                                        <span className="label-text">
-                                            Issue Category
-                                        </span>
-                                    </label>
-                                    <select
-                                        className="select select-bordered w-full"
-                                        value={data.report_category_id}
-                                        onChange={(e) => {
-                                            setData(
-                                                "report_category_id",
-                                                e.target.value
-                                            );
-                                            const selectedCategory =
-                                                reportCategories.find(
-                                                    (cat) =>
-                                                        cat.id == e.target.value
+                    <div className="modal-box max-w-md p-0 overflow-hidden">
+                        <div className="bg-error text-error-content p-4">
+                            <h2 className="text-lg font-semibold">
+                                Report Project
+                            </h2>
+                        </div>
+                        <div className="p-6">
+                            <button
+                                onClick={() => setIsReportModalOpen(false)}
+                                className="btn btn-sm btn-circle absolute right-4 top-4"
+                            >
+                                ✕
+                            </button>
+                            <form onSubmit={handleSubmitReport}>
+                                <div className="space-y-4">
+                                    <div className="form-control">
+                                        <label className="label">
+                                            <span className="label-text">
+                                                Issue Category
+                                            </span>
+                                        </label>
+                                        <select
+                                            className="select select-bordered w-full"
+                                            value={data.report_category_id}
+                                            onChange={(e) => {
+                                                setData(
+                                                    "report_category_id",
+                                                    e.target.value
                                                 );
-                                            setSubcategories(
-                                                selectedCategory?.subcategories ||
-                                                    []
-                                            );
-                                        }}
-                                        required
-                                    >
-                                        <option value="">
-                                            Select a category
-                                        </option>
-                                        {reportCategories.map((category) => (
-                                            <option
-                                                key={category.id}
-                                                value={category.id}
-                                            >
-                                                {category.name}
+                                                const selectedCategory =
+                                                    reportCategories.find(
+                                                        (cat) =>
+                                                            cat.id ==
+                                                            e.target.value
+                                                    );
+                                                setSubcategories(
+                                                    selectedCategory?.subcategories ||
+                                                        []
+                                                );
+                                            }}
+                                            required
+                                        >
+                                            <option value="">
+                                                Select a category
                                             </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="form-control">
-                                    <label className="label">
-                                        <span className="label-text">
-                                            Issue Type
-                                        </span>
-                                    </label>
-                                    <select
-                                        className="select select-bordered w-full"
-                                        value={data.report_subcategory_id}
-                                        onChange={(e) =>
-                                            setData(
-                                                "report_subcategory_id",
-                                                e.target.value
-                                            )
-                                        }
-                                        required
-                                        disabled={!data.report_category_id}
-                                    >
-                                        <option value="">Select a type</option>
-                                        {subcategories.map((subcategory) => (
-                                            <option
-                                                key={subcategory.id}
-                                                value={subcategory.id}
-                                            >
-                                                {subcategory.name}
+                                            {reportCategories.map(
+                                                (category) => (
+                                                    <option
+                                                        key={category.id}
+                                                        value={category.id}
+                                                    >
+                                                        {category.name}
+                                                    </option>
+                                                )
+                                            )}
+                                        </select>
+                                    </div>
+                                    <div className="form-control">
+                                        <label className="label">
+                                            <span className="label-text">
+                                                Issue Type
+                                            </span>
+                                        </label>
+                                        <select
+                                            className="select select-bordered w-full"
+                                            value={data.report_subcategory_id}
+                                            onChange={(e) =>
+                                                setData(
+                                                    "report_subcategory_id",
+                                                    e.target.value
+                                                )
+                                            }
+                                            required
+                                            disabled={!data.report_category_id}
+                                        >
+                                            <option value="">
+                                                Select a type
                                             </option>
-                                        ))}
-                                    </select>
+                                            {subcategories.map(
+                                                (subcategory) => (
+                                                    <option
+                                                        key={subcategory.id}
+                                                        value={subcategory.id}
+                                                    >
+                                                        {subcategory.name}
+                                                    </option>
+                                                )
+                                            )}
+                                        </select>
+                                    </div>
+                                    <div className="form-control">
+                                        <label className="label">
+                                            <span className="label-text">
+                                                Description
+                                            </span>
+                                        </label>
+                                        <textarea
+                                            className="textarea textarea-bordered h-24"
+                                            value={data.description}
+                                            onChange={(e) =>
+                                                setData(
+                                                    "description",
+                                                    e.target.value
+                                                )
+                                            }
+                                            required
+                                        />
+                                    </div>
                                 </div>
-                                <div className="form-control">
-                                    <label className="label">
-                                        <span className="label-text">
-                                            Description
-                                        </span>
-                                    </label>
-                                    <textarea
-                                        className="textarea textarea-bordered h-24"
-                                        value={data.description}
-                                        onChange={(e) =>
-                                            setData(
-                                                "description",
-                                                e.target.value
-                                            )
+                                <div className="modal-action mt-6">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setIsReportModalOpen(false)
                                         }
-                                        required
-                                    />
+                                        className="btn btn-ghost"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={processing}
+                                        className="btn btn-error"
+                                    >
+                                        {processing ? (
+                                            <span className="loading loading-spinner"></span>
+                                        ) : (
+                                            "Submit Report"
+                                        )}
+                                    </button>
                                 </div>
-                            </div>
-                            <div className="modal-action">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsReportModalOpen(false)}
-                                    className="btn btn-ghost"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={processing}
-                                    className="btn btn-error"
-                                >
-                                    {processing ? (
-                                        <span className="loading loading-spinner"></span>
-                                    ) : (
-                                        "Submit Report"
-                                    )}
-                                </button>
-                            </div>
-                        </form>
+                            </form>
+                        </div>
                     </div>
                 </div>
             )}
@@ -933,7 +1129,7 @@ const CommentThread = ({
     const isTopLevel = depth === 0;
     const indentClass = `ml-${
         Math.min(depth, 3) * 4
-    } pl-4 border-l-2 border-base-200`;
+    } pl-4 border-l-2 border-gray-200`;
 
     const showReplyButton = auth.user && isTopLevel;
 
@@ -947,24 +1143,25 @@ const CommentThread = ({
             {/* Comment Card */}
             <div className={`relative ${isTopLevel ? "pt-0" : "pt-2"}`}>
                 <div
-                    className={`group p-4 rounded-box transition-all duration-150 ${
+                    className={`group p-5 rounded-xl transition-all duration-150 ${
                         isTopLevel
-                            ? "bg-base-100 shadow-sm border border-base-200 hover:border-base-300"
-                            : "bg-base-200"
+                            ? "bg-white shadow-xs border border-gray-100 hover:border-gray-200"
+                            : "bg-gray-50"
                     }`}
                 >
-                    <div className="flex items-start space-x-3">
+                    <div className="flex items-start space-x-4">
                         {/* User Avatar */}
                         <div className="flex-shrink-0">
                             <div className="avatar">
-                                <div className="w-8 rounded-full">
+                                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow">
                                     {remark.user?.avatar ? (
                                         <img
                                             src={`/storage/${remark.user.avatar}`}
                                             alt={remark.user.name}
+                                            className="object-cover w-full h-full"
                                         />
                                     ) : (
-                                        <div className="bg-base-300 text-base-content flex items-center justify-center">
+                                        <div className="bg-gray-200 text-gray-600 flex items-center justify-center w-full h-full">
                                             <svg
                                                 xmlns="http://www.w3.org/2000/svg"
                                                 className="h-5 w-5"
@@ -985,9 +1182,9 @@ const CommentThread = ({
 
                         {/* Comment Content */}
                         <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center space-x-2">
-                                    <h4 className="text-sm font-medium text-base-content">
+                                    <h4 className="text-sm font-semibold text-gray-900">
                                         {remark.user?.name ||
                                             "Anonymous Volunteer"}
                                     </h4>
@@ -1002,7 +1199,7 @@ const CommentThread = ({
                                         onClick={() =>
                                             handleStartReply(remark.id)
                                         }
-                                        className="btn btn-xs btn-ghost"
+                                        className="btn btn-xs btn-ghost text-gray-500 hover:text-primary"
                                     >
                                         <svg
                                             xmlns="http://www.w3.org/2000/svg"
@@ -1020,7 +1217,7 @@ const CommentThread = ({
                                     </button>
                                 )}
                             </div>
-                            <p className="mt-1 text-sm text-base-content leading-snug">
+                            <p className="text-gray-700 leading-relaxed">
                                 {remark.comment}
                             </p>
                         </div>
@@ -1035,7 +1232,7 @@ const CommentThread = ({
                     <div className={`${indentClass} mt-3`}>
                         <form
                             onSubmit={(e) => handleSubmitReply(e, remark.id)}
-                            className="bg-base-100 p-3 rounded-box shadow-xs border border-base-200"
+                            className="bg-white p-4 rounded-xl shadow-xs border border-gray-200"
                         >
                             <textarea
                                 value={replyData.comment}
@@ -1045,12 +1242,12 @@ const CommentThread = ({
                                         comment: e.target.value,
                                     })
                                 }
-                                className="textarea textarea-bordered w-full"
+                                className="textarea textarea-bordered w-full bg-gray-50"
                                 rows={3}
                                 placeholder="Write your thoughtful reply..."
                                 required
                             />
-                            <div className="mt-2 flex justify-end space-x-2">
+                            <div className="mt-3 flex justify-end space-x-2">
                                 <button
                                     type="button"
                                     onClick={() => {

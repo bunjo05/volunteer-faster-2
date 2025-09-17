@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Link } from "@inertiajs/react";
 import { motion } from "framer-motion";
 import { loadStripe } from "@stripe/stripe-js";
+import VerifiedBadge from "@/Components/VerifiedBadge";
 
 export default function ViewIndividual({ sponsorship, relatedSponsorships }) {
     const [selectedItems, setSelectedItems] = useState({});
@@ -195,7 +196,7 @@ export default function ViewIndividual({ sponsorship, relatedSponsorships }) {
                                             alt={formatName(
                                                 sponsorship.user?.name
                                             )}
-                                            className="w-16 h-16 rounded-full border-4 border-white/25 object-cover"
+                                            className="w-20 h-20 rounded-full border-4 border-white/25 object-cover"
                                         />
                                     ) : (
                                         <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
@@ -207,8 +208,27 @@ export default function ViewIndividual({ sponsorship, relatedSponsorships }) {
                                         </div>
                                     )}
                                     <div>
-                                        <h1 className="text-2xl font-semibold">
+                                        <h1 className="text-2xl font-semibold flex items-center gap-2">
                                             {formatName(sponsorship.user?.name)}
+                                            {/* ✅ Verified badge */}
+                                            {sponsorship.volunteer_profile
+                                                ?.verification?.status ===
+                                                "Approved" && (
+                                                <div className="relative">
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        className="h-6 w-6 text-green-500 bg-white rounded-full"
+                                                        viewBox="0 0 20 20"
+                                                        fill="currentColor"
+                                                    >
+                                                        <path
+                                                            fillRule="evenodd"
+                                                            d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                            clipRule="evenodd"
+                                                        />
+                                                    </svg>
+                                                </div>
+                                            )}
                                         </h1>
                                         <p className="text-blue-100 font-medium">
                                             {sponsorship.booking?.project

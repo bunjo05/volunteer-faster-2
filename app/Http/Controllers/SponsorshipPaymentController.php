@@ -10,6 +10,8 @@ use Stripe\Checkout\Session;
 use Illuminate\Support\Facades\Log;
 use App\Models\VolunteerSponsorship;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\SponsorshipDonationReceivedMail;
 use Symfony\Component\HttpFoundation\Response;
 use Stripe\Exception\SignatureVerificationException;
 
@@ -23,7 +25,7 @@ class SponsorshipPaymentController extends Controller
                 'amount' => 'required|numeric|min:1',
                 'funding_allocation' => 'nullable|array',
                 'custom_amount' => 'nullable|numeric',
-                'is_anonymous' => 'nullable|boolean' // Add validation for is_anonymous
+                'is_anonymous' => 'nullable|boolean'
             ]);
 
             $sponsorship = VolunteerSponsorship::with(['user', 'booking.project'])
@@ -58,7 +60,7 @@ class SponsorshipPaymentController extends Controller
                     'amount' => (float) $request->amount,
                     'funding_allocation' => json_encode($request->funding_allocation),
                     'custom_amount' => $request->custom_amount,
-                    'is_anonymous' => $request->boolean('is_anonymous'), // Ensure boolean conversion
+                    'is_anonymous' => $request->boolean('is_anonymous'),
                 ],
             ]);
 
@@ -82,9 +84,8 @@ class SponsorshipPaymentController extends Controller
                 $userPublicId = $session->metadata->user_public_id ?? null;
                 $bookingPublicId = $session->metadata->booking_public_id ?? null;
                 $amount = isset($session->metadata->amount) ? (float) $session->metadata->amount : null;
-                $isAnonymous = filter_var($session->metadata->is_anonymous ?? false, FILTER_VALIDATE_BOOLEAN); // Get is_anonymous
+                $isAnonymous = filter_var($session->metadata->is_anonymous ?? false, FILTER_VALIDATE_BOOLEAN);
 
-                // Only require sponsorship and booking IDs, user_public_id can be null
                 if (!$sponsorshipPublicId || !$bookingPublicId) {
                     Log::error('Stripe success: Missing required metadata in session', [
                         'session_id' => $session->id,
@@ -94,8 +95,11 @@ class SponsorshipPaymentController extends Controller
                     throw new \Exception('Missing required metadata in session');
                 }
 
-                // Find the sponsorship
-                $sponsorship = VolunteerSponsorship::where('public_id', $sponsorshipPublicId)->first();
+                // Find the sponsorship with user relationship
+                $sponsorship = VolunteerSponsorship::with(['user', 'booking.project'])
+                    ->where('public_id', $sponsorshipPublicId)
+                    ->first();
+
                 if (!$sponsorship) {
                     Log::error('Stripe success: Sponsorship not found', [
                         'sponsorship_public_id' => $sponsorshipPublicId
@@ -103,12 +107,11 @@ class SponsorshipPaymentController extends Controller
                     throw new \Exception('Sponsorship not found');
                 }
 
-                // Try to find payment by payment_intent (should be created by webhook)
+                // Try to find payment by payment_intent
                 $payment = Sponsorship::where('stripe_payment_id', $session->payment_intent)->first();
 
-                // If payment not found by webhook yet, check if we should create it here
                 if (!$payment) {
-                    // Check if payment already exists with different criteria to avoid duplicates
+                    // Check if payment already exists
                     $payment = Sponsorship::where([
                         'sponsorship_public_id' => $sponsorshipPublicId,
                         'booking_public_id' => $bookingPublicId,
@@ -123,7 +126,7 @@ class SponsorshipPaymentController extends Controller
                         ->first();
 
                     if (!$payment) {
-                        // Create payment record as fallback (webhook might have failed)
+                        // Create payment record
                         $payment = Sponsorship::create([
                             'public_id' => \Illuminate\Support\Str::ulid(),
                             'user_public_id' => $userPublicId,
@@ -133,7 +136,7 @@ class SponsorshipPaymentController extends Controller
                             'funding_allocation' => json_decode($session->metadata->funding_allocation ?? '[]', true),
                             'stripe_payment_id' => $session->payment_intent,
                             'status' => 'completed',
-                            'is_anonymous' => $isAnonymous, // Store is_anonymous
+                            'is_anonymous' => $isAnonymous,
                             'payment_method' => $session->payment_method_types[0] ?? 'card',
                         ]);
                     } else {
@@ -143,23 +146,26 @@ class SponsorshipPaymentController extends Controller
                             'payment_method' => $session->payment_method_types[0] ?? 'card',
                             'stripe_payment_id' => $session->payment_intent,
                             'user_public_id' => $userPublicId,
-                            'is_anonymous' => $isAnonymous, // Update is_anonymous
+                            'is_anonymous' => $isAnonymous,
                         ]);
                     }
                 } else {
-                    // Update payment status if it was created by webhook but still pending
+                    // Update payment status if pending
                     if ($payment->status === 'pending') {
                         $payment->update([
                             'status' => 'completed',
                             'payment_method' => $session->payment_method_types[0] ?? 'card',
                             'user_public_id' => $userPublicId,
-                            'is_anonymous' => $isAnonymous, // Update is_anonymous
+                            'is_anonymous' => $isAnonymous,
                         ]);
                     }
                 }
 
                 // Update sponsorship with funded amount
                 $sponsorship->increment('funded_amount', $payment->amount);
+
+                // Send email notification to sponsorship owner
+                $this->sendDonationNotification($sponsorship, $payment);
 
                 // Redirect based on authentication status
                 if (Auth::check()) {
@@ -177,6 +183,33 @@ class SponsorshipPaymentController extends Controller
         }
 
         return redirect()->route('sponsorship.payment.cancel');
+    }
+
+    protected function sendDonationNotification($sponsorship, $payment)
+    {
+        try {
+            // Check if sponsorship has a user and the user has an email
+            if ($sponsorship->user && $sponsorship->user->email) {
+                Mail::to($sponsorship->user->email)
+                    ->send(new SponsorshipDonationReceivedMail($sponsorship, $payment));
+
+                Log::info('Sponsorship donation notification sent', [
+                    'sponsorship_public_id' => $sponsorship->public_id,
+                    'recipient_email' => $sponsorship->user->email,
+                    'amount' => $payment->amount
+                ]);
+            } else {
+                Log::warning('Could not send sponsorship donation notification - missing user or email', [
+                    'sponsorship_public_id' => $sponsorship->public_id,
+                    'has_user' => !is_null($sponsorship->user),
+                    'has_email' => $sponsorship->user && !empty($sponsorship->user->email)
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send sponsorship donation notification: ' . $e->getMessage(), [
+                'sponsorship_public_id' => $sponsorship->public_id
+            ]);
+        }
     }
 
     public function handleCancel()
@@ -243,9 +276,8 @@ class SponsorshipPaymentController extends Controller
                 $userPublicId = $session->metadata->user_public_id ?? null;
                 $bookingPublicId = $session->metadata->booking_public_id ?? null;
                 $amount = isset($session->metadata->amount) ? (float) $session->metadata->amount : null;
-                $isAnonymous = filter_var($session->metadata->is_anonymous ?? false, FILTER_VALIDATE_BOOLEAN); // Get is_anonymous
+                $isAnonymous = filter_var($session->metadata->is_anonymous ?? false, FILTER_VALIDATE_BOOLEAN);
 
-                // Only require sponsorship and booking IDs
                 if (!$sponsorshipPublicId || !$bookingPublicId) {
                     Log::error('Stripe webhook: Missing required metadata in session', [
                         'session_id' => $session->id,
@@ -255,16 +287,15 @@ class SponsorshipPaymentController extends Controller
                     return;
                 }
 
-                // Check if payment already exists to avoid duplicates
+                // Check if payment already exists
                 $existingPayment = Sponsorship::where('stripe_payment_id', $session->payment_intent)->first();
                 if ($existingPayment) {
-                    // Update status if payment exists but is not completed
                     if ($existingPayment->status !== 'completed') {
                         $existingPayment->update([
                             'status' => 'completed',
                             'payment_method' => $session->payment_method_types[0] ?? 'card',
                             'user_public_id' => $userPublicId,
-                            'is_anonymous' => $isAnonymous, // Update is_anonymous
+                            'is_anonymous' => $isAnonymous,
                         ]);
                     }
                     Log::info('Stripe webhook: Payment already processed', [
@@ -273,8 +304,11 @@ class SponsorshipPaymentController extends Controller
                     return;
                 }
 
-                // Find the sponsorship
-                $sponsorship = VolunteerSponsorship::where('public_id', $sponsorshipPublicId)->first();
+                // Find the sponsorship with user relationship
+                $sponsorship = VolunteerSponsorship::with(['user', 'booking.project'])
+                    ->where('public_id', $sponsorshipPublicId)
+                    ->first();
+
                 if (!$sponsorship) {
                     Log::error('Stripe webhook: Sponsorship not found', [
                         'sponsorship_public_id' => $sponsorshipPublicId
@@ -282,7 +316,7 @@ class SponsorshipPaymentController extends Controller
                     return;
                 }
 
-                // Create payment record ONLY for successful payments
+                // Create payment record
                 $payment = Sponsorship::create([
                     'public_id' => \Illuminate\Support\Str::ulid(),
                     'user_public_id' => $userPublicId,
@@ -292,12 +326,15 @@ class SponsorshipPaymentController extends Controller
                     'funding_allocation' => json_decode($session->metadata->funding_allocation ?? '[]', true),
                     'stripe_payment_id' => $session->payment_intent,
                     'status' => 'completed',
-                    'is_anonymous' => $isAnonymous, // Store is_anonymous
+                    'is_anonymous' => $isAnonymous,
                     'payment_method' => $session->payment_method_types[0] ?? 'card',
                 ]);
 
                 // Update sponsorship with funded amount
                 $sponsorship->increment('funded_amount', $amount);
+
+                // Send email notification to sponsorship owner
+                $this->sendDonationNotification($sponsorship, $payment);
 
                 Log::info('Stripe webhook: Sponsorship payment processed successfully', [
                     'sponsorship_public_id' => $sponsorshipPublicId,
