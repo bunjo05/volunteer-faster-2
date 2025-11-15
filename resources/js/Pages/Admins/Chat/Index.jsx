@@ -1,6 +1,6 @@
 import AdminLayout from "@/Layouts/AdminLayout";
 import { Head, Link, usePage, router } from "@inertiajs/react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
     MessageSquare,
     User,
@@ -11,6 +11,7 @@ import {
     Menu,
     X,
 } from "lucide-react";
+import axios from "axios";
 
 export default function AdminChatIndex({
     chats: initialChats,
@@ -28,9 +29,131 @@ export default function AdminChatIndex({
     const [requests, setRequests] = useState(initialRequests || []);
     const [endedChats, setEndedChats] = useState(initialEndedChats || []);
     const [activeTab, setActiveTab] = useState("chats");
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [successMessage, setSuccessMessage] = useState(null);
     const messagesEndRef = useRef(null);
     const messageRefs = useRef({});
-    const echoListeners = useRef({});
+    const pollingInterval = useRef(null);
+    const selectedChatIdRef = useRef(null);
+    const isUpdatingSelectedChatRef = useRef(false);
+
+    // Manual refresh function for sidebar
+    const refreshSidebar = useCallback(async () => {
+        try {
+            const response = await axios.get(route("chat.index"));
+            const {
+                chats: updatedChats = [],
+                requests: updatedRequests = [],
+                endedChats: updatedEndedChats = [],
+            } = response.data;
+
+            // Update sidebar states
+            setChats(updatedChats);
+            setRequests(updatedRequests);
+            setEndedChats(updatedEndedChats);
+        } catch (error) {
+            console.error("Error refreshing sidebar:", error);
+        }
+    }, []);
+
+    // Silent polling function - ONLY updates selected chat messages, not sidebar
+    const pollForUpdates = useCallback(async () => {
+        if (!auth.user || isUpdatingSelectedChatRef.current) return;
+
+        const currentSelectedChatId = selectedChatIdRef.current;
+        if (!currentSelectedChatId) return;
+
+        try {
+            isUpdatingSelectedChatRef.current = true;
+
+            // Fetch updated messages specifically for the selected chat
+            const response = await axios.get(
+                `/admin/chats/${currentSelectedChatId}/messages`
+            );
+            const updatedMessages = response.data.messages || [];
+
+            setSelectedChat((prev) => {
+                if (!prev) return prev;
+
+                // Check if messages actually changed
+                const prevMessages = prev.messages || [];
+
+                const messagesChanged =
+                    prevMessages.length !== updatedMessages.length ||
+                    JSON.stringify(prevMessages.map((m) => m.id)) !==
+                        JSON.stringify(updatedMessages.map((m) => m.id));
+
+                if (messagesChanged) {
+                    // Preserve optimistic messages that are still sending or failed
+                    const optimisticMessages = prevMessages.filter(
+                        (msg) =>
+                            msg.status === "Sending" || msg.status === "Failed"
+                    );
+
+                    // Merge optimistic messages with new messages
+                    const mergedMessages = [
+                        ...updatedMessages.filter(
+                            (msg) =>
+                                !optimisticMessages.some(
+                                    (om) =>
+                                        om.temp_id && om.temp_id === msg.temp_id
+                                )
+                        ),
+                        ...optimisticMessages,
+                    ].sort(
+                        (a, b) =>
+                            new Date(a.created_at) - new Date(b.created_at)
+                    );
+
+                    // Return updated chat with ONLY messages changed, preserve everything else
+                    return {
+                        ...prev, // Keep all existing properties
+                        messages: mergedMessages, // Only update messages
+                    };
+                }
+
+                // If no message changes, don't update anything
+                return prev;
+            });
+        } catch (error) {
+            console.error("Silent polling error:", error);
+            // Don't show error to user for silent polling
+        } finally {
+            isUpdatingSelectedChatRef.current = false;
+        }
+    }, [auth.user]);
+
+    // Start/stop polling based on selected chat
+    useEffect(() => {
+        const currentSelectedChatId = selectedChatIdRef.current;
+
+        if (currentSelectedChatId) {
+            // Start polling immediately when a chat is selected
+            pollForUpdates();
+
+            // Set up interval for polling (every 3 seconds for faster updates)
+            pollingInterval.current = setInterval(pollForUpdates, 3000);
+
+            return () => {
+                if (pollingInterval.current) {
+                    clearInterval(pollingInterval.current);
+                    pollingInterval.current = null;
+                }
+            };
+        } else {
+            // Clear polling if no chat is selected
+            if (pollingInterval.current) {
+                clearInterval(pollingInterval.current);
+                pollingInterval.current = null;
+            }
+        }
+    }, [selectedChat?.id, pollForUpdates]);
+
+    // Track selected chat ID separately
+    useEffect(() => {
+        selectedChatIdRef.current = selectedChat?.id || null;
+    }, [selectedChat]);
 
     // Close sidebar when chat is selected on mobile
     useEffect(() => {
@@ -39,132 +162,44 @@ export default function AdminChatIndex({
         }
     }, [selectedChat]);
 
-    // Add this to your Echo setup
+    // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
-        if (!window.Echo || !selectedChat) return;
-
-        const readStatusChannel = window.Echo.private(
-            `chat.${selectedChat.id}`
-        );
-
-        readStatusChannel.listen(".MessageRead", (e) => {
-            if (e.chatId === selectedChat.id) {
-                setSelectedChat((prev) => ({
-                    ...prev,
-                    messages: (prev.messages || []).map((msg) =>
-                        msg.sender_id === auth.user.id && msg.status !== "Read"
-                            ? { ...msg, status: "Read" }
-                            : msg
-                    ),
-                }));
-            }
+        messagesEndRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "nearest",
         });
-
-        return () => {
-            readStatusChannel.stopListening(".MessageRead");
-        };
-    }, [selectedChat?.id]);
-
-    const handleNewMessage = (e) => {
-        const { message, chatId } = e;
-
-        // Update selected chat if it's the current one
-        if (selectedChat && selectedChat.id === chatId) {
-            setSelectedChat((prev) => {
-                // Check if message already exists (including optimistic messages)
-                const messageExists = prev.messages?.some(
-                    (m) =>
-                        m.id === message.id ||
-                        (m.status === "Sending" &&
-                            m.content === message.content)
-                );
-                if (messageExists) {
-                    // Replace optimistic message with real one
-                    return {
-                        ...prev,
-                        messages: prev.messages.map((m) =>
-                            m.id === message.id ||
-                            (m.status === "Sending" &&
-                                m.content === message.content)
-                                ? message
-                                : m
-                        ),
-                        latestMessage: {
-                            message: message.content,
-                            created_at: message.created_at,
-                        },
-                    };
-                }
-
-                return {
-                    ...prev,
-                    messages: [...(prev.messages || []), message],
-                    latestMessage: {
-                        message: message.content,
-                        created_at: message.created_at,
-                    },
-                };
-            });
-        }
-
-        // Update chat lists more efficiently
-        const updateChatList = (list) =>
-            list.map((chat) => {
-                if (chat.id === chatId) {
-                    return {
-                        ...chat,
-                        latestMessage: {
-                            message: message.content,
-                            created_at: message.created_at,
-                        },
-                        unreadCount:
-                            message.sender_type === "App\\Models\\User" &&
-                            (!selectedChat || selectedChat.id !== chatId)
-                                ? (chat.unreadCount || 0) + 1
-                                : chat.unreadCount,
-                    };
-                }
-                return chat;
-            });
-
-        setChats(updateChatList(chats));
-        setRequests(updateChatList(requests));
-        setEndedChats(updateChatList(endedChats));
-    };
-
-    const filteredChats = chats.filter(
-        (chat) =>
-            chat.user?.name
-                ?.toLowerCase()
-                .includes(searchQuery.toLowerCase()) ||
-            chat.latestMessage?.message
-                ?.toLowerCase()
-                .includes(searchQuery.toLowerCase())
-    );
-
-    const filteredRequests = requests.filter(
-        (request) =>
-            request.user?.name
-                ?.toLowerCase()
-                .includes(searchQuery.toLowerCase()) ||
-            request.latestMessage?.message
-                ?.toLowerCase()
-                .includes(searchQuery.toLowerCase())
-    );
-
-    const filteredEndedChats = endedChats.filter(
-        (chat) =>
-            chat.user?.name
-                ?.toLowerCase()
-                .includes(searchQuery.toLowerCase()) ||
-            chat.latestMessage?.message
-                ?.toLowerCase()
-                .includes(searchQuery.toLowerCase())
-    );
-
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [selectedChat?.messages]);
+
+    // Fixed filter functions with proper null checks
+    const filteredChats = (chats || []).filter(
+        (chat) =>
+            chat?.user?.name
+                ?.toLowerCase()
+                .includes(searchQuery.toLowerCase()) ||
+            chat?.latestMessage?.message
+                ?.toLowerCase()
+                .includes(searchQuery.toLowerCase())
+    );
+
+    const filteredRequests = (requests || []).filter(
+        (request) =>
+            request?.user?.name
+                ?.toLowerCase()
+                .includes(searchQuery.toLowerCase()) ||
+            request?.latestMessage?.message
+                ?.toLowerCase()
+                .includes(searchQuery.toLowerCase())
+    );
+
+    const filteredEndedChats = (endedChats || []).filter(
+        (chat) =>
+            chat?.user?.name
+                ?.toLowerCase()
+                .includes(searchQuery.toLowerCase()) ||
+            chat?.latestMessage?.message
+                ?.toLowerCase()
+                .includes(searchQuery.toLowerCase())
+    );
 
     const handleSendMessage = async (e) => {
         e.preventDefault();
@@ -178,7 +213,7 @@ export default function AdminChatIndex({
         const tempId = Date.now();
         const newMsg = {
             id: tempId,
-            content: newMessage,
+            message: newMessage,
             sender_id: auth.user.id,
             sender_type: "App\\Models\\Admin",
             created_at: new Date().toISOString(),
@@ -190,9 +225,10 @@ export default function AdminChatIndex({
                 name: auth.user.name,
                 email: auth.user.email,
             },
+            temp_id: tempId,
         };
 
-        // Optimistic update
+        // Optimistic update - only update messages
         setSelectedChat((prev) => ({
             ...prev,
             messages: [...(prev.messages || []), newMsg],
@@ -207,7 +243,7 @@ export default function AdminChatIndex({
         setReplyToMessage(null);
 
         try {
-            const response = await router.post(
+            await router.post(
                 route("admin.chat.store", selectedChat.id),
                 {
                     content: newMessage,
@@ -217,16 +253,22 @@ export default function AdminChatIndex({
                 {
                     preserveScroll: true,
                     onSuccess: () => {
-                        // No need to remove temp message here - Echo will handle it
+                        setSuccessMessage("Message sent successfully");
+                        setTimeout(() => setSuccessMessage(null), 3000);
+                        // Trigger immediate poll to get the real message
+                        setTimeout(pollForUpdates, 1000);
                     },
-                    onError: () => {
-                        // Mark as failed if there's an error
+                    onError: (errors) => {
+                        // Update message status to failed
                         setSelectedChat((prev) => ({
                             ...prev,
                             messages: (prev.messages || []).map((m) =>
-                                m.id === tempId ? { ...m, status: "Failed" } : m
+                                m.temp_id === tempId
+                                    ? { ...m, status: "Failed" }
+                                    : m
                             ),
                         }));
+                        setError(errors?.message || "Failed to send message");
                     },
                 }
             );
@@ -235,9 +277,10 @@ export default function AdminChatIndex({
             setSelectedChat((prev) => ({
                 ...prev,
                 messages: (prev.messages || []).map((m) =>
-                    m.id === tempId ? { ...m, status: "Failed" } : m
+                    m.temp_id === tempId ? { ...m, status: "Failed" } : m
                 ),
             }));
+            setError(error.message || "Failed to send message");
         }
     };
 
@@ -255,59 +298,150 @@ export default function AdminChatIndex({
 
     const acceptRequest = async (chatId) => {
         try {
-            const response = await router.post(
-                route("admin.chat.accept", chatId),
-                {},
-                {
-                    preserveScroll: true,
-                    onSuccess: (response) => {
-                        const acceptedRequest = requests.find(
-                            (r) => r.id === chatId
-                        );
-                        if (acceptedRequest) {
-                            setRequests(
-                                requests.filter((r) => r.id !== chatId)
-                            );
-                            setChats([
-                                ...chats,
-                                {
-                                    ...acceptedRequest,
-                                    status: "active",
-                                },
-                            ]);
-                        }
-                    },
-                    onError: (errors) => {
-                        if (errors?.response?.status === 409) {
-                            const existingRequest = requests.find(
-                                (r) => r.id === chatId
-                            );
-                            if (existingRequest) {
-                                setRequests(
-                                    requests.filter((r) => r.id !== chatId)
-                                );
-                                setChats([...chats, existingRequest]);
-                            }
-                            return;
-                        }
-                        alert(
-                            errors?.message ||
-                                "An error occurred while accepting the chat"
-                        );
-                    },
-                }
+            setLoading(true);
+            setError(null);
+
+            // Use axios instead of router.post for API calls
+            const response = await axios.post(
+                route("admin.chat.accept", chatId)
             );
+
+            // If we get here, it means the page will reload due to Inertia redirect
+            // So we don't need to update local state manually
         } catch (error) {
             console.error("Chat acceptance error:", error);
-            alert(error.message || "An unexpected error occurred");
+
+            // Handle 409 conflict - chat already assigned
+            if (error.response?.status === 409) {
+                // Refresh the entire sidebar to get updated data
+                await refreshSidebar();
+
+                // Try to find and select this chat if it's now in active chats
+                const existingChat = [...chats, ...requests].find(
+                    (chat) => chat.id === chatId
+                );
+                if (existingChat) {
+                    handleChatSelect(existingChat);
+                }
+                return;
+            }
+
+            setError(
+                error.response?.data?.message ||
+                    error.message ||
+                    "An error occurred while accepting the chat"
+            );
+        } finally {
+            setLoading(false);
         }
     };
+    const markChatAsRead = async (chatId) => {
+        try {
+            await axios.post(route("admin.chats.markAsRead", chatId));
+            setChats((prevChats) =>
+                (prevChats || []).map((chat) =>
+                    chat.id === chatId ? { ...chat, unreadCount: 0 } : chat
+                )
+            );
+            setRequests((prevRequests) =>
+                (prevRequests || []).map((request) =>
+                    request.id === chatId
+                        ? { ...request, unreadCount: 0 }
+                        : request
+                )
+            );
+        } catch (error) {
+            console.error("Error marking chat as read:", error);
+        }
+    };
+
+    const handleChatSelect = useCallback((chat) => {
+        // Prevent selection if already selecting this chat
+        if (selectedChatIdRef.current === chat.id) return;
+
+        // Ensure we have all necessary properties
+        const selectedChatData = {
+            ...chat,
+            messages: chat.messages || [],
+            user: chat.user || { name: "Unknown Volunteer", email: "" },
+            status: chat.status || "active",
+        };
+
+        setSelectedChat(selectedChatData);
+        selectedChatIdRef.current = chat.id;
+
+        // Mark as read when selecting a chat
+        markChatAsRead(chat.id);
+    }, []);
+
+    const endChat = async () => {
+        if (confirm("Are you sure you want to end this chat?")) {
+            try {
+                await router.post(route("admin.chats.end", selectedChat.id));
+
+                // Update local state
+                setSelectedChat((prev) => ({
+                    ...prev,
+                    status: "ended",
+                }));
+
+                setChats(
+                    (chats || []).map((c) =>
+                        c.id === selectedChat.id ? { ...c, status: "ended" } : c
+                    )
+                );
+
+                setEndedChats([
+                    ...(endedChats || []),
+                    {
+                        ...selectedChat,
+                        status: "ended",
+                    },
+                ]);
+
+                setSuccessMessage("Chat ended successfully");
+                setTimeout(() => setSuccessMessage(null), 3000);
+
+                // Refresh sidebar
+                setTimeout(refreshSidebar, 1000);
+            } catch (error) {
+                console.error("Error ending chat:", error);
+                setError("Failed to end chat");
+            }
+        }
+    };
+
+    // Calculate total unread count for badge
+    const totalUnreadCount = [...chats, ...requests].reduce(
+        (sum, item) => sum + (item.unreadCount || 0),
+        0
+    );
 
     return (
         <AdminLayout>
             <Head title="Volunteer Chats" />
 
             <div className="max-w-7xl mx-auto py-2 px-2 sm:px-4 lg:px-8">
+                {/* Success Message */}
+                {successMessage && (
+                    <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+                        {successMessage}
+                    </div>
+                )}
+
+                {/* Error Message */}
+                {error && (
+                    <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                        {error}
+                        <button
+                            onClick={() => setError(null)}
+                            className="float-right font-bold"
+                        >
+                            ×
+                        </button>
+                    </div>
+                )}
+
                 <div className="flex flex-col md:flex-row bg-white rounded-xl shadow overflow-hidden h-[calc(100vh-100px)] md:h-[calc(100vh-150px)]">
                     {/* Conversations List - Sidebar */}
                     <div
@@ -328,6 +462,11 @@ export default function AdminChatIndex({
                             <div className="md:hidden p-3 border-b border-gray-200 flex items-center justify-between">
                                 <h2 className="text-lg font-semibold text-gray-800">
                                     Conversations
+                                    {totalUnreadCount > 0 && (
+                                        <span className="ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                                            {totalUnreadCount}
+                                        </span>
+                                    )}
                                 </h2>
                                 <button
                                     onClick={() => setShowConversations(false)}
@@ -337,19 +476,41 @@ export default function AdminChatIndex({
                                 </button>
                             </div>
                             <div className="p-3 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Search className="h-4 w-4 text-gray-400" />
+                                <div className="flex gap-2">
+                                    <div className="relative flex-1">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <Search className="h-4 w-4 text-gray-400" />
+                                        </div>
+                                        <input
+                                            type="text"
+                                            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                            placeholder="Search chats..."
+                                            value={searchQuery}
+                                            onChange={(e) =>
+                                                setSearchQuery(e.target.value)
+                                            }
+                                        />
                                     </div>
-                                    <input
-                                        type="text"
-                                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                        placeholder="Search chats..."
-                                        value={searchQuery}
-                                        onChange={(e) =>
-                                            setSearchQuery(e.target.value)
-                                        }
-                                    />
+                                    {/* Refresh button for manual sidebar updates */}
+                                    <button
+                                        onClick={refreshSidebar}
+                                        className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm flex items-center justify-center"
+                                        title="Refresh chats"
+                                    >
+                                        <svg
+                                            className="w-4 h-4"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                            />
+                                        </svg>
+                                    </button>
                                 </div>
                             </div>
                             {/* Tabs */}
@@ -373,9 +534,9 @@ export default function AdminChatIndex({
                                     onClick={() => setActiveTab("requests")}
                                 >
                                     Requests
-                                    {requests.length > 0 && (
+                                    {(requests || []).length > 0 && (
                                         <span className="ml-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                                            {requests.length}
+                                            {(requests || []).length}
                                         </span>
                                     )}
                                 </button>
@@ -396,7 +557,7 @@ export default function AdminChatIndex({
                                     filteredChats?.length > 0 ? (
                                         filteredChats.map((chat) => {
                                             const previewText = chat
-                                                .latestMessage?.message
+                                                ?.latestMessage?.message
                                                 ? chat.latestMessage.message
                                                       .length > 30
                                                     ? `${chat.latestMessage.message.substring(
@@ -416,24 +577,19 @@ export default function AdminChatIndex({
                                                             : ""
                                                     }`}
                                                     onClick={() =>
-                                                        setSelectedChat({
-                                                            ...chat,
-                                                            messages:
-                                                                chat.messages ||
-                                                                [],
-                                                        })
+                                                        handleChatSelect(chat)
                                                     }
                                                 >
                                                     <div className="flex justify-between items-center">
                                                         <div className="flex items-center min-w-0">
                                                             <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-r from-blue-100 to-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
-                                                                {chat.user?.name?.charAt(
+                                                                {chat?.user?.name?.charAt(
                                                                     0
                                                                 ) || "V"}
                                                             </div>
                                                             <div className="min-w-0">
                                                                 <p className="text-sm font-medium text-gray-900 truncate">
-                                                                    {chat.user
+                                                                    {chat?.user
                                                                         ?.name ||
                                                                         "Unknown Volunteer"}
                                                                 </p>
@@ -444,24 +600,24 @@ export default function AdminChatIndex({
                                                                 </p>
                                                                 <span
                                                                     className={`text-xs ${
-                                                                        chat.status ===
+                                                                        chat?.status ===
                                                                         "ended"
                                                                             ? "text-red-500"
-                                                                            : chat.status ===
+                                                                            : chat?.status ===
                                                                               "active"
                                                                             ? "text-green-500"
                                                                             : "text-yellow-500"
                                                                     }`}
                                                                 >
                                                                     {
-                                                                        chat.status
+                                                                        chat?.status
                                                                     }
                                                                 </span>
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center">
-                                                            {chat.unreadCount >
-                                                                0 && (
+                                                            {(chat?.unreadCount ||
+                                                                0) > 0 && (
                                                                 <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full mr-2">
                                                                     {
                                                                         chat.unreadCount
@@ -490,7 +646,7 @@ export default function AdminChatIndex({
                                     filteredRequests?.length > 0 ? (
                                         filteredRequests.map((request) => {
                                             const previewText = request
-                                                .latestMessage?.message
+                                                ?.latestMessage?.message
                                                 ? request.latestMessage.message
                                                       .length > 30
                                                     ? `${request.latestMessage.message.substring(
@@ -511,25 +667,22 @@ export default function AdminChatIndex({
                                                             : ""
                                                     }`}
                                                     onClick={() =>
-                                                        setSelectedChat({
-                                                            ...request,
-                                                            messages:
-                                                                request.messages ||
-                                                                [],
-                                                        })
+                                                        handleChatSelect(
+                                                            request
+                                                        )
                                                     }
                                                 >
                                                     <div className="flex justify-between items-center">
                                                         <div className="flex items-center min-w-0">
                                                             <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-r from-blue-100 to-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
-                                                                {request.user?.name?.charAt(
+                                                                {request?.user?.name?.charAt(
                                                                     0
                                                                 ) || "V"}
                                                             </div>
                                                             <div className="min-w-0">
                                                                 <p className="text-sm font-medium text-gray-900 truncate">
                                                                     {request
-                                                                        .user
+                                                                        ?.user
                                                                         ?.name ||
                                                                         "Unknown Volunteer"}
                                                                 </p>
@@ -550,9 +703,14 @@ export default function AdminChatIndex({
                                                                         request.id
                                                                     );
                                                                 }}
-                                                                className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
+                                                                disabled={
+                                                                    loading
+                                                                }
+                                                                className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50"
                                                             >
-                                                                Accept
+                                                                {loading
+                                                                    ? "Accepting..."
+                                                                    : "Accept"}
                                                             </button>
                                                         </div>
                                                     </div>
@@ -573,7 +731,7 @@ export default function AdminChatIndex({
                                     filteredEndedChats?.length > 0 ? (
                                         filteredEndedChats.map((chat) => {
                                             const previewText = chat
-                                                .latestMessage?.message
+                                                ?.latestMessage?.message
                                                 ? chat.latestMessage.message
                                                       .length > 30
                                                     ? `${chat.latestMessage.message.substring(
@@ -593,24 +751,19 @@ export default function AdminChatIndex({
                                                             : ""
                                                     }`}
                                                     onClick={() =>
-                                                        setSelectedChat({
-                                                            ...chat,
-                                                            messages:
-                                                                chat.messages ||
-                                                                [],
-                                                        })
+                                                        handleChatSelect(chat)
                                                     }
                                                 >
                                                     <div className="flex justify-between items-center">
                                                         <div className="flex items-center min-w-0">
                                                             <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-r from-blue-100 to-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
-                                                                {chat.user?.name?.charAt(
+                                                                {chat?.user?.name?.charAt(
                                                                     0
                                                                 ) || "V"}
                                                             </div>
                                                             <div className="min-w-0">
                                                                 <p className="text-sm font-medium text-gray-900 truncate">
-                                                                    {chat.user
+                                                                    {chat?.user
                                                                         ?.name ||
                                                                         "Unknown Volunteer"}
                                                                 </p>
@@ -663,132 +816,57 @@ export default function AdminChatIndex({
                                             <Menu className="w-5 h-5" />
                                         </button>
                                         <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-r from-blue-100 to-indigo-100 flex items-center justify-center text-indigo-600 mr-3">
-                                            {selectedChat.user?.name?.charAt(
+                                            {selectedChat?.user?.name?.charAt(
                                                 0
                                             ) || "V"}
                                         </div>
                                         <div className="min-w-0">
                                             <h2 className="text-lg font-semibold text-gray-900 truncate">
-                                                {selectedChat.user?.name ||
+                                                {selectedChat?.user?.name ||
                                                     "Unknown Volunteer"}
                                             </h2>
                                             <p className="text-xs text-gray-500 truncate">
-                                                {selectedChat.user?.email ||
+                                                {selectedChat?.user?.email ||
                                                     "No email provided"}
                                             </p>
                                         </div>
                                     </div>
                                     <div className="flex space-x-2">
                                         <button
-                                            onClick={async () => {
-                                                if (
-                                                    confirm(
-                                                        "Are you sure you want to end this chat?"
-                                                    )
-                                                ) {
-                                                    try {
-                                                        await router.post(
-                                                            route(
-                                                                "admin.chats.end",
-                                                                selectedChat.id
-                                                            )
-                                                        );
-                                                        // Update local state
-                                                        setSelectedChat(
-                                                            (prev) => ({
-                                                                ...prev,
-                                                                status: "ended",
-                                                            })
-                                                        );
-                                                        setChats(
-                                                            chats.map((c) =>
-                                                                c.id ===
-                                                                selectedChat.id
-                                                                    ? {
-                                                                          ...c,
-                                                                          status: "ended",
-                                                                      }
-                                                                    : c
-                                                            )
-                                                        );
-                                                        // Add to ended chats
-                                                        setEndedChats([
-                                                            ...endedChats,
-                                                            {
-                                                                ...selectedChat,
-                                                                status: "ended",
-                                                            },
-                                                        ]);
-                                                    } catch (error) {
-                                                        console.error(
-                                                            "Error ending chat:",
-                                                            error
-                                                        );
-                                                        alert(
-                                                            "Failed to end chat"
-                                                        );
-                                                    }
-                                                }
-                                            }}
+                                            onClick={endChat}
                                             disabled={
-                                                selectedChat.status === "ended"
+                                                selectedChat?.status === "ended"
                                             }
                                             className={`px-3 py-1 rounded-lg text-sm ${
-                                                selectedChat.status === "ended"
+                                                selectedChat?.status === "ended"
                                                     ? "bg-gray-400 cursor-not-allowed"
                                                     : "bg-red-500 hover:bg-red-600 text-white"
                                             }`}
                                         >
-                                            {selectedChat.status === "ended"
+                                            {selectedChat?.status === "ended"
                                                 ? "Chat Ended"
                                                 : "End Chat"}
-                                        </button>
-                                        <button className="p-2 rounded-full hover:bg-gray-200 text-gray-600">
-                                            <svg
-                                                className="w-5 h-5"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth={2}
-                                                    d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                                                />
-                                            </svg>
-                                        </button>
-                                        <button className="p-2 rounded-full hover:bg-gray-200 text-gray-600">
-                                            <svg
-                                                className="w-5 h-5"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth={2}
-                                                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                                />
-                                            </svg>
                                         </button>
                                     </div>
                                 </div>
 
                                 <div className="flex-1 p-3 overflow-y-auto">
                                     <div className="space-y-3">
-                                        {(selectedChat.messages || []).map(
+                                        {(selectedChat?.messages || []).map(
                                             (message) => (
                                                 <div
-                                                    key={message.id}
+                                                    key={
+                                                        message.id ||
+                                                        message.temp_id
+                                                    }
                                                     ref={(el) =>
                                                         (messageRefs.current[
-                                                            message.id
+                                                            message.id ||
+                                                                message.temp_id
                                                         ] = el)
                                                     }
                                                     className={`flex ${
-                                                        message.sender_id ===
+                                                        message?.sender_id ===
                                                         auth.user.id
                                                             ? "justify-end"
                                                             : "justify-start"
@@ -796,16 +874,24 @@ export default function AdminChatIndex({
                                                 >
                                                     <div
                                                         className={`max-w-[80%] lg:max-w-md px-3 py-2 rounded-lg shadow-sm ${
-                                                            message.sender_id ===
+                                                            message?.sender_id ===
                                                             auth.user.id
                                                                 ? "bg-blue-500 text-white"
                                                                 : "bg-white border border-gray-200"
+                                                        } ${
+                                                            message?.status ===
+                                                            "Sending"
+                                                                ? "opacity-70"
+                                                                : message?.status ===
+                                                                  "Failed"
+                                                                ? "bg-red-100 border-red-300"
+                                                                : ""
                                                         }`}
                                                     >
-                                                        {message.original_message && (
+                                                        {message?.original_message && (
                                                             <div
                                                                 className={`mb-2 p-2 rounded text-xs cursor-pointer ${
-                                                                    message.sender_id ===
+                                                                    message?.sender_id ===
                                                                     auth.user.id
                                                                         ? "bg-blue-600"
                                                                         : "bg-blue-50"
@@ -813,15 +899,15 @@ export default function AdminChatIndex({
                                                                 onClick={() =>
                                                                     handleOriginalMessageClick(
                                                                         message
-                                                                            .original_message
-                                                                            .id
+                                                                            ?.original_message
+                                                                            ?.id
                                                                     )
                                                                 }
                                                             >
                                                                 <div className="flex items-start">
                                                                     <svg
                                                                         className={`w-3 h-3 mt-0.5 mr-2 flex-shrink-0 ${
-                                                                            message.sender_id ===
+                                                                            message?.sender_id ===
                                                                             auth
                                                                                 .user
                                                                                 .id
@@ -844,7 +930,7 @@ export default function AdminChatIndex({
                                                                     <div className="flex-1">
                                                                         <p
                                                                             className={`text-xs font-medium mb-1 ${
-                                                                                message.sender_id ===
+                                                                                message?.sender_id ===
                                                                                 auth
                                                                                     .user
                                                                                     .id
@@ -855,19 +941,19 @@ export default function AdminChatIndex({
                                                                             Replying
                                                                             to{" "}
                                                                             {message
-                                                                                .original_message
-                                                                                .sender_id ===
+                                                                                ?.original_message
+                                                                                ?.sender_id ===
                                                                             auth
                                                                                 .user
                                                                                 .id
                                                                                 ? "your message"
                                                                                 : selectedChat
-                                                                                      .user
+                                                                                      ?.user
                                                                                       ?.name}
                                                                         </p>
                                                                         <p
                                                                             className={`text-xs ${
-                                                                                message.sender_id ===
+                                                                                message?.sender_id ===
                                                                                 auth
                                                                                     .user
                                                                                     .id
@@ -877,8 +963,8 @@ export default function AdminChatIndex({
                                                                         >
                                                                             {
                                                                                 message
-                                                                                    .original_message
-                                                                                    .message
+                                                                                    ?.original_message
+                                                                                    ?.message
                                                                             }
                                                                         </p>
                                                                     </div>
@@ -888,23 +974,23 @@ export default function AdminChatIndex({
 
                                                         <p
                                                             className={`text-sm ${
-                                                                message.sender_id ===
+                                                                message?.sender_id ===
                                                                 auth.user.id
                                                                     ? "text-white"
                                                                     : "text-gray-800"
                                                             }`}
                                                         >
-                                                            {message.message}
+                                                            {message?.message}
                                                         </p>
                                                         <div
                                                             className={`flex justify-between items-center mt-1 ${
-                                                                message.sender_id ===
+                                                                message?.sender_id ===
                                                                 auth.user.id
                                                                     ? "text-blue-100"
                                                                     : "text-gray-500"
                                                             }`}
                                                         >
-                                                            {message.sender_id !==
+                                                            {message?.sender_id !==
                                                                 auth.user
                                                                     .id && (
                                                                 <button
@@ -920,7 +1006,7 @@ export default function AdminChatIndex({
                                                             )}
                                                             <p className="text-[9px]">
                                                                 {new Date(
-                                                                    message.created_at
+                                                                    message?.created_at
                                                                 ).toLocaleTimeString(
                                                                     [],
                                                                     {
@@ -928,36 +1014,14 @@ export default function AdminChatIndex({
                                                                         minute: "2-digit",
                                                                     }
                                                                 )}
-                                                            </p>
-                                                            <p>
-                                                                {message.sender_id ===
-                                                                    auth.user
-                                                                        .id && (
-                                                                    <span
-                                                                        className={`text-[9px] ${
-                                                                            message.status ===
-                                                                            "Read"
-                                                                                ? "text-blue-300"
-                                                                                : "text-blue-200"
-                                                                        }`}
-                                                                    >
-                                                                        {message.status ===
-                                                                        "Read" ? (
-                                                                            <span className="flex">
-                                                                                <span>
-                                                                                    ✓
-                                                                                </span>
-                                                                                <span>
-                                                                                    ✓
-                                                                                </span>
-                                                                            </span>
-                                                                        ) : (
-                                                                            <span>
-                                                                                ✓
-                                                                            </span>
-                                                                        )}
-                                                                    </span>
-                                                                )}
+                                                                {message?.status ===
+                                                                    "Sending" &&
+                                                                    " • Sending..."}
+                                                                {message?.status ===
+                                                                    "Failed" &&
+                                                                    " • Failed"}
+                                                                {message?.temp_id &&
+                                                                    " • Sending..."}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -969,7 +1033,7 @@ export default function AdminChatIndex({
                                 </div>
 
                                 <div className="p-3 border-t border-gray-200 bg-white">
-                                    {selectedChat.status === "ended" && (
+                                    {selectedChat?.status === "ended" && (
                                         <div className="p-4 text-center bg-gray-50 border-t border-gray-200">
                                             <p className="text-gray-500">
                                                 This chat has been ended. No
@@ -977,18 +1041,18 @@ export default function AdminChatIndex({
                                             </p>
                                         </div>
                                     )}
-                                    {selectedChat.status !== "ended" && (
+                                    {selectedChat?.status !== "ended" && (
                                         <div className="p-3 border-t border-gray-200 bg-white">
                                             {isReplying && (
                                                 <div className="mb-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
                                                     <div className="flex justify-between items-center">
                                                         <p className="text-sm text-blue-800 font-medium">
                                                             Replying to:{" "}
-                                                            {replyToMessage.sender_id ===
+                                                            {replyToMessage?.sender_id ===
                                                             auth.user.id
                                                                 ? "your message"
                                                                 : selectedChat
-                                                                      .user
+                                                                      ?.user
                                                                       ?.name}
                                                         </p>
                                                         <button
@@ -1006,7 +1070,9 @@ export default function AdminChatIndex({
                                                         </button>
                                                     </div>
                                                     <p className="text-xs text-gray-600 truncate">
-                                                        {replyToMessage.message}
+                                                        {
+                                                            replyToMessage?.message
+                                                        }
                                                     </p>
                                                 </div>
                                             )}
@@ -1026,19 +1092,28 @@ export default function AdminChatIndex({
                                                     placeholder={
                                                         isReplying
                                                             ? `Reply to ${
-                                                                  replyToMessage.sender_id ===
+                                                                  replyToMessage?.sender_id ===
                                                                   auth.user.id
                                                                       ? "your message"
                                                                       : selectedChat
-                                                                            .user
+                                                                            ?.user
                                                                             ?.name
                                                               }...`
                                                             : "Type your message..."
                                                     }
+                                                    disabled={
+                                                        selectedChat?.status ===
+                                                        "ended"
+                                                    }
                                                 />
                                                 <button
                                                     type="submit"
-                                                    className="px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-md flex items-center justify-center"
+                                                    disabled={
+                                                        selectedChat?.status ===
+                                                            "ended" ||
+                                                        !newMessage.trim()
+                                                    }
+                                                    className="px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     <Send className="w-5 h-5" />
                                                 </button>

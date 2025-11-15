@@ -12,6 +12,7 @@ use App\Models\VolunteerSponsorship;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\Cache;
 use App\Mail\VolunteerBookingConfirmation;
 use App\Mail\EmailVolunteerVerificationCode;
@@ -197,6 +198,9 @@ class BookingController extends Controller
         // Get project details
         $project = Project::with('organizationProfile')->find($validated['project_public_id']);
 
+        // After creating booking
+        NotificationService::notifyNewBooking($booking);
+
         // Send confirmation email to volunteer
         Mail::to($user->email)->send(new VolunteerBookingConfirmation($booking, $project));
 
@@ -313,6 +317,9 @@ class BookingController extends Controller
 
         // Get project details
         $project = Project::with('organizationProfile')->find($validated['project_public_id']);
+
+        // After creating booking
+        NotificationService::notifyNewBooking($booking);
 
         // Send confirmation email to volunteer
         Mail::to($user->email)->send(new VolunteerBookingConfirmation($booking, $project));

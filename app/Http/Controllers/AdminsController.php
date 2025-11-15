@@ -28,10 +28,12 @@ use Illuminate\Support\Facades\Mail;
 use App\Mail\FeaturedProjectApproved;
 use App\Mail\FeaturedProjectRejected;
 use App\Models\VolunteerVerification;
+use App\Services\NotificationService;
 use App\Mail\VolunteerVerificationMail;
 use App\Models\OrganizationVerification;
 use Illuminate\Support\Facades\Validator;
 use App\Mail\OrganizationVerificationMail;
+use Illuminate\Support\Facades\Auth;
 use SebastianBergmann\CodeCoverage\Report\Xml\Report;
 
 class AdminsController extends Controller
@@ -142,6 +144,9 @@ class AdminsController extends Controller
                 ->send(new OrganizationVerificationMail($verification, $organization, $status));
         }
 
+        // Add notification
+        NotificationService::notifyOrganizationVerification($organization, $status);
+
         return redirect()->back()->with('success', 'Verification status updated successfully.');
     }
 
@@ -151,7 +156,7 @@ class AdminsController extends Controller
     public function volunteerVerifications($id)
     {
         $volunteer = VolunteerProfile::where('id', $id)->with('user')->firstOrFail();
-        $verification = VolunteerVerification::where('volunteer_public_id', $volunteer->public_id)->first();
+        $verification = VolunteerVerification::where('volunteer_id', $volunteer->id)->first();
 
         return inertia('Admins/Volunteers/Verify', [
             'volunteer' => $volunteer,  // Changed from 'organization' to 'volunteer' to match what you're actually returning
@@ -185,6 +190,9 @@ class AdminsController extends Controller
                     $volunteer->user  // Pass the user explicitly
                 ));
         }
+
+        // Add notification
+        NotificationService::notifyVolunteerVerification($volunteer, $status);
 
         return redirect()->back()->with('success', 'Verification updated successfully');
     }
@@ -295,19 +303,19 @@ class AdminsController extends Controller
     public function storeRemark(Request $request)
     {
         $request->validate([
-            'project_public_id' => 'required|exists:projects,id',
+            'project_id' => 'required|exists:projects,id',
             'remark' => 'required|string|max:1000',
         ]);
 
         ProjectRemark::create([
-            'project_public_id' => $request->project_public_id,
-            'admin_public_id' => auth('admin')->id(),
+            'project_id' => $request->project_id,
+            'admin_id' => auth('admin')->id(),
             'remark' => $request->remark,
             'status' => null,
         ]);
 
         // Optionally update the project status
-        $project = Project::find($request->project_public_id);
+        $project = Project::find($request->project_id);
         $project->status = 'Rejected';
         $project->save();
 
@@ -327,8 +335,12 @@ class AdminsController extends Controller
     {
         $project = Project::findOrFail($id);
         $project->status = $request->status;
-        // dd($project->status);
         $project->save();
+
+        // Add notification
+        if ($request->status === 'Approved') {
+            NotificationService::notifyProjectApproved($project);
+        }
 
         return redirect()->back()->with('success', 'Project approved successfully.');
     }
@@ -573,6 +585,10 @@ class AdminsController extends Controller
             $featuredProject->is_active = true;
             $featuredProject->rejection_reason = null;
 
+
+            // Add notification
+            NotificationService::notifyFeaturedProjectApproved($featuredProject);
+
             // Send approval email
             Mail::to($featuredProject->user->email)
                 ->send(new FeaturedProjectApproved($featuredProject));
@@ -582,6 +598,9 @@ class AdminsController extends Controller
             $featuredProject->is_active = false;
             $featuredProject->start_date = null;
             $featuredProject->end_date = null;
+
+            // Add notification
+            NotificationService::notifyFeaturedProjectRejected($featuredProject);
 
             // Send rejection email
             Mail::to($featuredProject->user->email)
@@ -766,7 +785,8 @@ class AdminsController extends Controller
 
         $review->update([
             'status' => $request->status,
-            'admin_id' => auth()->id()
+            'admin_id' => Auth::id()
+            // 'admin_id' => auth()->id()
         ]);
 
         return redirect()->back()->with('success', 'Review status updated successfully.');

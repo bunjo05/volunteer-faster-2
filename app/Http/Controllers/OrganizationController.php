@@ -18,8 +18,10 @@ use App\Models\PointTransaction;
 use App\Models\VolunteerBooking;
 use App\Models\OrganizationProfile;
 use App\Mail\ProjectReviewRequested;
+use App\Models\Notification;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\Storage;
 use App\Models\OrganizationVerification;
 use App\Services\VolunteerPointsService;
@@ -148,11 +150,24 @@ class OrganizationController extends Controller
         if ($validated['booking_status'] === 'Completed' && $previousStatus !== 'Completed') {
             $pointsService = new VolunteerPointsService();
             $pointsService->awardPointsForCompletedBooking($booking);
+
+            // Add notification
+            NotificationService::notifyBookingCompleted($booking);
+        } elseif ($validated['booking_status'] === 'Cancelled' && $previousStatus !== 'Cancelled') {
+            NotificationService::notifyBookingCancelled($booking);
+        } elseif ($validated['booking_status'] === 'Rejected' && $previousStatus !== 'Rejected') {
+            NotificationService::notifyBookingRejected($booking);
+        } elseif ($validated['booking_status'] === 'Approved' && $previousStatus !== 'Approved') {
+            NotificationService::notifyBookingApproved($booking);
         }
+
+
+        // NotificationService::notifyBookingCompleted($booking);
 
         // Send completion email if status is Completed and flag is set
         if ($validated['booking_status'] === 'Completed' && ($request->send_completion_email ?? false)) {
             // Load the necessary relationships
+
             $booking->load(['user', 'project.user']);
             Mail::to($booking->user->email)
                 ->send(new BookingCompleted($booking));

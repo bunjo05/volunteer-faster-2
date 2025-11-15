@@ -36,20 +36,27 @@ class VolunteerController extends Controller
 
         // Get chats where the user is a participant
         $chats = Chat::whereHas('participants', function ($query) use ($user) {
-            $query->where('user_public_id', $user->public_id);
+            $query->where('user_id', $user->id);
         })
             ->with(['latestMessage'])
             ->orderBy('updated_at', 'desc')
             ->get()
             ->map(function ($chat) use ($user) {
+                $adminParticipant = $chat->participants->firstWhere('admin_id', '!=', null);
                 return [
-                    'id' => $chat->public_id,
+                    'id' => $chat->id,
+                    'status' => $chat->status,
                     'updated_at' => $chat->updated_at,
                     'unread_count' => $chat->messages()
-                        ->where('sender_type', 'App\Models\Admin')
+                        ->where('sender_type', 'App\\Models\\Admin')
                         ->whereNull('read_at') // Use read_at instead of status
                         ->count(),
                     'latest_message' => $chat->latestMessage?->content,
+                    'admin' => $adminParticipant?->admin ? [
+                        'id' => $adminParticipant->admin->id,
+                        'name' => $adminParticipant->admin->name,
+                        'email' => $adminParticipant->admin->email,
+                    ] : null
                 ];
             });
 
@@ -64,14 +71,14 @@ class VolunteerController extends Controller
 
         // Check if user already has a pending chat
         $pendingChat = Chat::whereHas('participants', function ($query) use ($user) {
-            $query->where('user_public_id', $user->public_id);
+            $query->where('user_id', $user->id);
         })->where('status', 'pending')->first();
 
         if ($pendingChat) {
             return response()->json([
                 'error' => 'You already have a pending chat',
                 'existing_chat' => [
-                    'id' => $pendingChat->public_id,
+                    'id' => $pendingChat->id,
                     'updated_at' => $pendingChat->updated_at,
                     'unread_count' => 0
                 ]
@@ -80,7 +87,7 @@ class VolunteerController extends Controller
 
         // Check if user has too many active chats
         $activeChatCount = Chat::whereHas('participants', function ($query) use ($user) {
-            $query->where('user_public_id', $user->public_id);
+            $query->where('user_id', $user->id);
         })->where('status', 'active')->count();
 
         if ($activeChatCount >= 1) { // Adjust this number as needed
@@ -96,12 +103,12 @@ class VolunteerController extends Controller
 
         // Add the user as a participant
         $chat->participants()->create([
-            'user_public_id' => $user->public_id
+            'user_id' => $user->id
         ]);
 
         return response()->json([
             'chat' => [
-                'id' => $chat->public_id,
+                'id' => $chat->id,
                 'updated_at' => $chat->updated_at,
                 'unread_count' => 0,
             ]
@@ -113,7 +120,7 @@ class VolunteerController extends Controller
         $user = Auth::user();
 
         // Verify the user is a participant in this chat
-        if (!$chat->participants()->where('user_public_id', $user->public_id)->exists()) {
+        if (!$chat->participants()->where('user_id', $user->id)->exists()) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -122,7 +129,7 @@ class VolunteerController extends Controller
             ->get()
             ->map(function ($message) {
                 return [
-                    'id' => $message->public_id,
+                    'id' => $message->id,
                     'content' => $message->content,
                     'sender_id' => $message->sender_id,
                     'sender_type' => $message->sender_type,
@@ -144,7 +151,7 @@ class VolunteerController extends Controller
         $user = Auth::user();
 
         // Verify the user is a participant in this chat
-        if (!$chat->participants()->where('user_public_id', $user->public_id)->exists()) {
+        if (!$chat->participants()->where('user_id', $user->id)->exists()) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -168,12 +175,12 @@ class VolunteerController extends Controller
         $chat = Chat::findOrFail($request->chat_id);
 
         // Verify the user is a participant in this chat
-        if (!$chat->participants()->where('user_public_id', $user->public_id)->exists()) {
+        if (!$chat->participants()->where('user_id', $user->id)->exists()) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
         $message = $chat->messages()->create([
-            'sender_id' => $user->public_id,
+            'sender_id' => $user->id,
             'sender_type' => 'App\Models\User',
             'content' => $request->content,
             // Don't need to set status here since it has a default
@@ -186,7 +193,7 @@ class VolunteerController extends Controller
 
         return response()->json([
             'message' => [
-                'id' => $message->public_id,
+                'id' => $message->id,
                 'content' => $message->content,
                 'sender_id' => $message->sender_id,
                 'sender_type' => $message->sender_type,

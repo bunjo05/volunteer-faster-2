@@ -15,6 +15,7 @@ export default function FloatingChat() {
     const [chatLimitError, setChatLimitError] = useState(null);
     const messagesEndRef = useRef(null);
     const echoChannel = useRef(null);
+    const pollingInterval = useRef(null);
 
     // Add this state to track success message
     const [successMessage, setSuccessMessage] = useState(null);
@@ -29,148 +30,86 @@ export default function FloatingChat() {
         (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
     );
 
-    // Add this useEffect hook to properly handle Echo initialization and channel subscription
-    useEffect(() => {
-        if (!isOpen || !chat?.id || !window.Echo) return;
+    // Check if current chat is ended - make sure this is properly calculated
+    const isChatEnded = chat?.status === "ended";
 
-        // Clean up any previous channel
-        if (echoChannel.current) {
-            echoChannel.current.stopListening(".message.sent");
-            echoChannel.current.stopListening(".MessageRead");
-        }
+    // Silent polling function
+    const pollForUpdates = async () => {
+        if (!isOpen) return;
 
-        // Initialize the channel
-        echoChannel.current = window.Echo.private(`chat.${chat.id}`);
+        try {
+            const response = await axios.get("/volunteer/chat/list");
+            const updatedChats = response.data.chats || [];
 
-        // Listen for new messages
-        echoChannel.current.listen(".message.sent", (data) => {
-            setMessages((prev) => {
-                // Check if message already exists (including optimistic messages)
-                const messageExists = prev.some(
-                    (m) =>
-                        m.id === data.message.id ||
-                        (m.temp_id && m.temp_id === data.message.temp_id)
-                );
-
-                if (messageExists) {
-                    return prev.map((m) =>
-                        m.id === data.message.id ||
-                        (m.temp_id && m.temp_id === data.message.temp_id)
-                            ? data.message
-                            : m
-                    );
+            // Update chats state if there are changes
+            setChats((prevChats) => {
+                if (
+                    JSON.stringify(prevChats) !== JSON.stringify(updatedChats)
+                ) {
+                    return updatedChats;
                 }
-
-                return [...prev, data.message];
+                return prevChats;
             });
 
-            // Update chat list if needed
-            setChats((prev) =>
-                prev.map((c) =>
-                    c.id === data.chatId
-                        ? {
-                              ...c,
-                              latestMessage: {
-                                  message: data.message.content,
-                                  created_at: data.message.created_at,
-                              },
-                              unread_count:
-                                  c.id === chat.id
-                                      ? 0
-                                      : (c.unread_count || 0) + 1,
-                          }
-                        : c
-                )
-            );
+            // If we're in a chat, check for new messages and update chat status
+            if (chat?.id && !showChatList) {
+                const messagesResponse = await axios.get(
+                    `/volunteer/chat/${chat.id}/messages`
+                );
+                const updatedMessages = messagesResponse.data.messages || [];
 
-            // Scroll to bottom when new message arrives
-            scrollToBottom();
-        });
+                setMessages((prevMessages) => {
+                    if (
+                        JSON.stringify(prevMessages) !==
+                        JSON.stringify(updatedMessages)
+                    ) {
+                        return updatedMessages;
+                    }
+                    return prevMessages;
+                });
 
-        // Listen for read events
-        echoChannel.current.listen(".MessageRead", (data) => {
-            setMessages((prev) =>
-                prev.map((msg) =>
-                    msg.sender_type === "App\\Models\\Admin" && !msg.read_at
-                        ? { ...msg, read_at: data.timestamp, status: "Read" }
-                        : msg
-                )
-            );
-        });
+                // Also update the current chat status from the updated chats list
+                const updatedCurrentChat = updatedChats.find(
+                    (c) => c.id === chat.id
+                );
+                if (
+                    updatedCurrentChat &&
+                    updatedCurrentChat.status !== chat.status
+                ) {
+                    setChat(updatedCurrentChat);
+                }
+            }
+        } catch (error) {
+            console.error("Polling error:", error);
+            // Don't show error to user for silent polling
+        }
+    };
+
+    // Start/stop polling based on chat state
+    useEffect(() => {
+        if (isOpen) {
+            // Start polling immediately
+            pollForUpdates();
+
+            // Set up interval for polling (every 5 seconds)
+            pollingInterval.current = setInterval(pollForUpdates, 5000);
+
+            // Also set up Echo for real-time updates
+            // setupEcho();
+        } else {
+            // Clean up
+            if (pollingInterval.current) {
+                clearInterval(pollingInterval.current);
+                pollingInterval.current = null;
+            }
+        }
 
         return () => {
-            if (echoChannel.current) {
-                echoChannel.current.stopListening(".message.sent");
-                echoChannel.current.stopListening(".MessageRead");
+            if (pollingInterval.current) {
+                clearInterval(pollingInterval.current);
             }
         };
-    }, [chat?.id, isOpen]);
-    const handleNewMessage = (e) => {
-        const { message, chatId } = e;
-
-        // Update selected chat if it's the current one
-        if (selectedChat && selectedChat.id === chatId) {
-            setSelectedChat((prev) => {
-                // Check if message already exists (including optimistic messages)
-                const messageExists = prev.messages?.some(
-                    (m) =>
-                        m.id === message.id ||
-                        (m.status === "Sending" &&
-                            m.content === message.content)
-                );
-                if (messageExists) {
-                    // Replace optimistic message with real one
-                    return {
-                        ...prev,
-                        messages: prev.messages.map((m) =>
-                            m.id === message.id ||
-                            (m.status === "Sending" &&
-                                m.content === message.content)
-                                ? message
-                                : m
-                        ),
-                        latestMessage: {
-                            message: message.content,
-                            created_at: message.created_at,
-                        },
-                    };
-                }
-
-                return {
-                    ...prev,
-                    messages: [...(prev.messages || []), message],
-                    latestMessage: {
-                        message: message.content,
-                        created_at: message.created_at,
-                    },
-                };
-            });
-        }
-
-        // Update chat lists more efficiently
-        const updateChatList = (list) =>
-            list.map((chat) => {
-                if (chat.id === chatId) {
-                    return {
-                        ...chat,
-                        latestMessage: {
-                            message: message.content,
-                            created_at: message.created_at,
-                        },
-                        unreadCount:
-                            message.sender_type === "App\\Models\\User" &&
-                            (!selectedChat || selectedChat.id !== chatId)
-                                ? (chat.unreadCount || 0) + 1
-                                : chat.unreadCount,
-                    };
-                }
-                return chat;
-            });
-
-        setChats(updateChatList(chats));
-        setRequests(updateChatList(requests));
-        setEndedChats(updateChatList(endedChats));
-    };
+    }, [isOpen, chat?.id, showChatList]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -179,9 +118,6 @@ export default function FloatingChat() {
     useEffect(() => {
         if (isOpen) {
             fetchChats();
-            if (chat?.id && !showChatList) {
-                fetchMessages(chat.id);
-            }
         }
     }, [isOpen]);
 
@@ -219,7 +155,6 @@ export default function FloatingChat() {
         }
     };
 
-    // Modify fetchMessages to properly mark messages as read
     const fetchMessages = async (chatId) => {
         try {
             const response = await axios.get(
@@ -228,6 +163,12 @@ export default function FloatingChat() {
             setMessages(response.data.messages || []);
             setData("chat_id", chatId);
             setShowChatList(false);
+
+            // Update the current chat with the latest data
+            const currentChat = chats.find((c) => c.id === chatId);
+            if (currentChat) {
+                setChat(currentChat);
+            }
 
             // Mark messages as read when opening chat
             if (chatId) {
@@ -304,10 +245,11 @@ export default function FloatingChat() {
         }
     };
 
-    // Modify the handleSubmit function
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!data.content.trim()) return;
+
+        // Prevent sending messages if chat is ended - same logic as admin chat
+        if (!data.content.trim() || isChatEnded) return;
 
         const tempId = Date.now();
         const optimisticMessage = {
@@ -322,7 +264,7 @@ export default function FloatingChat() {
                 name: auth.user.name,
                 email: auth.user.email,
             },
-            temp_id: tempId, // Include temp_id for matching
+            temp_id: tempId,
         };
 
         // Optimistic update
@@ -334,19 +276,39 @@ export default function FloatingChat() {
             const chatId = data.chat_id || (chat?.id ?? null);
             if (!chatId) throw new Error("No chat session available");
 
+            // Use the correct URL with volunteer prefix
             const response = await axios.post(route("volunteer.chat.store"), {
                 content: data.content,
                 chat_id: chatId,
-                temp_id: tempId, // Send temp_id to server
+                temp_id: tempId,
             });
 
             if (response.data.success) {
                 setSuccessMessage("Message sent successfully");
                 setTimeout(() => setSuccessMessage(null), 3000);
+                setTimeout(pollForUpdates, 1000);
             }
         } catch (error) {
             console.error("Message send error:", error);
-            setError(error.message || "Failed to send message");
+
+            // Enhanced error logging
+            if (error.response) {
+                console.error("Server error response:", error.response.data);
+                console.error("Status code:", error.response.status);
+                setError(
+                    error.response.data.message ||
+                        `Server error: ${error.response.status}`
+                );
+            } else if (error.request) {
+                console.error("No response received:", error.request);
+                setError(
+                    "No response from server. Please check your connection."
+                );
+            } else {
+                console.error("Error:", error.message);
+                setError(error.message || "Failed to send message");
+            }
+
             // Remove the optimistic message if sending failed
             setMessages((prev) =>
                 prev.filter(
@@ -359,6 +321,31 @@ export default function FloatingChat() {
     const hasActiveOrPendingChat = chats.some(
         (c) => c.status === "active" || c.status === "pending"
     );
+
+    // Function to get admin name from chat
+    const getAdminName = (chat) => {
+        if (!chat) return "Support Team";
+
+        // If chat has admin data directly
+        if (chat.admin) {
+            return chat.admin.name;
+        }
+
+        // If chat has participants with admin
+        if (chat.participants) {
+            const adminParticipant = chat.participants.find((p) => p.admin_id);
+            if (adminParticipant?.admin) {
+                return adminParticipant.admin.name;
+            }
+        }
+
+        // Fallback based on chat status
+        if (chat.status === "pending") {
+            return "Waiting for admin...";
+        }
+
+        return "Support Team";
+    };
 
     return (
         <div className="fixed bottom-6 right-6 z-50">
@@ -379,8 +366,14 @@ export default function FloatingChat() {
                                 <MessageSquare className="w-5 h-5" />
                             )}
                             <h3 className="font-semibold text-lg">
-                                {chat ? `Chat #${chat.id}` : "Messages"}
+                                Live Support
+                                {/* {chat ? getAdminName(chat) : "Messages"} */}
                             </h3>
+                            {/* {chat && isChatEnded && (
+                                <span className="text-xs bg-red-500 text-white px-2 py-1 rounded-full ml-2">
+                                    Ended
+                                </span>
+                            )} */}
                         </div>
                         <button
                             onClick={handleCloseChat}
@@ -425,43 +418,63 @@ export default function FloatingChat() {
                                             chat?.id === c.id
                                                 ? "bg-indigo-50 border-l-4 border-indigo-500"
                                                 : c.status === "ended"
-                                                ? "bg-gray-50 opacity-75" // Pale color for ended chats
+                                                ? "bg-gray-50 opacity-75"
                                                 : "hover:bg-gray-50"
                                         }`}
                                     >
                                         <div className="flex justify-between items-start">
-                                            <div>
-                                                <p
-                                                    className={`font-medium ${
-                                                        c.status === "ended"
-                                                            ? "text-gray-500"
-                                                            : "text-gray-900"
-                                                    }`}
-                                                >
-                                                    Chat #{c.id}
-                                                    {c.status === "pending" && (
-                                                        <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
-                                                            Pending
-                                                        </span>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between">
+                                                    <p
+                                                        className={`font-medium truncate ${
+                                                            c.status === "ended"
+                                                                ? "text-gray-500"
+                                                                : "text-gray-900"
+                                                        }`}
+                                                    >
+                                                        {getAdminName(c)}
+                                                    </p>
+                                                    <div className="flex items-center space-x-2 mt-1">
+                                                        {c.status ===
+                                                            "pending" && (
+                                                            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
+                                                                Pending
+                                                            </span>
+                                                        )}
+                                                        {c.status ===
+                                                            "active" && (
+                                                            <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                                                                Active
+                                                            </span>
+                                                        )}
+                                                        {c.status ===
+                                                            "ended" && (
+                                                            <span className="text-xs bg-red-300 text-gray-500 px-2 py-0.5 rounded-full">
+                                                                Chat was Ended
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    {isChatEnded ? (
+                                                        <></>
+                                                    ) : (
+                                                        <p
+                                                            className={`text-sm mt-1 ${
+                                                                c.status ===
+                                                                "ended"
+                                                                    ? "text-gray-400"
+                                                                    : "text-gray-500"
+                                                            } truncate`}
+                                                        >
+                                                            {c.latest_message
+                                                                ?.content ||
+                                                                "No messages yet"}
+                                                        </p>
                                                     )}
-                                                    {c.status === "active" && (
-                                                        <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
-                                                            Active
-                                                        </span>
-                                                    )}
-                                                    {c.status === "ended" && (
-                                                        <span className="ml-2 text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                                                            Ended
-                                                        </span>
-                                                    )}
-                                                </p>
-                                                <p
-                                                    className={`text-sm mt-1 ${
-                                                        c.status === "ended"
-                                                            ? "text-gray-400"
-                                                            : "text-gray-500"
-                                                    }`}
-                                                >
+                                                </div>
+
+                                                <p className="text-xs text-gray-400 mt-1">
                                                     {new Date(
                                                         c.updated_at
                                                     ).toLocaleString([], {
@@ -473,7 +486,7 @@ export default function FloatingChat() {
                                                 </p>
                                             </div>
                                             {c.unread_count > 0 && (
-                                                <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                                                <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full ml-2 flex-shrink-0">
                                                     {c.unread_count}
                                                 </span>
                                             )}
@@ -538,7 +551,7 @@ export default function FloatingChat() {
                                                             Sending...
                                                         </p>
                                                     )}
-                                                    <p className="text-xs mt-1 opacity-80">
+                                                    <p className="text-[10px] text-end mt-1 opacity-80">
                                                         {new Date(
                                                             message.created_at
                                                         ).toLocaleTimeString(
@@ -557,48 +570,71 @@ export default function FloatingChat() {
                                 )}
                             </div>
 
-                            {/* Message Input */}
-                            <div className="p-4 border-t">
-                                {successMessage && (
-                                    <div className="absolute bottom-16 left-4 right-4">
-                                        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded relative">
-                                            <span className="block sm:inline">
-                                                {successMessage}
-                                            </span>
-                                        </div>
+                            {/* IMPLEMENTATION: Same logic as admin chat - show ended message instead of form */}
+                            {isChatEnded ? (
+                                // Show ended message when chat is ended (same as admin chat)
+                                <div className="p-4 border-t bg-gray-50">
+                                    <div className="text-center text-gray-500 text-sm">
+                                        <p className="font-medium">
+                                            Chat Ended
+                                        </p>
+                                        <p className="mt-1">
+                                            This chat has been ended. No further
+                                            messages can be sent.
+                                        </p>
                                     </div>
-                                )}
-                                <form
-                                    onSubmit={handleSubmit}
-                                    className="flex items-center"
-                                >
-                                    <input
-                                        type="text"
-                                        value={data.content}
-                                        onChange={(e) =>
-                                            setData("content", e.target.value)
-                                        }
-                                        className="flex-1 border border-gray-300 rounded-l-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                        placeholder="Type your message..."
-                                        required
-                                        disabled={
-                                            processing || loading || !chat
-                                        }
-                                    />
-                                    <button
-                                        type="submit"
-                                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-r-lg transition-colors disabled:opacity-50"
-                                        disabled={
-                                            processing ||
-                                            loading ||
-                                            !data.content.trim() ||
-                                            !chat
-                                        }
+                                </div>
+                            ) : (
+                                // Show message input when chat is active
+                                <div className="p-4 border-t">
+                                    {successMessage && (
+                                        <div className="absolute bottom-16 left-4 right-4">
+                                            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded relative">
+                                                <span className="block sm:inline">
+                                                    {successMessage}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <form
+                                        onSubmit={handleSubmit}
+                                        className="flex items-center"
                                     >
-                                        <Send className="w-5 h-5" />
-                                    </button>
-                                </form>
-                            </div>
+                                        <input
+                                            type="text"
+                                            value={data.content}
+                                            onChange={(e) =>
+                                                setData(
+                                                    "content",
+                                                    e.target.value
+                                                )
+                                            }
+                                            className="flex-1 border border-gray-300 rounded-l-lg px-4 py-2
+                           focus:outline-none focus:ring-2 focus:ring-indigo-500
+                           focus:border-transparent"
+                                            placeholder="Type your message..."
+                                            required
+                                            disabled={
+                                                processing || loading || !chat
+                                            }
+                                        />
+
+                                        <button
+                                            type="submit"
+                                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2
+                           rounded-r-lg transition-colors disabled:opacity-50"
+                                            disabled={
+                                                processing ||
+                                                loading ||
+                                                !data.content.trim() ||
+                                                !chat
+                                            }
+                                        >
+                                            <Send className="w-5 h-5" />
+                                        </button>
+                                    </form>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

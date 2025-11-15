@@ -4,6 +4,8 @@ import SidebarLink from "@/Components/SidebarLink";
 import FloatingChat from "@/Components/FloatingChat";
 import PlatformReview from "@/Components/PlatformReview";
 
+import NotificationBell from "@/Components/NotificationBell";
+
 import {
     Home,
     FolderKanban,
@@ -352,7 +354,7 @@ export default function VolunteerLayout({ children, auth, points }) {
                             </div>
 
                             {/* Notifications Icon and Modal */}
-                            <div className="relative" ref={notificationsRef}>
+                            {/* <div className="relative" ref={notificationsRef}>
                                 <button
                                     onClick={toggleNotifications}
                                     className="p-2 rounded-lg hover:bg-gray-100 transition-colors relative"
@@ -369,10 +371,11 @@ export default function VolunteerLayout({ children, auth, points }) {
                                             }
                                         </span>
                                     )}
-                                </button>
+                                </button> */}
 
-                                {/* Notification Modal */}
-                                {notificationsOpen && (
+                            {/* Notification Modal */}
+                            <NotificationBell />
+                            {/* {notificationsOpen && (
                                     <div className="absolute right-0 top-12 z-50 w-80 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
                                         <div className="p-3 bg-blue-600 text-white font-semibold flex justify-between items-center">
                                             <span>Notifications</span>
@@ -440,8 +443,8 @@ export default function VolunteerLayout({ children, auth, points }) {
                                             </Link>
                                         </div>
                                     </div>
-                                )}
-                            </div>
+                                )} */}
+                            {/* </div> */}
 
                             {/* User Profile Icon */}
                             <Link

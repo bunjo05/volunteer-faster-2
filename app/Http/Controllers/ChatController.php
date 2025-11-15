@@ -21,7 +21,7 @@ class ChatController extends Controller
     {
         $user = Auth::user();
 
-        // Eager load the correct relationships
+        // Eager load the correct relationships with admin data
         $chat = $user->chats()
             ->with(['chatMessages.sender', 'participants.admin'])
             ->first();
@@ -58,12 +58,51 @@ class ChatController extends Controller
         ]);
     }
 
-    public function store(Request $request, Chat $chat)
+    public function volunteerChatList()
+    {
+        $user = Auth::user();
+
+        $chats = $user->chats()
+            ->with(['participants.admin', 'messages' => function ($query) {
+                $query->orderBy('created_at', 'desc')->limit(1);
+            }])
+            ->orderBy('updated_at', 'desc')
+            ->get()
+            ->map(function ($chat) {
+                $latestMessage = $chat->messages->first();
+                $adminParticipant = $chat->participants->firstWhere('admin_id', '!=', null);
+
+                return [
+                    'id' => $chat->id,
+                    'status' => $chat->status,
+                    'updated_at' => $chat->updated_at,
+                    'unread_count' => $chat->messages()
+                        ->where('sender_type', 'App\\Models\\Admin')
+                        ->whereNull('read_at')
+                        ->count(),
+                    'latest_message' => $latestMessage ? [
+                        'content' => $latestMessage->content,
+                        'created_at' => $latestMessage->created_at,
+                    ] : null,
+                    'admin' => $adminParticipant?->admin ? [
+                        'id' => $adminParticipant->admin->id,
+                        'name' => $adminParticipant->admin->name,
+                        'email' => $adminParticipant->admin->email,
+                    ] : null
+                ];
+            });
+
+        return response()->json([
+            'chats' => $chats
+        ]);
+    }
+
+    public function store(Request $request)
     {
         $request->validate([
             'content' => 'required|string',
             'chat_id' => 'required|exists:chats,id',
-            'temp_id' => 'nullable' // Add temp_id validation
+            'temp_id' => 'nullable'
         ]);
 
         $user = Auth::user();
@@ -71,20 +110,18 @@ class ChatController extends Controller
 
         // Verify user is part of this chat
         if (!$chat->participants()->where('user_id', $user->id)->exists()) {
-            abort(403);
+            return response()->json(['error' => 'Unauthorized'], 403);
         }
 
         $message = $chat->messages()->create([
             'content' => $request->content,
-            'sender_id' => auth()->id(),
-            'sender_type' => get_class(auth()->user()),
-            'temp_id' => $request->temp_id // Store temp_id if provided
+            'sender_id' => Auth::id(),
+            'sender_type' => get_class(Auth::user()),
+            'temp_id' => $request->temp_id
         ]);
 
-        // Load the sender relationship
         $message->load('sender');
 
-        // Format the message data consistently
         $formattedMessage = [
             'id' => $message->id,
             'content' => $message->content,
@@ -94,11 +131,10 @@ class ChatController extends Controller
             'status' => 'Sent',
             'sender' => $message->sender,
             'is_admin' => $message->sender_type === 'App\Models\Admin',
-            'temp_id' => $message->temp_id // Include temp_id in broadcast
+            'temp_id' => $message->temp_id
         ];
 
-        // Broadcast the message
-        broadcast(new NewChatMessage($formattedMessage, $chat->id))->toOthers();
+        // broadcast(new NewChatMessage($formattedMessage, $chat->id))->toOthers();
 
         return response()->json([
             'success' => true,
@@ -149,18 +185,16 @@ class ChatController extends Controller
         $chat->update(['status' => 'ended']);
 
         // Create system message
-        $message = $chat->chatMessages()->create([
+        $chat->messages()->create([
             'content' => 'Admin ' . $admin->name . ' has ended the chat',
             'sender_id' => $admin->id,
             'sender_type' => get_class($admin),
             'is_system' => true
         ]);
 
-        // Broadcast the chat ended message
-        broadcast(new NewChatMessage($message, $chat->id))->toOthers();
-
         return response()->json(['success' => true]);
     }
+
     public function markAsRead(Request $request, Chat $chat)
     {
         $user = Auth::user();
@@ -196,7 +230,9 @@ class ChatController extends Controller
             $query->where('admin_id', $admin->id);
         })
             ->where('status', 'active')
-            ->with(['participants.user', 'latestMessage'])
+            ->with(['participants.user', 'messages' => function ($query) {
+                $query->orderBy('created_at', 'asc');
+            }])
             ->orderByDesc(
                 ChatMessage::select('created_at')
                     ->whereColumn('chat_id', 'chats.id')
@@ -205,27 +241,25 @@ class ChatController extends Controller
             )
             ->get()
             ->map(function ($chat) use ($admin) {
+                $latestMessage = $chat->messages->last();
+
                 return [
                     'id' => $chat->id,
                     'user' => $chat->participants->firstWhere('admin_id', null)?->user,
-                    'messages' => $chat->messages()
-                        ->with('sender')
-                        ->orderBy('created_at', 'asc')
-                        ->get()
-                        ->map(function ($message) {
-                            return [
-                                'id' => $message->id,
-                                'message' => $message->content,
-                                'sender_id' => $message->sender_id,
-                                'sender_type' => $message->sender_type,
-                                'created_at' => $message->created_at,
-                                'status' => $message->read_at ? 'Read' : 'Sent',
-                                'sender' => $message->sender,
-                            ];
-                        }),
-                    'latestMessage' => $chat->latestMessage ? [
-                        'message' => $chat->latestMessage->content,
-                        'created_at' => $chat->latestMessage->created_at,
+                    'messages' => $chat->messages->map(function ($message) {
+                        return [
+                            'id' => $message->id,
+                            'message' => $message->content,
+                            'sender_id' => $message->sender_id,
+                            'sender_type' => $message->sender_type,
+                            'created_at' => $message->created_at,
+                            'status' => $message->read_at ? 'Read' : 'Sent',
+                            'sender' => $message->sender,
+                        ];
+                    }),
+                    'latestMessage' => $latestMessage ? [
+                        'message' => $latestMessage->content,
+                        'created_at' => $latestMessage->created_at,
                     ] : null,
                     'unreadCount' => $chat->messages()
                         ->where('sender_type', User::class)
@@ -243,31 +277,31 @@ class ChatController extends Controller
                 $query->whereNotNull('admin_id');
             })
             ->where('status', 'pending')
-            ->with(['participants.user', 'latestMessage'])
+            ->with(['participants.user', 'messages' => function ($query) {
+                $query->orderBy('created_at', 'asc');
+            }])
             ->orderByDesc('created_at')
             ->get()
             ->map(function ($chat) {
+                $latestMessage = $chat->messages->last();
+
                 return [
                     'id' => $chat->id,
                     'user' => $chat->participants->first()?->user,
-                    'messages' => $chat->messages()
-                        ->with('sender')
-                        ->orderBy('created_at', 'asc')
-                        ->get()
-                        ->map(function ($message) {
-                            return [
-                                'id' => $message->id,
-                                'message' => $message->content,
-                                'sender_id' => $message->sender_id,
-                                'sender_type' => $message->sender_type,
-                                'created_at' => $message->created_at,
-                                'status' => $message->read_at ? 'Read' : 'Sent',
-                                'sender' => $message->sender,
-                            ];
-                        }),
-                    'latestMessage' => $chat->latestMessage ? [
-                        'message' => $chat->latestMessage->content,
-                        'created_at' => $chat->latestMessage->created_at,
+                    'messages' => $chat->messages->map(function ($message) {
+                        return [
+                            'id' => $message->id,
+                            'message' => $message->content,
+                            'sender_id' => $message->sender_id,
+                            'sender_type' => $message->sender_type,
+                            'created_at' => $message->created_at,
+                            'status' => $message->read_at ? 'Read' : 'Sent',
+                            'sender' => $message->sender,
+                        ];
+                    }),
+                    'latestMessage' => $latestMessage ? [
+                        'message' => $latestMessage->content,
+                        'created_at' => $latestMessage->created_at,
                     ] : null,
                     'unreadCount' => $chat->messages()
                         ->where('sender_type', User::class)
@@ -282,31 +316,31 @@ class ChatController extends Controller
             $query->where('admin_id', $admin->id);
         })
             ->where('status', 'ended')
-            ->with(['participants.user', 'latestMessage'])
+            ->with(['participants.user', 'messages' => function ($query) {
+                $query->orderBy('created_at', 'asc');
+            }])
             ->orderByDesc('updated_at')
             ->get()
             ->map(function ($chat) {
+                $latestMessage = $chat->messages->last();
+
                 return [
                     'id' => $chat->id,
                     'user' => $chat->participants->firstWhere('admin_id', null)?->user,
-                    'messages' => $chat->messages()
-                        ->with('sender')
-                        ->orderBy('created_at', 'asc')
-                        ->get()
-                        ->map(function ($message) {
-                            return [
-                                'id' => $message->id,
-                                'message' => $message->content,
-                                'sender_id' => $message->sender_id,
-                                'sender_type' => $message->sender_type,
-                                'created_at' => $message->created_at,
-                                'status' => $message->read_at ? 'Read' : 'Sent',
-                                'sender' => $message->sender,
-                            ];
-                        }),
-                    'latestMessage' => $chat->latestMessage ? [
-                        'message' => $chat->latestMessage->content,
-                        'created_at' => $chat->latestMessage->created_at,
+                    'messages' => $chat->messages->map(function ($message) {
+                        return [
+                            'id' => $message->id,
+                            'message' => $message->content,
+                            'sender_id' => $message->sender_id,
+                            'sender_type' => $message->sender_type,
+                            'created_at' => $message->created_at,
+                            'status' => $message->read_at ? 'Read' : 'Sent',
+                            'sender' => $message->sender,
+                        ];
+                    }),
+                    'latestMessage' => $latestMessage ? [
+                        'message' => $latestMessage->content,
+                        'created_at' => $latestMessage->created_at,
                     ] : null,
                     'unreadCount' => 0,
                     'status' => $chat->status
@@ -332,7 +366,6 @@ class ChatController extends Controller
         $request->validate([
             'content' => 'required|string|max:1000',
             'reply_to' => 'nullable|exists:chat_messages,id',
-            'temp_id' => 'nullable' // Add temp_id validation
         ]);
 
         $message = $chat->messages()->create([
@@ -342,28 +375,48 @@ class ChatController extends Controller
             'reply_to' => $request->reply_to
         ]);
 
+        // Update chat timestamp
+        $chat->touch();
+
         // Load the sender relationship
         $message->load('sender');
 
-        // Include temp_id in broadcast for client-side matching
-        $message->temp_id = $request->temp_id;
+        return back()->with('success', 'Message sent successfully');
 
-        broadcast(new NewChatMessage($message, $chat->id))->toOthers();
+        // return response()->json([
+        //     'success' => true,
+        //     'message_id' => $message->id,
+        //     'message' => [
+        //         'id' => $message->id,
+        //         'message' => $message->content,
+        //         'sender_id' => $message->sender_id,
+        //         'sender_type' => $message->sender_type,
+        //         'created_at' => $message->created_at->toISOString(),
+        //         'status' => 'Sent',
+        //         'sender' => $message->sender,
+        //     ]
+        // ]);
 
-        return response()->json([
-            'success' => true,
-            'message_id' => $message->id,
-            'temp_id' => $request->temp_id
-        ]);
+
     }
     public function AdminMarkAsRead(Chat $chat)
     {
-        $chat->messages()
+        $admin = auth('admin')->user();
+
+        // Verify admin has access to this chat
+        if (!$chat->participants()->where('admin_id', $admin->id)->exists()) {
+            abort(403);
+        }
+
+        $updated = $chat->messages()
             ->where('sender_type', User::class)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
 
-        return back();
+        return response()->json([
+            'success' => true,
+            'updated_count' => $updated
+        ]);
     }
 
     public function AdminAcceptChat(Request $request, Chat $chat)
@@ -382,21 +435,20 @@ class ChatController extends Controller
             if ($existingAdminParticipant) {
                 if ($existingAdminParticipant->admin_id === $admin->id) {
                     DB::commit();
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'You are already assigned to this chat',
-                        'chat' => $this->formatChatResponse($chat)
+
+                    // Return Inertia redirect for page reload
+                    return redirect()->route('chat.index')->with([
+                        'success' => 'You are already assigned to this chat'
                     ]);
                 }
 
                 DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Chat already assigned to another admin'
-                ], 409); // Use 409 Conflict for better semantics
+                return redirect()->route('chat.index')->with([
+                    'error' => 'Chat already assigned to another admin'
+                ]);
             }
 
-            // Assign admin to chat
+            // FIX: Correct the participant creation - removed the extra array
             $chat->participants()->create(['admin_id' => $admin->id]);
             $chat->update(['status' => 'active']);
 
@@ -410,17 +462,16 @@ class ChatController extends Controller
 
             DB::commit();
 
-            // Broadcast after successful commit
-            broadcast(new NewChatMessage($message, $chat->id))->toOthers();
-
-            return back();
+            // Return Inertia redirect to reload the page with updated data
+            return redirect()->route('chat.index')->with([
+                'success' => 'Chat accepted successfully'
+            ]);
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error("Chat acceptance failed: " . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to accept chat'
-            ], 500);
+            return redirect()->route('chat.index')->with([
+                'error' => 'Failed to accept chat'
+            ]);
         }
     }
 

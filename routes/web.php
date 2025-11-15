@@ -15,8 +15,10 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SponsorController;
 use App\Http\Controllers\VolunteerController;
 use App\Http\Controllers\SocialAuthController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\StripePaymentController;
+use App\Http\Controllers\VolunteerFeedController;
 use App\Http\Controllers\Admin\ReferralController;
 use App\Http\Controllers\FeaturedProjectController;
 use App\Http\Controllers\Admin\Auth\LoginController;
@@ -47,19 +49,19 @@ Route::post('/send-verification-code', [BookingController::class, 'volunteerEmai
 Route::post('/check-email-exists', [BookingController::class, 'checkEmailExists'])->name('volunteer.email.exists');
 Route::post('/volunteer/email/verify', [BookingController::class, 'verify'])->name('volunteer.email.verify');
 Route::post('/volunteer-booking/store', [BookingController::class, 'store'])->name('volunteer.booking.store');
-
 Route::get('/corporate-impact-sponsorship', [HomeController::class, 'sponsorshipPage'])->name('guest.sponsorship.page');
 Route::get('/corporate-impact-sponsorship/{sponsorship_public_id}', [HomeController::class, 'sponsorshipPageIndividual'])->name('volunteer.guest.sponsorship.page.with.volunteer');
-
 Route::post('/sponsorship/payment', [SponsorshipPaymentController::class, 'createCheckoutSession']);
 Route::get('/sponsorship/payment/success', [SponsorshipPaymentController::class, 'handleSuccess'])->name('sponsorship.payment.success');
 Route::get('/sponsorship/payment/cancel', [SponsorshipPaymentController::class, 'handleCancel'])->name('sponsorship.payment.cancel');
 Route::post('/stripe/sponsorship-webhook', [SponsorshipPaymentController::class, 'handleWebhook']);
-
 Route::post('/auth/volunteer-booking/store', [BookingController::class, 'authStore'])->name('auth.volunteer.booking.store');
-
 Route::get('/volunteer-programs/{slug}/{organization_profile}', [HomeController::class, 'OrganizationProfile'])
     ->name('home.organization.profile');
+
+// Vounteer Feed
+Route::get('/volunteer-feed', [VolunteerFeedController::class, 'index'])
+    ->name('volunteer.feed.index');
 
 Route::get('/dashboard', function () {
     $user = Auth::user();
@@ -171,13 +173,22 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     Route::get('/project/reports', [AdminsController::class, 'projectReports'])
         ->name('admin.project.reports');
 
+
+    // Route::prefix('chats')->group(function () {
+    //     Route::get('/', [ChatController::class, 'AdminIndex'])->name('admin.chat.index'); // Add this line
+    //     Route::post('/{chat}/messages', [ChatController::class, 'AdminStore'])->name('admin.chat.store');
+    //     Route::post('/{chat}', [ChatController::class, 'AdminStore'])->name('admin.chats.store');
+    //     Route::post('/{chat}/read', [ChatController::class, 'AdminMarkAsRead'])->name('admin.chats.markAsRead');
+    //     Route::post('/{chat}/accept', [ChatController::class, 'AdminAcceptChat'])->name('admin.chat.accept');
+    // });
     Route::prefix('chats')->group(function () {
         Route::get('/', [ChatController::class, 'AdminIndex'])->name('chat.index');
         Route::post('/{chat}/messages', [ChatController::class, 'AdminStore'])->name('admin.chat.store');
         Route::post('/{chat}', [ChatController::class, 'AdminStore'])->name('admin.chats.store');
         Route::post('/{chat}/read', [ChatController::class, 'AdminMarkAsRead'])->name('admin.chats.markAsRead');
-
         Route::post('/{chat}/accept', [ChatController::class, 'AdminAcceptChat'])->name('admin.chat.accept');
+
+        Route::get('/list', [ChatController::class, 'volunteerChatList']);
     });
 
     Route::get('/payments', [AdminsController::class, 'payments'])->name('admin.payments');
@@ -224,10 +235,12 @@ Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(
     Route::get('/project', [VolunteerController::class, 'projects'])->name('volunteer.projects');
     Route::post('/send-reminder/{bookingId}', [VolunteerController::class, 'sendReminder'])
         ->name('volunteer.send-reminder');
+
     Route::get('/chat/list', [VolunteerController::class, 'listChats'])->name('volunteer.chat.list');
     Route::post('/chat/new', [VolunteerController::class, 'startNewChat'])->name('volunteer.chat.new');
     Route::get('/chat/{chat}/messages', [VolunteerController::class, 'getMessages'])->name('volunteer.chat.messages');
     Route::post('/chat/{chat}/read', [VolunteerController::class, 'markAsRead'])->name('volunteer.chat.read');
+
     Route::get('/points', [VolunteerController::class, 'points'])->name('volunteer.points');
     Route::post('/bookings/{booking}/pay-with-points', [VolunteerController::class, 'payWithPoints'])
         ->name('volunteer.pay-with-points');
@@ -247,6 +260,8 @@ Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(
         ->name('volunteer.contact.respond');
     Route::get('/shared-contacts', [VolunteerController::class, 'getSharedContacts'])
         ->name('volunteer.shared.contacts');
+
+    Route::get('/notifications', [NotificationController::class, 'volunteerIndex'])->name('volunteer.notifications');
 });
 
 Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->group(function () {
@@ -402,5 +417,15 @@ Route::post('/contact-us', [HomeController::class, 'storeContactMessage'])->name
 // Route::middleware(['auth'])->group(function () {
 //     Route::get('/profile/referrals', [ProfileController::class, 'referrals'])->name('profile.referrals');
 // });
+
+
+
+// routes/web.php
+Route::middleware(['auth'])->group(function () {
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-read');
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
+    Route::get('/api/notifications/unread-count', [NotificationController::class, 'getUnreadCount']);
+    Route::get('/api/notifications/recent', [NotificationController::class, 'getRecentNotifications']);
+});
 
 require __DIR__ . '/auth.php';
