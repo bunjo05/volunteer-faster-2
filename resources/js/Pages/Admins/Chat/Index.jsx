@@ -38,6 +38,19 @@ export default function AdminChatIndex({
     const selectedChatIdRef = useRef(null);
     const isUpdatingSelectedChatRef = useRef(false);
 
+    // Check if message is from admin
+    const isAdminMessage = (message) => {
+        return (
+            message?.sender_type === "App\\Models\\Admin" ||
+            message?.sender_type === "App\\Models\\Admin"
+        );
+    };
+
+    // Check if message is from current admin user
+    const isCurrentAdminMessage = (message) => {
+        return isAdminMessage(message) && message?.sender_id === auth.user.id;
+    };
+
     // Manual refresh function for sidebar
     const refreshSidebar = useCallback(async () => {
         try {
@@ -363,7 +376,7 @@ export default function AdminChatIndex({
         const selectedChatData = {
             ...chat,
             messages: chat.messages || [],
-            user: chat.user || { name: "Unknown Volunteer", email: "" },
+            user: chat.user || { name: "Unknown User", email: "" },
             status: chat.status || "active",
         };
 
@@ -419,7 +432,7 @@ export default function AdminChatIndex({
 
     return (
         <AdminLayout>
-            <Head title="Volunteer Chats" />
+            <Head title="User Chats" />
 
             <div className="max-w-7xl mx-auto py-2 px-2 sm:px-4 lg:px-8">
                 {/* Success Message */}
@@ -591,7 +604,7 @@ export default function AdminChatIndex({
                                                                 <p className="text-sm font-medium text-gray-900 truncate">
                                                                     {chat?.user
                                                                         ?.name ||
-                                                                        "Unknown Volunteer"}
+                                                                        "Unknown User"}
                                                                 </p>
                                                                 <p className="text-xs text-gray-500 truncate">
                                                                     {
@@ -684,7 +697,7 @@ export default function AdminChatIndex({
                                                                     {request
                                                                         ?.user
                                                                         ?.name ||
-                                                                        "Unknown Volunteer"}
+                                                                        "Unknown User"}
                                                                 </p>
                                                                 <p className="text-xs text-gray-500 truncate">
                                                                     {
@@ -765,7 +778,7 @@ export default function AdminChatIndex({
                                                                 <p className="text-sm font-medium text-gray-900 truncate">
                                                                     {chat?.user
                                                                         ?.name ||
-                                                                        "Unknown Volunteer"}
+                                                                        "Unknown User"}
                                                                 </p>
                                                                 <p className="text-xs text-gray-500 truncate">
                                                                     {
@@ -823,7 +836,7 @@ export default function AdminChatIndex({
                                         <div className="min-w-0">
                                             <h2 className="text-lg font-semibold text-gray-900 truncate">
                                                 {selectedChat?.user?.name ||
-                                                    "Unknown Volunteer"}
+                                                    "Unknown User"}
                                             </h2>
                                             <p className="text-xs text-gray-500 truncate">
                                                 {selectedChat?.user?.email ||
@@ -866,16 +879,18 @@ export default function AdminChatIndex({
                                                         ] = el)
                                                     }
                                                     className={`flex ${
-                                                        message?.sender_id ===
-                                                        auth.user.id
+                                                        isCurrentAdminMessage(
+                                                            message
+                                                        )
                                                             ? "justify-end"
                                                             : "justify-start"
                                                     }`}
                                                 >
                                                     <div
                                                         className={`max-w-[80%] lg:max-w-md px-3 py-2 rounded-lg shadow-sm ${
-                                                            message?.sender_id ===
-                                                            auth.user.id
+                                                            isCurrentAdminMessage(
+                                                                message
+                                                            )
                                                                 ? "bg-blue-500 text-white"
                                                                 : "bg-white border border-gray-200"
                                                         } ${
@@ -891,8 +906,9 @@ export default function AdminChatIndex({
                                                         {message?.original_message && (
                                                             <div
                                                                 className={`mb-2 p-2 rounded text-xs cursor-pointer ${
-                                                                    message?.sender_id ===
-                                                                    auth.user.id
+                                                                    isCurrentAdminMessage(
+                                                                        message
+                                                                    )
                                                                         ? "bg-blue-600"
                                                                         : "bg-blue-50"
                                                                 }`}
@@ -907,10 +923,9 @@ export default function AdminChatIndex({
                                                                 <div className="flex items-start">
                                                                     <svg
                                                                         className={`w-3 h-3 mt-0.5 mr-2 flex-shrink-0 ${
-                                                                            message?.sender_id ===
-                                                                            auth
-                                                                                .user
-                                                                                .id
+                                                                            isCurrentAdminMessage(
+                                                                                message
+                                                                            )
                                                                                 ? "text-blue-200"
                                                                                 : "text-blue-500"
                                                                         }`}
@@ -930,33 +945,28 @@ export default function AdminChatIndex({
                                                                     <div className="flex-1">
                                                                         <p
                                                                             className={`text-xs font-medium mb-1 ${
-                                                                                message?.sender_id ===
-                                                                                auth
-                                                                                    .user
-                                                                                    .id
+                                                                                isCurrentAdminMessage(
+                                                                                    message
+                                                                                )
                                                                                     ? "text-blue-200"
                                                                                     : "text-blue-700"
                                                                             }`}
                                                                         >
                                                                             Replying
                                                                             to{" "}
-                                                                            {message
-                                                                                ?.original_message
-                                                                                ?.sender_id ===
-                                                                            auth
-                                                                                .user
-                                                                                .id
-                                                                                ? "your message"
+                                                                            {isAdminMessage(
+                                                                                message?.original_message
+                                                                            )
+                                                                                ? "admin"
                                                                                 : selectedChat
                                                                                       ?.user
                                                                                       ?.name}
                                                                         </p>
                                                                         <p
                                                                             className={`text-xs ${
-                                                                                message?.sender_id ===
-                                                                                auth
-                                                                                    .user
-                                                                                    .id
+                                                                                isCurrentAdminMessage(
+                                                                                    message
+                                                                                )
                                                                                     ? "text-blue-100"
                                                                                     : "text-gray-600"
                                                                             } line-clamp-2`}
@@ -974,8 +984,9 @@ export default function AdminChatIndex({
 
                                                         <p
                                                             className={`text-sm ${
-                                                                message?.sender_id ===
-                                                                auth.user.id
+                                                                isCurrentAdminMessage(
+                                                                    message
+                                                                )
                                                                     ? "text-white"
                                                                     : "text-gray-800"
                                                             }`}
@@ -984,15 +995,16 @@ export default function AdminChatIndex({
                                                         </p>
                                                         <div
                                                             className={`flex justify-between items-center mt-1 ${
-                                                                message?.sender_id ===
-                                                                auth.user.id
+                                                                isCurrentAdminMessage(
+                                                                    message
+                                                                )
                                                                     ? "text-blue-100"
                                                                     : "text-gray-500"
                                                             }`}
                                                         >
-                                                            {message?.sender_id !==
-                                                                auth.user
-                                                                    .id && (
+                                                            {!isCurrentAdminMessage(
+                                                                message
+                                                            ) && (
                                                                 <button
                                                                     onClick={() =>
                                                                         handleReplyClick(
@@ -1048,9 +1060,10 @@ export default function AdminChatIndex({
                                                     <div className="flex justify-between items-center">
                                                         <p className="text-sm text-blue-800 font-medium">
                                                             Replying to:{" "}
-                                                            {replyToMessage?.sender_id ===
-                                                            auth.user.id
-                                                                ? "your message"
+                                                            {isAdminMessage(
+                                                                replyToMessage
+                                                            )
+                                                                ? "admin"
                                                                 : selectedChat
                                                                       ?.user
                                                                       ?.name}
@@ -1092,9 +1105,10 @@ export default function AdminChatIndex({
                                                     placeholder={
                                                         isReplying
                                                             ? `Reply to ${
-                                                                  replyToMessage?.sender_id ===
-                                                                  auth.user.id
-                                                                      ? "your message"
+                                                                  isAdminMessage(
+                                                                      replyToMessage
+                                                                  )
+                                                                      ? "admin"
                                                                       : selectedChat
                                                                             ?.user
                                                                             ?.name
@@ -1131,7 +1145,7 @@ export default function AdminChatIndex({
                                     </h3>
                                     <p className="text-gray-500 mb-6">
                                         Choose a chat from the sidebar to start
-                                        messaging or search for a volunteer.
+                                        messaging or search for a User.
                                     </p>
                                     <button
                                         onClick={() =>
