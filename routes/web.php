@@ -135,7 +135,6 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     Route::get('/projects/{slug}', [AdminsController::class, 'viewProject'])->name('admin.projects.view');
     Route::get('/messages', [AdminsController::class, 'messages'])->name('admin.messages');
 
-    Route::post('/chats/{chat}/end', [ChatController::class, 'endChat'])->name('admin.chats.end');
 
     Route::get('/categories', [AdminsController::class, 'categories'])->name('admin.categories');
     Route::post('/categories', [AdminsController::class, 'storeCategory'])->name('admin.categories.store');
@@ -173,21 +172,13 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     Route::get('/project/reports', [AdminsController::class, 'projectReports'])
         ->name('admin.project.reports');
 
-
-    // Route::prefix('chats')->group(function () {
-    //     Route::get('/', [ChatController::class, 'AdminIndex'])->name('admin.chat.index'); // Add this line
-    //     Route::post('/{chat}/messages', [ChatController::class, 'AdminStore'])->name('admin.chat.store');
-    //     Route::post('/{chat}', [ChatController::class, 'AdminStore'])->name('admin.chats.store');
-    //     Route::post('/{chat}/read', [ChatController::class, 'AdminMarkAsRead'])->name('admin.chats.markAsRead');
-    //     Route::post('/{chat}/accept', [ChatController::class, 'AdminAcceptChat'])->name('admin.chat.accept');
-    // });
     Route::prefix('chats')->group(function () {
         Route::get('/', [ChatController::class, 'AdminIndex'])->name('chat.index');
         Route::post('/{chat}/messages', [ChatController::class, 'AdminStore'])->name('admin.chat.store');
         Route::post('/{chat}', [ChatController::class, 'AdminStore'])->name('admin.chats.store');
         Route::post('/{chat}/read', [ChatController::class, 'AdminMarkAsRead'])->name('admin.chats.markAsRead');
         Route::post('/{chat}/accept', [ChatController::class, 'AdminAcceptChat'])->name('admin.chat.accept');
-
+        Route::post('/{chat}/end', [ChatController::class, 'endChat'])->name('admin.chats.end');
         Route::get('/list', [ChatController::class, 'volunteerChatList']);
     });
 
@@ -235,11 +226,6 @@ Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(
     Route::get('/project', [VolunteerController::class, 'projects'])->name('volunteer.projects');
     Route::post('/send-reminder/{bookingId}', [VolunteerController::class, 'sendReminder'])
         ->name('volunteer.send-reminder');
-
-    Route::get('/chat/list', [VolunteerController::class, 'listChats'])->name('volunteer.chat.list');
-    Route::post('/chat/new', [VolunteerController::class, 'startNewChat'])->name('volunteer.chat.new');
-    Route::get('/chat/{chat}/messages', [VolunteerController::class, 'getMessages'])->name('volunteer.chat.messages');
-    Route::post('/chat/{chat}/read', [VolunteerController::class, 'markAsRead'])->name('volunteer.chat.read');
 
     Route::get('/points', [VolunteerController::class, 'points'])->name('volunteer.points');
     Route::post('/bookings/{booking}/pay-with-points', [VolunteerController::class, 'payWithPoints'])
@@ -320,37 +306,25 @@ Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->
         ->name('organization.shared.contacts');
 });
 
+Route::middleware(['auth'])->prefix('chats')->group(function () {
+    Route::get('/list', [ChatController::class, 'listChats'])->name('volunteer.chat.list');
+    Route::post('/new', [ChatController::class, 'startNewChat'])->name('volunteer.chat.new');
+    Route::post('/store', [ChatController::class, 'store'])->name('volunteer.chat.store');
+    Route::get('/{chat}/messages', [ChatController::class, 'getMessages'])->name('volunteer.chat.messages');
+    Route::post('/{chat}/read', [ChatController::class, 'markAsRead'])->name('volunteer.chat.read');
+});
+
 // routes/web.php
 Route::middleware('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
-
     Route::post('/organizations/{organization}/follow', [VolunteerFollowOrganization::class, 'follow'])
         ->name('organizations.follow');
     Route::delete('/organizations/{organization}/unfollow', [VolunteerFollowOrganization::class, 'unfollow'])
         ->name('organizations.unfollow');
 
-    // Route::prefix('chat')->group(function () {
-    //     Route::get('/', [ChatController::class, 'index']);
-    //     Route::post('/', [ChatController::class, 'store'])->name('volunteer.chat.store');
-    //     Route::post('/{chat}/read', [ChatController::class, 'markAsRead']);
-    // });
     Route::post('/payment/checkout', [StripePaymentController::class, 'checkout'])->name('payment.checkout');
     Route::get('/payment/success', [StripePaymentController::class, 'success'])->name('payment.success');
     Route::get('/payment/cancel', [StripePaymentController::class, 'cancel'])->name('payment.cancel');
 });
-
-// routes/web.php
-Route::middleware('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
-    Route::prefix('chat')->group(function () {
-        Route::get('/', [ChatController::class, 'index']);
-        Route::post('/', [ChatController::class, 'store'])->name('volunteer.chat.store');
-        Route::post('/{chat}/read', [ChatController::class, 'markAsRead']);
-    });
-
-    // Route::get('/volunteer/points/total', [VolunteerController::class, 'getTotalPoints'])
-    //     // ->middleware(['auth', 'verified'])
-    //     ->name('volunteer.points.total');
-});
-
 
 Route::get('/mail-preview/user', function () {
     $booking = \App\Models\VolunteerBooking::with(['user', 'project.user'])->first();

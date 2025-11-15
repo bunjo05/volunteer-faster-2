@@ -97,51 +97,51 @@ class ChatController extends Controller
         ]);
     }
 
-    public function store(Request $request)
-    {
-        $request->validate([
-            'content' => 'required|string',
-            'chat_id' => 'required|exists:chats,id',
-            'temp_id' => 'nullable'
-        ]);
+    // public function store(Request $request)
+    // {
+    //     $request->validate([
+    //         'content' => 'required|string',
+    //         'chat_id' => 'required|exists:chats,id',
+    //         'temp_id' => 'nullable'
+    //     ]);
 
-        $user = Auth::user();
-        $chat = Chat::find($request->chat_id);
+    //     $user = Auth::user();
+    //     $chat = Chat::find($request->chat_id);
 
-        // Verify user is part of this chat
-        if (!$chat->participants()->where('user_id', $user->id)->exists()) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+    //     // Verify user is part of this chat
+    //     if (!$chat->participants()->where('user_id', $user->id)->exists()) {
+    //         return response()->json(['error' => 'Unauthorized'], 403);
+    //     }
 
-        $message = $chat->messages()->create([
-            'content' => $request->content,
-            'sender_id' => Auth::id(),
-            'sender_type' => get_class(Auth::user()),
-            'temp_id' => $request->temp_id
-        ]);
+    //     $message = $chat->messages()->create([
+    //         'content' => $request->content,
+    //         'sender_id' => Auth::id(),
+    //         'sender_type' => get_class(Auth::user()),
+    //         'temp_id' => $request->temp_id
+    //     ]);
 
-        $message->load('sender');
+    //     $message->load('sender');
 
-        $formattedMessage = [
-            'id' => $message->id,
-            'content' => $message->content,
-            'sender_id' => $message->sender_id,
-            'sender_type' => $message->sender_type,
-            'created_at' => $message->created_at->toISOString(),
-            'status' => 'Sent',
-            'sender' => $message->sender,
-            'is_admin' => $message->sender_type === 'App\Models\Admin',
-            'temp_id' => $message->temp_id
-        ];
+    //     $formattedMessage = [
+    //         'id' => $message->id,
+    //         'content' => $message->content,
+    //         'sender_id' => $message->sender_id,
+    //         'sender_type' => $message->sender_type,
+    //         'created_at' => $message->created_at->toISOString(),
+    //         'status' => 'Sent',
+    //         'sender' => $message->sender,
+    //         'is_admin' => $message->sender_type === 'App\Models\Admin',
+    //         'temp_id' => $message->temp_id
+    //     ];
 
-        // broadcast(new NewChatMessage($formattedMessage, $chat->id))->toOthers();
+    //     // broadcast(new NewChatMessage($formattedMessage, $chat->id))->toOthers();
 
-        return response()->json([
-            'success' => true,
-            'message_id' => $message->id,
-            'temp_id' => $message->temp_id
-        ]);
-    }
+    //     return response()->json([
+    //         'success' => true,
+    //         'message_id' => $message->id,
+    //         'temp_id' => $message->temp_id
+    //     ]);
+    // }
 
     public function acceptChat(Request $request, Chat $chat)
     {
@@ -195,29 +195,29 @@ class ChatController extends Controller
         return response()->json(['success' => true]);
     }
 
-    public function markAsRead(Request $request, Chat $chat)
-    {
-        $user = Auth::user();
+    // public function markAsRead(Request $request, Chat $chat)
+    // {
+    //     $user = Auth::user();
 
-        // Verify user is part of this chat
-        if (!$chat->participants()->where('user_id', $user->id)->exists()) {
-            abort(403);
-        }
+    //     // Verify user is part of this chat
+    //     if (!$chat->participants()->where('user_id', $user->id)->exists()) {
+    //         abort(403);
+    //     }
 
-        // Mark all admin messages as read
-        $updated = $chat->messages()
-            ->where('sender_type', 'App\Models\Admin')
-            ->whereNull('read_at')
-            ->update(['read_at' => now()]);
+    //     // Mark all admin messages as read
+    //     $updated = $chat->messages()
+    //         ->where('sender_type', 'App\Models\Admin')
+    //         ->whereNull('read_at')
+    //         ->update(['read_at' => now()]);
 
-        // Broadcast the read status update
-        broadcast(new MessageRead($chat->id, now()))->toOthers();
+    //     // Broadcast the read status update
+    //     broadcast(new MessageRead($chat->id, now()))->toOthers();
 
-        return response()->json([
-            'success' => true,
-            'updated_count' => $updated
-        ]);
-    }
+    //     return response()->json([
+    //         'success' => true,
+    //         'updated_count' => $updated
+    //     ]);
+    // }
 
 
     // Admin section
@@ -493,5 +493,181 @@ class ChatController extends Controller
                 ];
             })
         ];
+    }
+
+    // Volunteer and Organization Chats
+    public function listChats()
+    {
+        $user = Auth::user();
+
+        // Get chats where the user is a participant
+        $chats = Chat::whereHas('participants', function ($query) use ($user) {
+            $query->where('user_id', $user->id);
+        })
+            ->with(['latestMessage'])
+            ->orderBy('updated_at', 'desc')
+            ->get()
+            ->map(function ($chat) use ($user) {
+                $adminParticipant = $chat->participants->firstWhere('admin_id', '!=', null);
+                return [
+                    'id' => $chat->id,
+                    'status' => $chat->status,
+                    'updated_at' => $chat->updated_at,
+                    'unread_count' => $chat->messages()
+                        ->where('sender_type', 'App\\Models\\Admin')
+                        ->whereNull('read_at') // Use read_at instead of status
+                        ->count(),
+                    'latest_message' => $chat->latestMessage?->content,
+                    'admin' => $adminParticipant?->admin ? [
+                        'id' => $adminParticipant->admin->id,
+                        'name' => $adminParticipant->admin->name,
+                        'email' => $adminParticipant->admin->email,
+                    ] : null
+                ];
+            });
+
+        return response()->json([
+            'chats' => $chats
+        ]);
+    }
+
+    public function startNewChat()
+    {
+        $user = Auth::user();
+
+        // Check if user already has a pending chat
+        $pendingChat = Chat::whereHas('participants', function ($query) use ($user) {
+            $query->where('user_id', $user->id);
+        })->where('status', 'pending')->first();
+
+        if ($pendingChat) {
+            return response()->json([
+                'error' => 'You already have a pending chat',
+                'existing_chat' => [
+                    'id' => $pendingChat->id,
+                    'updated_at' => $pendingChat->updated_at,
+                    'unread_count' => 0
+                ]
+            ], 400);
+        }
+
+        // Check if user has too many active chats
+        $activeChatCount = Chat::whereHas('participants', function ($query) use ($user) {
+            $query->where('user_id', $user->id);
+        })->where('status', 'active')->count();
+
+        if ($activeChatCount >= 1) { // Adjust this number as needed
+            return response()->json([
+                'error' => 'You already have an active chat'
+            ], 400);
+        }
+
+        // Create the chat
+        $chat = Chat::create([
+            'status' => 'pending',
+        ]);
+
+        // Add the user as a participant
+        $chat->participants()->create([
+            'user_id' => $user->id
+        ]);
+
+        return response()->json([
+            'chat' => [
+                'id' => $chat->id,
+                'updated_at' => $chat->updated_at,
+                'unread_count' => 0,
+            ]
+        ]);
+    }
+
+    public function getMessages(Chat $chat)
+    {
+        $user = Auth::user();
+
+        // Verify the user is a participant in this chat
+        if (!$chat->participants()->where('user_id', $user->id)->exists()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $messages = $chat->messages()
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->map(function ($message) {
+                return [
+                    'id' => $message->id,
+                    'content' => $message->content,
+                    'sender_id' => $message->sender_id,
+                    'sender_type' => $message->sender_type,
+                    'created_at' => $message->created_at,
+                    'status' => $message->status,
+                    'sender' => $message->sender_type === 'App\Models\Admin'
+                        ? ['name' => 'Admin']
+                        : ['name' => $message->sender->name],
+                ];
+            });
+
+        return response()->json([
+            'messages' => $messages
+        ]);
+    }
+
+    public function markAsRead(Chat $chat)
+    {
+        $user = Auth::user();
+
+        // Verify the user is a participant in this chat
+        if (!$chat->participants()->where('user_id', $user->id)->exists()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $chat->messages()
+            ->where('sender_type', 'App\Models\Admin')
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+
+        return response()->json(['success' => true]);
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'content' => 'required|string|max:1000',
+            'chat_id' => 'required|exists:chats,id',
+            'temp_id' => 'nullable',
+        ]);
+
+        $user = Auth::user();
+        $chat = Chat::findOrFail($request->chat_id);
+
+        // Verify the user is a participant in this chat
+        if (!$chat->participants()->where('user_id', $user->id)->exists()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $message = $chat->messages()->create([
+            'sender_id' => $user->id,
+            'sender_type' => 'App\Models\User',
+            'content' => $request->content,
+            // Don't need to set status here since it has a default
+        ]);
+
+        // Update chat status if it was pending
+        if ($chat->status === 'pending') {
+            $chat->update(['status' => 'active']);
+        }
+
+        return response()->json([
+            'message' => [
+                'id' => $message->id,
+                'content' => $message->content,
+                'sender_id' => $message->sender_id,
+                'sender_type' => $message->sender_type,
+                'created_at' => $message->created_at,
+                'read_at' => $message->read_at,
+                'sender' => ['name' => $user->name],
+            ],
+            'temp_id' => $request->temp_id,
+        ]);
     }
 }

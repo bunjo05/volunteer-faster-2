@@ -33,12 +33,24 @@ export default function FloatingChat() {
     // Check if current chat is ended - make sure this is properly calculated
     const isChatEnded = chat?.status === "ended";
 
+    // Check if user has active or pending chats
+    const hasActiveOrPendingChat = chats.some(
+        (c) => c.status === "active" || c.status === "pending"
+    );
+
+    // Get the first active or pending chat
+    const getActiveOrPendingChat = () => {
+        return chats.find(
+            (c) => c.status === "active" || c.status === "pending"
+        );
+    };
+
     // Silent polling function
     const pollForUpdates = async () => {
         if (!isOpen) return;
 
         try {
-            const response = await axios.get("/volunteer/chat/list");
+            const response = await axios.get("/chats/list");
             const updatedChats = response.data.chats || [];
 
             // Update chats state if there are changes
@@ -54,7 +66,7 @@ export default function FloatingChat() {
             // If we're in a chat, check for new messages and update chat status
             if (chat?.id && !showChatList) {
                 const messagesResponse = await axios.get(
-                    `/volunteer/chat/${chat.id}/messages`
+                    `/chats/${chat.id}/messages`
                 );
                 const updatedMessages = messagesResponse.data.messages || [];
 
@@ -93,9 +105,6 @@ export default function FloatingChat() {
 
             // Set up interval for polling (every 5 seconds)
             pollingInterval.current = setInterval(pollForUpdates, 5000);
-
-            // Also set up Echo for real-time updates
-            // setupEcho();
         } else {
             // Clean up
             if (pollingInterval.current) {
@@ -131,7 +140,7 @@ export default function FloatingChat() {
         setLoading(true);
         setError(null);
         try {
-            const response = await axios.get("/volunteer/chat/list");
+            const response = await axios.get("/chats/list");
             const sorted =
                 response.data.chats?.sort(
                     (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
@@ -139,9 +148,15 @@ export default function FloatingChat() {
 
             setChats(sorted);
 
-            if (sorted.length > 0 && !chat) {
-                setChat(sorted[0]);
-                setData("chat_id", sorted[0].id);
+            // Auto-select the first active or pending chat if available
+            const activeChat = getActiveOrPendingChat();
+            if (activeChat && !chat) {
+                setChat(activeChat);
+                setData("chat_id", activeChat.id);
+                // Auto-open the chat if there's an active/pending one
+                if (activeChat.status !== "ended") {
+                    fetchMessages(activeChat.id);
+                }
             }
         } catch (error) {
             console.error("Fetch chats error:", error);
@@ -157,9 +172,7 @@ export default function FloatingChat() {
 
     const fetchMessages = async (chatId) => {
         try {
-            const response = await axios.get(
-                `/volunteer/chat/${chatId}/messages`
-            );
+            const response = await axios.get(`/chats/${chatId}/messages`);
             setMessages(response.data.messages || []);
             setData("chat_id", chatId);
             setShowChatList(false);
@@ -172,7 +185,7 @@ export default function FloatingChat() {
 
             // Mark messages as read when opening chat
             if (chatId) {
-                await axios.post(`/volunteer/chat/${chatId}/read`);
+                await axios.post(`/chats/${chatId}/read`);
 
                 // Update local state immediately
                 setMessages((prev) =>
@@ -208,7 +221,8 @@ export default function FloatingChat() {
         setLoading(true);
         setChatLimitError(null);
         try {
-            const response = await axios.post("/volunteer/chat/new");
+            // Use the correct endpoint for starting new chat
+            const response = await axios.post("/chats/new");
 
             if (response.data.error) {
                 if (response.data.existing_chat) {
@@ -251,6 +265,12 @@ export default function FloatingChat() {
         // Prevent sending messages if chat is ended - same logic as admin chat
         if (!data.content.trim() || isChatEnded) return;
 
+        // If no chat exists but user has content to send, auto-create a chat
+        if (!chat && data.content.trim()) {
+            await startNewChatAndSendMessage(data.content);
+            return;
+        }
+
         const tempId = Date.now();
         const optimisticMessage = {
             id: tempId,
@@ -269,6 +289,7 @@ export default function FloatingChat() {
 
         // Optimistic update
         setMessages((prev) => [...prev, optimisticMessage]);
+        const messageContent = data.content;
         setData("content", "");
         scrollToBottom();
 
@@ -276,16 +297,24 @@ export default function FloatingChat() {
             const chatId = data.chat_id || (chat?.id ?? null);
             if (!chatId) throw new Error("No chat session available");
 
-            // Use the correct URL with volunteer prefix
-            const response = await axios.post(route("volunteer.chat.store"), {
-                content: data.content,
+            // Use the correct endpoint for sending messages
+            const response = await axios.post("/chats/store", {
+                content: messageContent,
                 chat_id: chatId,
                 temp_id: tempId,
             });
 
-            if (response.data.success) {
+            if (response.data.message) {
                 setSuccessMessage("Message sent successfully");
                 setTimeout(() => setSuccessMessage(null), 3000);
+
+                // Replace optimistic message with actual message
+                setMessages((prev) =>
+                    prev.map((msg) =>
+                        msg.temp_id === tempId ? response.data.message : msg
+                    )
+                );
+
                 setTimeout(pollForUpdates, 1000);
             }
         } catch (error) {
@@ -318,9 +347,83 @@ export default function FloatingChat() {
         }
     };
 
-    const hasActiveOrPendingChat = chats.some(
-        (c) => c.status === "active" || c.status === "pending"
-    );
+    // Helper function to create chat and send message
+    const startNewChatAndSendMessage = async (content) => {
+        setLoading(true);
+        try {
+            // First create a new chat
+            const chatResponse = await axios.post("/chats/new");
+
+            if (chatResponse.data.error && chatResponse.data.existing_chat) {
+                // Use existing chat
+                const existingChat = chatResponse.data.existing_chat;
+                setChat(existingChat);
+                setChats((prev) => [existingChat, ...prev]);
+                setData("chat_id", existingChat.id);
+                setShowChatList(false);
+
+                // Now send the message
+                await sendMessageToChat(existingChat.id, content);
+            } else if (chatResponse.data.chat) {
+                // New chat created
+                const newChat = chatResponse.data.chat;
+                setChat(newChat);
+                setChats([newChat, ...chats]);
+                setData("chat_id", newChat.id);
+                setShowChatList(false);
+
+                // Now send the message
+                await sendMessageToChat(newChat.id, content);
+            }
+        } catch (error) {
+            console.error("Error creating chat and sending message:", error);
+            setError("Failed to start chat and send message");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Helper function to send message to specific chat
+    const sendMessageToChat = async (chatId, content) => {
+        const tempId = Date.now();
+        const optimisticMessage = {
+            id: tempId,
+            content: content,
+            sender_id: auth.user.id,
+            sender_type: "App\\Models\\User",
+            created_at: new Date().toISOString(),
+            status: "Sending",
+            sender: {
+                id: auth.user.id,
+                name: auth.user.name,
+                email: auth.user.email,
+            },
+            temp_id: tempId,
+        };
+
+        setMessages([optimisticMessage]);
+        scrollToBottom();
+
+        try {
+            const response = await axios.post("/chats/store", {
+                content: content,
+                chat_id: chatId,
+                temp_id: tempId,
+            });
+
+            if (response.data.message) {
+                setSuccessMessage("Message sent successfully");
+                setTimeout(() => setSuccessMessage(null), 3000);
+
+                setMessages([response.data.message]);
+                setTimeout(pollForUpdates, 1000);
+            }
+        } catch (error) {
+            console.error("Error sending message:", error);
+            setError("Failed to send message");
+            setMessages([]);
+        }
+    };
 
     // Function to get admin name from chat
     const getAdminName = (chat) => {
@@ -367,13 +470,7 @@ export default function FloatingChat() {
                             )}
                             <h3 className="font-semibold text-lg">
                                 Live Support
-                                {/* {chat ? getAdminName(chat) : "Messages"} */}
                             </h3>
-                            {/* {chat && isChatEnded && (
-                                <span className="text-xs bg-red-500 text-white px-2 py-1 rounded-full ml-2">
-                                    Ended
-                                </span>
-                            )} */}
                         </div>
                         <button
                             onClick={handleCloseChat}
@@ -407,92 +504,95 @@ export default function FloatingChat() {
                                 )}
                             </div>
                             <div className="flex-1 overflow-y-auto">
-                                {sortedChats.map((c) => (
-                                    <div
-                                        key={c.id}
-                                        onClick={() => {
-                                            setChat(c);
-                                            fetchMessages(c.id);
-                                        }}
-                                        className={`p-4 cursor-pointer transition-colors ${
-                                            chat?.id === c.id
-                                                ? "bg-indigo-50 border-l-4 border-indigo-500"
-                                                : c.status === "ended"
-                                                ? "bg-gray-50 opacity-75"
-                                                : "hover:bg-gray-50"
-                                        }`}
-                                    >
-                                        <div className="flex justify-between items-start">
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex justify-between">
-                                                    <p
-                                                        className={`font-medium truncate ${
-                                                            c.status === "ended"
-                                                                ? "text-gray-500"
-                                                                : "text-gray-900"
-                                                        }`}
-                                                    >
-                                                        {getAdminName(c)}
-                                                    </p>
-                                                    <div className="flex items-center space-x-2 mt-1">
-                                                        {c.status ===
-                                                            "pending" && (
-                                                            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
-                                                                Pending
-                                                            </span>
-                                                        )}
-                                                        {c.status ===
-                                                            "active" && (
-                                                            <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
-                                                                Active
-                                                            </span>
-                                                        )}
-                                                        {c.status ===
-                                                            "ended" && (
-                                                            <span className="text-xs bg-red-300 text-gray-500 px-2 py-0.5 rounded-full">
-                                                                Chat was Ended
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    {isChatEnded ? (
-                                                        <></>
-                                                    ) : (
+                                {sortedChats.length === 0 ? (
+                                    <div className="p-4 text-center text-gray-500">
+                                        <MessageSquare className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                                        <p>No chats yet</p>
+                                        <p className="text-sm">
+                                            Start a new conversation to get help
+                                        </p>
+                                    </div>
+                                ) : (
+                                    sortedChats.map((c) => (
+                                        <div
+                                            key={c.id}
+                                            onClick={() => {
+                                                setChat(c);
+                                                fetchMessages(c.id);
+                                            }}
+                                            className={`p-4 cursor-pointer transition-colors ${
+                                                chat?.id === c.id
+                                                    ? "bg-indigo-50 border-l-4 border-indigo-500"
+                                                    : c.status === "ended"
+                                                    ? "bg-gray-50 opacity-75"
+                                                    : "hover:bg-gray-50"
+                                            }`}
+                                        >
+                                            <div className="flex justify-between items-start">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex justify-between">
                                                         <p
-                                                            className={`text-sm mt-1 ${
+                                                            className={`font-medium truncate ${
                                                                 c.status ===
                                                                 "ended"
-                                                                    ? "text-gray-400"
-                                                                    : "text-gray-500"
-                                                            } truncate`}
+                                                                    ? "text-gray-500"
+                                                                    : "text-gray-900"
+                                                            }`}
                                                         >
-                                                            {c.latest_message
-                                                                ?.content ||
-                                                                "No messages yet"}
+                                                            {getAdminName(c)}
                                                         </p>
-                                                    )}
+                                                        <div className="flex items-center space-x-2 mt-1">
+                                                            {c.status ===
+                                                                "pending" && (
+                                                                <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
+                                                                    Pending
+                                                                </span>
+                                                            )}
+                                                            {c.status ===
+                                                                "active" && (
+                                                                <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                                                                    Active
+                                                                </span>
+                                                            )}
+                                                            {c.status ===
+                                                                "ended" && (
+                                                                <span className="text-xs bg-red-300 text-gray-500 px-2 py-0.5 rounded-full">
+                                                                    Ended
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <p
+                                                        className={`text-sm mt-1 ${
+                                                            c.status === "ended"
+                                                                ? "text-gray-400"
+                                                                : "text-gray-500"
+                                                        } truncate`}
+                                                    >
+                                                        {c.latest_message
+                                                            ?.content ||
+                                                            "No messages yet"}
+                                                    </p>
+                                                    <p className="text-xs text-gray-400 mt-1">
+                                                        {new Date(
+                                                            c.updated_at
+                                                        ).toLocaleString([], {
+                                                            month: "short",
+                                                            day: "numeric",
+                                                            hour: "2-digit",
+                                                            minute: "2-digit",
+                                                        })}
+                                                    </p>
                                                 </div>
-
-                                                <p className="text-xs text-gray-400 mt-1">
-                                                    {new Date(
-                                                        c.updated_at
-                                                    ).toLocaleString([], {
-                                                        month: "short",
-                                                        day: "numeric",
-                                                        hour: "2-digit",
-                                                        minute: "2-digit",
-                                                    })}
-                                                </p>
+                                                {c.unread_count > 0 && (
+                                                    <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full ml-2 flex-shrink-0">
+                                                        {c.unread_count}
+                                                    </span>
+                                                )}
                                             </div>
-                                            {c.unread_count > 0 && (
-                                                <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full ml-2 flex-shrink-0">
-                                                    {c.unread_count}
-                                                </span>
-                                            )}
                                         </div>
-                                    </div>
-                                ))}
+                                    ))
+                                )}
                             </div>
                         </div>
                     ) : (
@@ -523,7 +623,10 @@ export default function FloatingChat() {
                                     <div className="space-y-4">
                                         {messages.map((message) => (
                                             <div
-                                                key={message.id}
+                                                key={
+                                                    message.id ||
+                                                    message.temp_id
+                                                }
                                                 className={`flex ${
                                                     message.sender_type ===
                                                     "App\\Models\\User"
@@ -609,25 +712,22 @@ export default function FloatingChat() {
                                                     e.target.value
                                                 )
                                             }
-                                            className="flex-1 border border-gray-300 rounded-l-lg px-4 py-2
-                           focus:outline-none focus:ring-2 focus:ring-indigo-500
-                           focus:border-transparent"
-                                            placeholder="Type your message..."
-                                            required
-                                            disabled={
-                                                processing || loading || !chat
+                                            className="flex-1 border border-gray-300 rounded-l-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                            placeholder={
+                                                !chat
+                                                    ? "Type a message to start a new chat..."
+                                                    : "Type your message..."
                                             }
+                                            required
+                                            disabled={processing || loading}
                                         />
-
                                         <button
                                             type="submit"
-                                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2
-                           rounded-r-lg transition-colors disabled:opacity-50"
+                                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-r-lg transition-colors disabled:opacity-50"
                                             disabled={
                                                 processing ||
                                                 loading ||
-                                                !data.content.trim() ||
-                                                !chat
+                                                !data.content.trim()
                                             }
                                         >
                                             <Send className="w-5 h-5" />
