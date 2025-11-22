@@ -29,6 +29,85 @@ use Illuminate\Validation\ValidationException;
 
 class OrganizationController extends Controller
 {
+
+    public function shareMessages()
+    {
+        $user = Auth::user();
+
+        if (!$user || $user->role !== 'Organization') {
+            return ['conversations' => []];
+        }
+
+        // Get all messages where user is either sender or receiver
+        $messages = Message::with(['sender', 'receiver', 'originalMessage.sender', 'booking', 'project'])
+            ->where(function ($query) use ($user) {
+                $query->where('receiver_id', $user->id)
+                    ->orWhere('sender_id', $user->id);
+            })
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        // Group messages by conversation partner
+        $groupedMessages = $messages->groupBy(function ($message) use ($user) {
+            // Use a composite key that includes booking_id if available
+            $baseKey = $message->sender_id === $user->id
+                ? $message->receiver_id
+                : $message->sender_id;
+
+            return $message->booking_public_id
+                ? "{$baseKey}-{$message->booking_public_id}"
+                : $baseKey;
+        });
+
+        // Prepare conversations with replied messages
+        $conversations = $groupedMessages->map(function ($messages, $otherUserId) use ($user) {
+            $otherUser = $messages->first()->sender_id === $user->id
+                ? $messages->first()->receiver
+                : $messages->first()->sender;
+
+            // Add replied message data to each message
+            $enhancedMessages = $messages->map(function ($message) {
+                return [
+                    'id' => $message->id,
+                    'message' => $message->message,
+                    'sender_id' => $message->sender_id,
+                    'receiver_id' => $message->receiver_id,
+                    'status' => $message->status,
+                    'created_at' => $message->created_at,
+                    'reply_to' => $message->reply_to,
+                    'original_message' => $message->originalMessage ? [
+                        'id' => $message->originalMessage->id,
+                        'message' => $message->originalMessage->message,
+                        'sender_id' => $message->originalMessage->sender_id,
+                        'sender' => $message->originalMessage->sender ? [
+                            'id' => $message->originalMessage->sender->id,
+                            'name' => $message->originalMessage->sender->name,
+                            'email' => $message->originalMessage->sender->email,
+                        ] : null,
+                    ] : null,
+                ];
+            });
+
+            return [
+                'sender' => [
+                    'id' => $otherUser->id,
+                    'name' => $otherUser->name,
+                    'email' => $otherUser->email,
+                ],
+                'messages' => $enhancedMessages,
+                'unreadCount' => $messages->where('receiver_id', $user->id)
+                    ->where('status', 'Unread')
+                    ->count(),
+                'latestMessage' => $messages->sortByDesc('created_at')->first()
+            ];
+        })->sortByDesc(function ($conversation) {
+            return $conversation['latestMessage']['created_at'];
+        });
+
+        return ['conversations' => $conversations->values()->all()];
+    }
+
+
     public function index()
     {
         $user = Auth::user();
@@ -359,27 +438,34 @@ class OrganizationController extends Controller
             'receiver_id' => 'required|exists:users,id',
             'message' => 'required|string|max:1000',
             'reply_to' => 'nullable|exists:messages,id',
-            'project_id' => 'nullable|exists:projects,id',
-            'booking_id' => 'nullable|exists:volunteer_bookings,id',
+            'project_public_id' => 'nullable|string', // Change from project_id
+            'booking_public_id' => 'nullable|string', // Change from booking_id
         ]);
 
         $user = Auth::user();
-        $project = $request->project_id ? Project::find($request->project_id) : null;
-        $booking = $request->booking_id ? VolunteerBooking::find($request->booking_id) : null;
 
+        // Handle project and booking - make them optional
+        $project = null;
+        $booking = null;
+
+        // Use project_public_id instead of project_id
+        if ($request->project_public_id) {
+            $project = Project::where('public_id', $request->project_public_id)->first();
+        }
+
+        // Use booking_public_id instead of booking_id
+        if ($request->booking_public_id) {
+            $booking = VolunteerBooking::where('public_id', $request->booking_public_id)->first();
+        }
 
         // Check if this is a paid project conversation
         $isPaidProject = $project && $project->type_of_project === 'Paid';
 
         // Check if user has made payment for paid projects
         $hasPayment = false;
-        if ($isPaidProject) {
-            $hasPayment = VolunteerBooking::where('user_public_id', $user->public_id)
-                ->where('project_id', $project->id)
-                ->where('booking_status', 'Approved')
-                ->whereHas('payments', function ($query) {
-                    $query->where('status', 'completed');
-                })
+        if ($isPaidProject && $booking) {
+            $hasPayment = $booking->payments()
+                ->where('status', 'completed')
                 ->exists();
         }
 
@@ -405,30 +491,34 @@ class OrganizationController extends Controller
             }
         }
 
-        $message = Message::create([
-            'sender_id' => $user->id,
-            'receiver_id' => $request->receiver_id,
-            'message' => $filteredMessage,
-            'status' => 'Unread',
-            'reply_to' => $request->reply_to,
-            'project_id' => $project ? $project->id : null,
-            'booking_id' => $booking ? $booking->id : null,
-        ]);
+        try {
+            $message = Message::create([
+                'sender_id' => $user->id,
+                'receiver_id' => $request->receiver_id,
+                'message' => $filteredMessage,
+                'status' => 'Unread',
+                'reply_to' => $request->reply_to,
+                'project_public_id' => $request->project_public_id, // Use the public_id directly
+                'booking_public_id' => $request->booking_public_id, // Use the public_id directly
+            ]);
 
-        // Load relationships before broadcasting
-        $message->load(['sender', 'receiver', 'originalMessage.sender', 'project', 'booking']);
+            // Load relationships
+            $message->load(['sender', 'receiver', 'originalMessage.sender', 'project', 'booking']);
 
-        // Single broadcast call
-        broadcast(new NewMessage($message))->toOthers();
-
-        return back()->with([
-            'success' => 'Message sent successfully.',
-            'hasRestrictedContent' => $hasRestrictedContent,
-            'isPaidProject' => $isPaidProject,
-            'hasPayment' => $hasPayment,
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Message sent successfully.',
+                'hasRestrictedContent' => $hasRestrictedContent,
+                'isPaidProject' => $isPaidProject,
+                'hasPayment' => $hasPayment,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send message: ' . $e->getMessage()
+            ], 500);
+        }
     }
-
 
     public function projects()
     {
@@ -483,8 +573,6 @@ class OrganizationController extends Controller
 
         return back()->with('success', 'Review requested successfully.');
     }
-
-
 
     public function createProject()
     {
@@ -900,7 +988,7 @@ class OrganizationController extends Controller
     {
         $validated = $request->validate([
             'volunteer_public_id' => 'required|exists:users,public_id',
-            'project_public_id' => 'required|exists:projects,public_id',
+            'booking_public_id' => 'required|exists:volunteer_bookings,public_id',
             'message' => 'nullable|string|max:500',
         ]);
 
@@ -911,16 +999,23 @@ class OrganizationController extends Controller
             ->where('role', 'Volunteer')
             ->firstOrFail();
 
-        // Check if a request already exists
+        // Verify the booking belongs to the volunteer and project
+        $booking = VolunteerBooking::where('public_id', $validated['booking_public_id'])
+            ->where('user_public_id', $validated['volunteer_public_id'])
+            // ->where('project_public_id', $validated['project_public_id'])
+            ->firstOrFail();
+
+        // Check if a request already exists for this specific booking
         $existingRequest = ShareContact::where([
             'organization_public_id' => $user->public_id,
             'volunteer_public_id' => $volunteer->public_id,
+            // 'booking_public_id' => $validated['booking_public_id'],
         ])->first();
 
         if ($existingRequest) {
             return response()->json([
                 'success' => false,
-                'message' => 'A contact request already exists for this volunteer.'
+                'message' => 'A contact request already exists for this booking.'
             ], 409);
         }
 
@@ -929,8 +1024,10 @@ class OrganizationController extends Controller
             'public_id' => (string) Str::ulid(),
             'organization_public_id' => $user->public_id,
             'volunteer_public_id' => $volunteer->public_id,
+            'booking_public_id' => $validated['booking_public_id'],
+            // 'project_public_id' => $validated['project_public_id'],
             'status' => 'pending',
-            'message' => $validated['message'] ?? null, // Use null if message is empty
+            'message' => $validated['message'] ?? null,
             'requested_at' => now(),
         ]);
 
@@ -947,8 +1044,13 @@ class OrganizationController extends Controller
     {
         $user = Auth::user();
 
-        $requests = ShareContact::with(['volunteer.volunteerProfile'])
+        $requests = ShareContact::with([
+            'volunteer.volunteerProfile',
+            'booking',
+            'project'
+        ])
             ->where('organization_public_id', $user->public_id)
+            ->where('status', 'pending')
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -961,14 +1063,31 @@ class OrganizationController extends Controller
     {
         $user = Auth::user();
 
-        $sharedContacts = ShareContact::with(['volunteer.volunteerProfile'])
+        $sharedContacts = ShareContact::with([
+            'volunteer.volunteerProfile',
+            'booking',
+            'project'
+        ])
             ->where('organization_public_id', $user->public_id)
-            ->where('status', 'approved')
-            ->orderBy('approved_at', 'desc')
+            ->orderBy('created_at', 'desc')
             ->get();
 
         return response()->json([
-            'shared_contacts' => $sharedContacts
+            'shared_contacts' => $sharedContacts->where('status', 'approved'),
+            'pending_requests' => $sharedContacts->where('status', 'pending')
+        ]);
+    }
+
+    public function volunteerProfile($volunteer_profile)
+    {
+        // Your volunteer profile logic here
+        $volunteer = User::where('public_id', $volunteer_profile)
+            ->where('role', 'Volunteer')
+            ->with('volunteerProfile')
+            ->firstOrFail();
+
+        return Inertia::render('Organizations/VolunteerProfile', [
+            'volunteer' => $volunteer,
         ]);
     }
 }

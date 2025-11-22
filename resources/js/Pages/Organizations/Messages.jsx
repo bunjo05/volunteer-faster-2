@@ -92,7 +92,7 @@ export default function Messages({
                     : null,
             };
 
-            acc[conversation.sender.id] = conversationWithPayment;
+            acc[conversation.sender.user_id] = conversationWithPayment;
             return acc;
         }, {});
 
@@ -104,19 +104,6 @@ export default function Messages({
             setSelectedConversationId(firstKey);
         }
     }, [initialMessages]);
-
-    // useEffect(() => {
-    //     Echo.join("chat")
-    //         .here((users) => {
-    //             console.log("here", users);
-    //         })
-    //         .joining((user) => {
-    //             console.log("joining", user);
-    //         })
-    //         .leaving((user) => {
-    //             console.log("leaving", user);
-    //         });
-    // }, []);
 
     // Scroll to bottom of messages
     useEffect(() => {
@@ -250,64 +237,7 @@ export default function Messages({
                 return updated;
             });
         });
-
-        return () => {
-            window.Echo.leave(channelName);
-        };
     }, [receiverId, auth.user.id]);
-    // useEffect(() => {
-    //     if (!receiverId) return;
-
-    //     const channelName = `message.user.${[auth.user.id, receiverId]
-    //         .sort()
-    //         .join("-")}`;
-
-    //     // Connection status listeners
-    //     window.Echo.connector.socket.on("connect", () => {
-    //         console.log("Connected to WebSocket server");
-    //     });
-
-    //     window.Echo.connector.socket.on("error", (error) => {
-    //         console.error("WebSocket error:", error);
-    //     });
-
-    //     console.log(`Attempting to subscribe to channel: ${channelName}`);
-
-    //     const listener = window.Echo.private(channelName)
-    //         .here((users) => {
-    //             console.log("Users in channel:", users);
-    //         })
-    //         .listen("NewMessage", (e) => {
-    //             console.log("Received message:", e.message);
-    //             // Handle new message
-    //             setGroupedMessages((prev) => {
-    //                 const updated = { ...prev };
-    //                 const conversationKey =
-    //                     e.message.sender_id === auth.user.id
-    //                         ? e.message.receiver_id
-    //                         : e.message.sender_id;
-
-    //                 if (updated[conversationKey]) {
-    //                     updated[conversationKey] = {
-    //                         ...updated[conversationKey],
-    //                         messages: [
-    //                             ...updated[conversationKey].messages,
-    //                             e.message,
-    //                         ],
-    //                         latestMessage: e.message,
-    //                     };
-    //                 }
-    //                 return updated;
-    //             });
-    //         });
-
-    //     return () => {
-    //         window.Echo.leave(channelName);
-    //         // Clean up socket listeners
-    //         window.Echo.connector.socket.off("connect");
-    //         window.Echo.connector.socket.off("error");
-    //     };
-    // }, [receiverId, auth.user.id]);
 
     const handleSendMessage = (e) => {
         e.preventDefault();
@@ -318,7 +248,7 @@ export default function Messages({
         const currentConversation = groupedMessages[selectedConversationId];
 
         // Determine receiver ID
-        const receiverId = currentConversation.sender.id;
+        const receiverId = currentConversation.sender.user_id;
 
         // Filter the message content
         const { cleanedText, hasRestrictedContent } = filterContent(

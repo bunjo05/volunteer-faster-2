@@ -24,10 +24,10 @@ class Chat extends Model
     }
 
     // Alias for messages() to maintain consistency with your code
-    public function chatMessages(): HasMany
-    {
-        return $this->messages();
-    }
+    // public function chatMessages(): HasMany
+    // {
+    //     return $this->messages();
+    // }
 
     public function latestMessage(): HasOne
     {
@@ -42,5 +42,10 @@ class Chat extends Model
     public function admin()
     {
         return $this->participants()->whereNotNull('admin_id')->first()?->admin;
+    }
+
+    public function chatMessages()
+    {
+        return $this->hasMany(ChatMessage::class);
     }
 }

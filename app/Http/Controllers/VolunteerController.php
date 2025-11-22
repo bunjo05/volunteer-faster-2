@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Chat;
+use App\Models\User;
 use Inertia\Inertia;
 use App\Models\Admin;
 use App\Models\Message;
@@ -30,6 +31,84 @@ use App\Mail\PlatformReview as MailPlatformReview;
 
 class VolunteerController extends Controller
 {
+
+    public function shareMessages()
+    {
+        $user = Auth::user();
+
+        if (!$user || $user->role !== 'Volunteer') {
+            return ['conversations' => []];
+        }
+
+        // Get all messages where user is either sender or receiver
+        $messages = Message::with(['sender', 'receiver', 'originalMessage.sender', 'booking', 'project'])
+            ->where(function ($query) use ($user) {
+                $query->where('receiver_id', $user->id)
+                    ->orWhere('sender_id', $user->id);
+            })
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        // Group messages by conversation partner
+        $groupedMessages = $messages->groupBy(function ($message) use ($user) {
+            // Use a composite key that includes booking_id if available
+            $baseKey = $message->sender_id === $user->id
+                ? $message->receiver_id
+                : $message->sender_id;
+
+            return $message->booking_public_id
+                ? "{$baseKey}-{$message->booking_public_id}"
+                : $baseKey;
+        });
+
+        // Prepare conversations with replied messages
+        $conversations = $groupedMessages->map(function ($messages, $otherUserId) use ($user) {
+            $otherUser = $messages->first()->sender_id === $user->id
+                ? $messages->first()->receiver
+                : $messages->first()->sender;
+
+            // Add replied message data to each message
+            $enhancedMessages = $messages->map(function ($message) {
+                return [
+                    'id' => $message->id,
+                    'message' => $message->message,
+                    'sender_id' => $message->sender_id,
+                    'receiver_id' => $message->receiver_id,
+                    'status' => $message->status,
+                    'created_at' => $message->created_at,
+                    'reply_to' => $message->reply_to,
+                    'original_message' => $message->originalMessage ? [
+                        'id' => $message->originalMessage->id,
+                        'message' => $message->originalMessage->message,
+                        'sender_id' => $message->originalMessage->sender_id,
+                        'sender' => $message->originalMessage->sender ? [
+                            'id' => $message->originalMessage->sender->id,
+                            'name' => $message->originalMessage->sender->name,
+                            'email' => $message->originalMessage->sender->email,
+                        ] : null,
+                    ] : null,
+                ];
+            });
+
+            return [
+                'sender' => [
+                    'id' => $otherUser->id,
+                    'name' => $otherUser->name,
+                    'email' => $otherUser->email,
+                ],
+                'messages' => $enhancedMessages,
+                'unreadCount' => $messages->where('receiver_id', $user->id)
+                    ->where('status', 'Unread')
+                    ->count(),
+                'latestMessage' => $messages->sortByDesc('created_at')->first()
+            ];
+        })->sortByDesc(function ($conversation) {
+            return $conversation['latestMessage']['created_at'];
+        });
+
+        return ['conversations' => $conversations->values()->all()];
+    }
+
     // Add this method to your controller
     public function getTotalPoints()
     {
@@ -104,10 +183,12 @@ class VolunteerController extends Controller
     }
     public function projects()
     {
+        $user = Auth::user();
+
         $bookings = VolunteerBooking::with(['project', 'reminders', 'payments', 'pointTransactions', 'project.user'])
-            ->where('user_public_id',  Auth::user()->public_id)
+            ->where('user_public_id', $user->public_id)
             ->get()
-            ->map(function ($booking) {
+            ->map(function ($booking) use ($user) {
                 $daysPending = $booking->created_at->diffInDays(now());
                 $lastReminder = $booking->reminders->sortByDesc('created_at')->first();
 
@@ -140,10 +221,22 @@ class VolunteerController extends Controller
                     ->where('type', 'debit')
                     ->isNotEmpty();
 
+                // Get contact requests for this specific booking
+                $booking->contact_requests = ShareContact::with(['organization.organizationProfile'])
+                    ->where('volunteer_public_id', $user->public_id)
+                    ->where('booking_public_id', $booking->public_id)
+                    ->where('status', 'pending')
+                    ->get();
+
+                // Get shared contacts for this specific booking
+                $booking->shared_contacts = ShareContact::with(['organization.organizationProfile'])
+                    ->where('volunteer_public_id', $user->public_id)
+                    ->where('booking_public_id', $booking->public_id)
+                    ->where('status', 'approved')
+                    ->get();
+
                 return $booking;
             });
-
-        $user = Auth::user();
 
         $earnedPoints = VolunteerPoint::where('user_public_id', $user->public_id)
             ->sum('points_earned');
@@ -173,11 +266,11 @@ class VolunteerController extends Controller
     {
         $user = Auth::user();
 
-        // Get all messages where user is either sender or receiver
+        // Get all messages where user is either sender or receiver - FIXED: use id not public_id
         $messages = Message::with(['sender', 'receiver', 'originalMessage.sender', 'booking', 'project'])
             ->where(function ($query) use ($user) {
-                $query->where('receiver_id', $user->public_id)
-                    ->orWhere('sender_id', $user->public_id);
+                $query->where('receiver_id', $user->id)  // Changed from public_id to id
+                    ->orWhere('sender_id', $user->id); // Changed from public_id to id
             })
             ->orderBy('created_at', 'asc')
             ->get();
@@ -185,7 +278,7 @@ class VolunteerController extends Controller
         // Group messages by conversation partner
         $groupedMessages = $messages->groupBy(function ($message) use ($user) {
             // Use a composite key that includes booking_public_id if available
-            $baseKey = $message->sender_id === $user->public_id
+            $baseKey = $message->sender_id === $user->id
                 ? $message->receiver_id
                 : $message->sender_id;
 
@@ -196,14 +289,14 @@ class VolunteerController extends Controller
 
         // Prepare conversations with replied messages
         $conversations = $groupedMessages->map(function ($messages, $otherUserId) use ($user) {
-            $otherUser = $messages->first()->sender_id === $user->public_id
+            $otherUser = $messages->first()->sender_id === $user->id
                 ? $messages->first()->receiver
                 : $messages->first()->sender;
 
             // Add replied message data to each message
             $enhancedMessages = $messages->map(function ($message) {
                 return [
-                    'id' => $message->public_id,
+                    'id' => $message->id, // Use regular id, not public_id
                     'message' => $message->message,
                     'sender_id' => $message->sender_id,
                     'receiver_id' => $message->receiver_id,
@@ -211,11 +304,11 @@ class VolunteerController extends Controller
                     'created_at' => $message->created_at,
                     'reply_to' => $message->reply_to,
                     'original_message' => $message->originalMessage ? [
-                        'id' => $message->originalMessage->public_id,
+                        'id' => $message->originalMessage->id,
                         'message' => $message->originalMessage->message,
                         'sender_id' => $message->originalMessage->sender_id,
                         'sender' => $message->originalMessage->sender ? [
-                            'id' => $message->originalMessage->sender->public_id,
+                            'id' => $message->originalMessage->sender->id,
                             'name' => $message->originalMessage->sender->name,
                             'email' => $message->originalMessage->sender->email,
                         ] : null,
@@ -225,12 +318,12 @@ class VolunteerController extends Controller
 
             return [
                 'sender' => [
-                    'id' => $otherUser->public_id,
+                    'id' => $otherUser->id, // Use regular id
                     'name' => $otherUser->name,
                     'email' => $otherUser->email,
                 ],
                 'messages' => $enhancedMessages,
-                'unreadCount' => $messages->where('receiver_id', $user->public_id)
+                'unreadCount' => $messages->where('receiver_id', $user->id)
                     ->where('status', 'Unread')
                     ->count(),
                 'latestMessage' => $messages->sortByDesc('created_at')->first()
@@ -274,13 +367,33 @@ class VolunteerController extends Controller
             'receiver_id' => 'required|exists:users,id',
             'message' => 'required|string|max:1000',
             'reply_to' => 'nullable|exists:messages,id',
-            'project_public_id' => 'nullable|exists:projects,id',
-            'booking_public_id' => 'nullable|exists:volunteer_bookings,id',
+            'project_public_id' => 'nullable|exists:projects,public_id',
+            'booking_public_id' => 'nullable|exists:volunteer_bookings,public_id',
         ]);
 
         $user = Auth::user();
-        $project = $request->project_public_id ? Project::find($request->project_public_id) : null;
-        $booking = $request->booking_public_id ? VolunteerBooking::find($request->booking_public_id) : null;
+
+        // Get the receiver user
+        $receiverUser = User::find($request->receiver_id);
+
+        if (!$receiverUser) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Receiver not found.'
+            ], 404);
+        }
+
+        // Handle project and booking - make them optional
+        $project = null;
+        $booking = null;
+
+        if ($request->project_public_id) {
+            $project = Project::where('public_id', $request->project_public_id)->first();
+        }
+
+        if ($request->booking_public_id) {
+            $booking = VolunteerBooking::where('public_id', $request->booking_public_id)->first();
+        }
 
         // If we have a booking but no project, get project from booking
         if ($booking && !$project) {
@@ -320,32 +433,38 @@ class VolunteerController extends Controller
             }
         }
 
-        $message = Message::create([
-            'sender_id' => $user->public_id,
-            'receiver_id' => $request->receiver_id,
-            'message' => $filteredMessage,
-            'status' => 'Unread',
-            'reply_to' => $request->reply_to,
-            'project_public_id' => $project ? $project->public_id : null,
-            'booking_public_id' => $booking ? $booking->public_id : null,
-        ]);
+        // Use proper values for project and booking public IDs
+        $projectPublicId = $project ? $project->public_id : null;
+        $bookingPublicId = $booking ? $booking->public_id : null;
 
-        // Load relationships before broadcasting
-        $message->load(['sender', 'receiver', 'originalMessage.sender', 'project', 'booking']);
+        try {
+            $message = Message::create([
+                'sender_id' => $user->id,
+                'receiver_id' => $receiverUser->id,
+                'message' => $filteredMessage,
+                'status' => 'Unread',
+                'reply_to' => $request->reply_to,
+                'project_public_id' => $projectPublicId,
+                'booking_public_id' => $bookingPublicId,
+            ]);
 
-        // Single broadcast call
-        broadcast(new NewMessage($message))->toOthers();
+            // Load relationships
+            $message->load(['sender', 'receiver', 'originalMessage.sender', 'project', 'booking']);
 
-        // NewMessage::dispatch($message);
-
-        return back()->with([
-            'success' => 'Message sent successfully.',
-            'hasRestrictedContent' => $hasRestrictedContent,
-            'isPaidProject' => $isPaidProject,
-            'hasPayment' => $hasPayment,
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Message sent successfully.',
+                'hasRestrictedContent' => $hasRestrictedContent,
+                'isPaidProject' => $isPaidProject,
+                'hasPayment' => $hasPayment,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send message: ' . $e->getMessage()
+            ], 500);
+        }
     }
-
     public function panelStoreMessage(Request $request)
     {
         $request->validate([
@@ -872,21 +991,21 @@ class VolunteerController extends Controller
         return back()->with('success', 'Thank you for your review! Your feedback helps us improve our platform.');
     }
 
-    public function getContactRequests(Request $request)
-    {
-        $user = Auth::user();
+    // public function getContactRequests(Request $request)
+    // {
+    //     $user = Auth::user();
 
-        $requests = ShareContact::with(['organization.organizationProfile'])
-            ->where('volunteer_public_id', $user->public_id)
-            ->orderBy('created_at', 'desc')
-            ->get();
+    //     $requests = ShareContact::with(['organization.organizationProfile'])
+    //         ->where('volunteer_public_id', $user->public_id)
+    //         ->orderBy('created_at', 'desc')
+    //         ->get();
 
-        return response()->json([
-            'requests' => $requests
-        ]);
-    }
+    //     return response()->json([
+    //         'requests' => $requests
+    //     ]);
+    // }
 
-    public function respondToContactRequest(Request $request, $requestId)
+    public function respondContactRequest(Request $request, $requestId)
     {
         $validated = $request->validate([
             'status' => 'required|in:approved,rejected',
@@ -907,32 +1026,77 @@ class VolunteerController extends Controller
             ], 400);
         }
 
-        $contactRequest->update([
-            'status' => $validated['status'],
-            'approved_at' => $validated['status'] === 'approved' ? now() : null,
-        ]);
+        DB::beginTransaction();
+        try {
+            $contactRequest->update([
+                'status' => $validated['status'],
+                'approved_at' => $validated['status'] === 'approved' ? now() : null,
+            ]);
 
-        // TODO: Send notification to organization about the response
+            // Create notification for organization
+            if ($validated['status'] === 'approved') {
+                // TODO: Send notification to organization about approval
+                // You can create a notification system here
+            }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Contact request ' . $validated['status'] . ' successfully.',
-            'request' => $contactRequest
-        ]);
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Contact request ' . $validated['status'] . ' successfully.',
+                'request' => $contactRequest
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to process request: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
-    public function getSharedContacts(Request $request)
+    public function getContactRequests()
     {
         $user = Auth::user();
 
-        $sharedContacts = ShareContact::with(['organization.organizationProfile'])
+        $requests = ShareContact::with(['organization.organizationProfile'])
             ->where('volunteer_public_id', $user->public_id)
-            ->where('status', 'approved')
-            ->orderBy('approved_at', 'desc')
+            ->orderBy('created_at', 'desc')
             ->get();
 
         return response()->json([
-            'shared_contacts' => $sharedContacts
+            'requests' => $requests
         ]);
+    }
+
+
+    public function requestContactAccess(Request $request)
+    {
+        $validated = $request->validate([
+            'organization_public_id' => 'required|exists:users,public_id',
+            'message' => 'nullable|string|max:500',
+        ]);
+
+        $user = Auth::user();
+
+        // Check if there's already a pending or approved request
+        $existingRequest = ShareContact::where('volunteer_public_id', $user->public_id)
+            ->where('organization_public_id', $validated['organization_public_id'])
+            ->whereIn('status', ['pending', 'approved'])
+            ->first();
+
+        if ($existingRequest) {
+            return back()->with('error', 'You already have a pending or approved request for this organization.');
+        }
+
+        // Create new contact request
+        ShareContact::create([
+            'volunteer_public_id' => $user->public_id,
+            'organization_public_id' => $validated['organization_public_id'],
+            'message' => $validated['message'] ?? null,
+            'status' => 'pending',
+        ]);
+
+        return back()->with('success', 'Contact access request sent successfully.');
     }
 }

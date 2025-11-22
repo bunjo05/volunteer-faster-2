@@ -244,66 +244,52 @@ Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(
         ->name('volunteer.contact.requests');
     Route::post('/contact-requests/{requestId}/respond', [VolunteerController::class, 'respondToContactRequest'])
         ->name('volunteer.contact.respond');
-    Route::get('/shared-contacts', [VolunteerController::class, 'getSharedContacts'])
-        ->name('volunteer.shared.contacts');
 
     Route::get('/notifications', [NotificationController::class, 'volunteerIndex'])->name('volunteer.notifications');
+
+    Route::post('/contact-requests/{requestId}/respond', [VolunteerController::class, 'respondContactRequest'])
+        ->name('volunteer.contact.respond');
+    Route::get('/contact-requests', [VolunteerController::class, 'getContactRequests'])
+        ->name('volunteer.contact.requests');
+    Route::get('/shared-contacts', [VolunteerController::class, 'getSharedContacts'])
+        ->name('volunteer.shared.contacts');
 });
 
 Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->group(function () {
+    // All specific routes first
     Route::get('/dashboard', [OrganizationController::class, 'index'])->name('organization.dashboard');
     Route::get('/profile', [OrganizationController::class, 'profile'])->name('organization.profile');
     Route::post('/profile', [OrganizationController::class, 'updateProfile'])->name('organization.profile.update');
-    Route::get('/messages', [OrganizationController::class, 'messages'])
-        ->name('organization.messages');
-    Route::patch('/messages/mark-all-read/{senderId}', [OrganizationController::class, 'markAllRead'])
-        ->name('organization.messages.mark-all-read');
-    Route::post('/messages', [OrganizationController::class, 'storeMessage'])
-        ->name('organization.messages.store');
+    Route::get('/messages', [OrganizationController::class, 'messages'])->name('organization.messages');
+    Route::patch('/messages/mark-all-read/{senderId}', [OrganizationController::class, 'markAllRead'])->name('organization.messages.mark-all-read');
+    Route::post('/messages', [OrganizationController::class, 'storeMessage'])->name('organization.messages.store');
     Route::get('/projects', [OrganizationController::class, 'projects'])->name('organization.projects');
-
     Route::get('/projects/create', [OrganizationController::class, 'createProject'])->name('organization.projects.create');
     Route::post('/projects/{slug?}', [OrganizationController::class, 'storeProject'])->name('organization.projects.store');
     Route::post('/projects/{project}/request-review', [OrganizationController::class, 'requestReview'])->name('projects.requestReview');
-
-    Route::get('/projects/{slug}/edit', [OrganizationController::class, 'editProject'])
-        ->name('organization.projects.edit');
-    Route::put('/projects/{slug}', [OrganizationController::class, 'updateProject'])
-        ->name('organization.projects.update');
-
+    Route::get('/projects/{slug}/edit', [OrganizationController::class, 'editProject'])->name('organization.projects.edit');
+    Route::put('/projects/{slug}', [OrganizationController::class, 'updateProject'])->name('organization.projects.update');
     Route::get('/bookings', [OrganizationController::class, 'volunteerBookings'])->name('organization.bookings');
-    Route::put('/bookings/{booking}/update-status', [OrganizationController::class, 'updateBookingStatus'])
-        ->name('bookings.update-status');
-
+    Route::put('/bookings/{booking}/update-status', [OrganizationController::class, 'updateBookingStatus'])->name('bookings.update-status');
     Route::get('/points', [OrganizationController::class, 'points'])->name('organization.points');
 
-    // Featured
-    Route::get('/projects/{project}/feature', [FeaturedProjectController::class, 'showFeatureModal'])
-        ->name('featured.showModal');
+    // API routes
+    Route::get('/shared-contacts', [OrganizationController::class, 'getSharedContacts'])->name('organization.shared.contacts');
+    Route::get('/contact-requests', [OrganizationController::class, 'getContactRequests'])->name('organization.contact.requests');
+    Route::post('/contact-request', [OrganizationController::class, 'requestContactAccess'])->name('organization.contact.request');
 
-    Route::post('/featured/checkout', [FeaturedProjectController::class, 'checkout'])
-        ->name('featured.checkout');
+    // Featured projects
+    Route::get('/projects/{project}/feature', [FeaturedProjectController::class, 'showFeatureModal'])->name('featured.showModal');
+    Route::post('/featured/checkout', [FeaturedProjectController::class, 'checkout'])->name('featured.checkout');
+    Route::get('/featured/success', [FeaturedProjectController::class, 'success'])->name('featured.success');
+    Route::get('/featured/cancel', [FeaturedProjectController::class, 'cancel'])->name('featured.cancel');
 
-    Route::get('/featured/success', [FeaturedProjectController::class, 'success'])
-        ->name('featured.success');
+    // Verification
+    Route::get('/{organization_profile}/verification', [OrganizationController::class, 'verification'])->name('organization.verification');
+    Route::post('/{organization_profile}/verification', [OrganizationController::class, 'storeVerification'])->name('organization.verification.store');
 
-    Route::get('/featured/cancel', [FeaturedProjectController::class, 'cancel'])
-        ->name('featured.cancel');
-
-    Route::get('/{organization_profile}/verification', [OrganizationController::class, 'verification'])
-        ->name('organization.verification');
-
-    Route::post('/{organization_profile}/verification', [OrganizationController::class, 'storeVerification'])
-        ->name('organization.verification.store');
-
+    // Wildcard route LAST
     Route::get('/{volunteer_profile}', [OrganizationController::class, 'volunteerProfile'])->name('organization.volunteer.profile');
-
-    Route::post('/contact-request', [OrganizationController::class, 'requestContactAccess'])
-        ->name('organization.contact.request');
-    Route::get('/contact-requests', [OrganizationController::class, 'getContactRequests'])
-        ->name('organization.contact.requests');
-    Route::get('/shared-contacts', [OrganizationController::class, 'getSharedContacts'])
-        ->name('organization.shared.contacts');
 });
 
 Route::middleware(['auth'])->prefix('chats')->group(function () {

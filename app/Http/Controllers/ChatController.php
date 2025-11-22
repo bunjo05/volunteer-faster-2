@@ -195,31 +195,6 @@ class ChatController extends Controller
         return response()->json(['success' => true]);
     }
 
-    // public function markAsRead(Request $request, Chat $chat)
-    // {
-    //     $user = Auth::user();
-
-    //     // Verify user is part of this chat
-    //     if (!$chat->participants()->where('user_id', $user->id)->exists()) {
-    //         abort(403);
-    //     }
-
-    //     // Mark all admin messages as read
-    //     $updated = $chat->messages()
-    //         ->where('sender_type', 'App\Models\Admin')
-    //         ->whereNull('read_at')
-    //         ->update(['read_at' => now()]);
-
-    //     // Broadcast the read status update
-    //     broadcast(new MessageRead($chat->id, now()))->toOthers();
-
-    //     return response()->json([
-    //         'success' => true,
-    //         'updated_count' => $updated
-    //     ]);
-    // }
-
-
     // Admin section
     public function AdminIndex()
     {
@@ -649,7 +624,6 @@ class ChatController extends Controller
             'sender_id' => $user->id,
             'sender_type' => 'App\Models\User',
             'content' => $request->content,
-            // Don't need to set status here since it has a default
         ]);
 
         // Update chat status if it was pending

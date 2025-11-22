@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "@inertiajs/react";
 import SidebarLink from "@/Components/SidebarLink";
-import FloatingChat from "@/Components/FloatingChat";
+import FloatingConversation from "@/Components/FloatingConversation";
 import PlatformReview from "@/Components/PlatformReview";
-
 import NotificationBell from "@/Components/NotificationBell";
 
 import {
@@ -16,18 +15,15 @@ import {
     Star,
     Bell,
     CircleUserIcon,
+    User,
+    TrendingUp,
+    HeartHandshake,
+    ChevronRight,
 } from "lucide-react";
 
 export default function VolunteerLayout({ children, auth, points }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [hasVolunteerProfile, setHasVolunteerProfile] = useState(false);
-    const [notificationsOpen, setNotificationsOpen] = useState(false);
-    const [messagesOpen, setMessagesOpen] = useState(false);
-    const [notifications, setNotifications] = useState([]);
-    const [messages, setMessages] = useState([]);
-
-    const notificationsRef = useRef();
-    const messagesRef = useRef();
 
     const totalPoints = auth?.user?.points || points || 0;
 
@@ -43,180 +39,145 @@ export default function VolunteerLayout({ children, auth, points }) {
                 })
                 .catch(console.error);
         }
-
-        // Fetch notifications (mock data)
-        const mockNotifications = [
-            {
-                id: 1,
-                text: "Your project 'Clean the Beach' was approved",
-                time: "2 hours ago",
-                read: false,
-            },
-            {
-                id: 2,
-                text: "You earned 50 points for completing a task",
-                time: "1 day ago",
-                read: true,
-            },
-            {
-                id: 3,
-                text: "New volunteer opportunity available in your area",
-                time: "3 days ago",
-                read: false,
-            },
-        ];
-        setNotifications(mockNotifications);
-
-        // Fetch messages (mock data)
-        const mockMessages = [
-            {
-                id: 1,
-                sender: "Project Coordinator",
-                text: "Hi there! We'd like to schedule a meeting about your volunteer application",
-                time: "10:30 AM",
-                read: false,
-                avatar: "PC",
-            },
-            {
-                id: 2,
-                sender: "Community Manager",
-                text: "Thanks for your help at the event last weekend!",
-                time: "Yesterday",
-                read: true,
-                avatar: "CM",
-            },
-        ];
-        setMessages(mockMessages);
     }, [auth]);
 
-    const toggleNotifications = () => {
-        setNotificationsOpen(!notificationsOpen);
-        setMessagesOpen(false);
-    };
-
-    const toggleMessages = () => {
-        setMessagesOpen(!messagesOpen);
-        setNotificationsOpen(false);
-    };
-
-    const markNotificationAsRead = (id) => {
-        setNotifications(
-            notifications.map((notification) =>
-                notification.id === id
-                    ? { ...notification, read: true }
-                    : notification
-            )
-        );
-    };
-
-    const markAllNotificationsAsRead = () => {
-        setNotifications(
-            notifications.map((notification) => ({
-                ...notification,
-                read: true,
-            }))
-        );
-    };
-
-    const markMessageAsRead = (id) => {
-        setMessages(
-            messages.map((message) =>
-                message.id === id ? { ...message, read: true } : message
-            )
-        );
-    };
-
-    const markAllMessagesAsRead = () => {
-        setMessages(
-            messages.map((message) => ({
-                ...message,
-                read: true,
-            }))
-        );
-    };
-
-    // Close modals when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (
-                notificationsRef.current &&
-                !notificationsRef.current.contains(event.target)
-            ) {
-                setNotificationsOpen(false);
-            }
-            if (
-                messagesRef.current &&
-                !messagesRef.current.contains(event.target)
-            ) {
-                setMessagesOpen(false);
-            }
-        };
-
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, []);
-
     return (
-        <div className="flex h-screen bg-gray-50 overflow-hidden">
+        <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
             {/* Sidebar */}
             <aside
                 className={`
-                    fixed inset-y-0 left-0 z-30 w-64 bg-base-100 shadow-xl border-r border-base-300
+                    fixed inset-y-0 left-0 z-30 w-80 bg-white shadow-xl border-r border-slate-200
                     transition-transform duration-300 ease-in-out
                     lg:translate-x-0 lg:static lg:inset-0
                     ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
                 `}
             >
-                {/* Brand */}
-                <div className="h-16 flex items-center justify-between px-4 border-b border-base-300">
-                    <span className="font-extrabold text-xl text-primary">
-                        Volunteer Faster
-                    </span>
-                    <button
-                        className="lg:hidden btn btn-ghost btn-square"
-                        onClick={() => setSidebarOpen(false)}
-                    >
-                        <X className="w-6 h-6" />
-                    </button>
+                {/* Brand Header */}
+                <div className="p-8 bg-gradient-to-r from-emerald-600 to-emerald-700">
+                    <div className="flex items-center space-x-4">
+                        <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm shadow-lg">
+                            <HeartHandshake className="w-7 h-7 text-white" />
+                        </div>
+                        <div>
+                            <span className="font-bold text-white text-2xl block leading-tight">
+                                VolunteerFaster
+                            </span>
+                            <span className="text-white/80 text-sm font-medium">
+                                Volunteer Portal
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* User Profile & Points */}
+                <div className="p-6 border-b border-slate-100 bg-gradient-to-b from-white to-slate-50/50">
+                    {/* <div className="flex items-center space-x-4 mb-4">
+                        <div className="avatar">
+                            <div className="w-14 rounded-xl ring-3 ring-white ring-offset-2 ring-offset-slate-50 shadow-sm">
+                                <img
+                                    src={
+                                        auth?.user?.avatar_url ??
+                                        "/default-avatar.png"
+                                    }
+                                    alt={auth?.user?.name}
+                                    className="object-cover"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex-1">
+                            <p className="font-semibold text-slate-900 text-lg">
+                                {auth?.user?.name}
+                            </p>
+                            <p className="text-sm text-slate-600">Volunteer</p>
+                        </div>
+                    </div> */}
+
+                    {/* Points Display */}
+                    <div className="bg-gradient-to-r from-amber-500 to-amber-600 rounded-2xl p-4 text-white shadow-lg">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium opacity-90">
+                                    Your Points
+                                </p>
+                                <p className="text-2xl font-bold">
+                                    {totalPoints.toLocaleString()}
+                                </p>
+                            </div>
+                            <div className="bg-white/20 p-2 rounded-xl">
+                                <Star className="w-6 h-6" />
+                            </div>
+                        </div>
+                        <div className="flex items-center mt-2 text-xs opacity-90">
+                            <TrendingUp className="w-3 h-3 mr-1" />
+                            <span>Earn more by volunteering</span>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 px-4 py-6 space-y-1">
+                <nav className="flex-1 px-4 py-6 space-y-2">
                     <SidebarLink
                         href={route("volunteer.dashboard")}
                         icon={Home}
-                        className="btn btn-ghost w-full justify-start"
+                        className="group flex items-center w-full px-4 py-4 text-left rounded-2xl hover:bg-emerald-50 hover:text-emerald-700 transition-all duration-200 border border-transparent hover:border-emerald-200 hover:shadow-sm"
+                        activeClassName="bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm"
                     >
+                        <Home className="w-5 h-5 mr-3" />
                         Dashboard
                     </SidebarLink>
                     <SidebarLink
                         href={route("volunteer.projects")}
                         icon={FolderKanban}
-                        className="btn btn-ghost w-full justify-start"
+                        className="group flex items-center w-full px-4 py-4 text-left rounded-2xl hover:bg-emerald-50 hover:text-emerald-700 transition-all duration-200 border border-transparent hover:border-emerald-200 hover:shadow-sm"
+                        activeClassName="bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm"
                     >
+                        <FolderKanban className="w-5 h-5 mr-3" />
                         My Projects
                     </SidebarLink>
                     <SidebarLink
                         href={route("volunteer.points")}
                         icon={Star}
-                        className="btn btn-ghost w-full justify-start"
+                        className="group flex items-center w-full px-4 py-4 text-left rounded-2xl hover:bg-emerald-50 hover:text-emerald-700 transition-all duration-200 border border-transparent hover:border-emerald-200 hover:shadow-sm"
+                        activeClassName="bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm"
                     >
+                        <Star className="w-5 h-5 mr-3" />
                         My Points
+                        <span className="ml-auto bg-amber-500 text-white text-xs font-medium rounded-full px-2 py-1">
+                            {totalPoints}
+                        </span>
                     </SidebarLink>
+                    {/* <SidebarLink
+                        href={route("volunteer.messages")}
+                        icon={MessageSquare}
+                        className="group flex items-center w-full px-4 py-4 text-left rounded-2xl hover:bg-emerald-50 hover:text-emerald-700 transition-all duration-200 border border-transparent hover:border-emerald-200 hover:shadow-sm"
+                        activeClassName="bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm"
+                    >
+                        <MessageSquare className="w-5 h-5 mr-3" />
+                        Messages
+                        <span className="ml-auto bg-blue-500 text-white text-xs font-medium rounded-full px-2 py-1 min-w-6 text-center">
+                            3
+                        </span>
+                    </SidebarLink> */}
                 </nav>
 
-                {/* Points & Logout */}
-                <div className="border-t border-base-300 p-4 space-y-3">
+                {/* Bottom Section */}
+                <div className="p-6 border-t border-slate-200 space-y-3 bg-slate-50/50">
+                    <SidebarLink
+                        href={route("volunteer.profile")}
+                        icon={User}
+                        className="group flex items-center w-full px-4 py-3 text-left rounded-xl hover:bg-white hover:text-slate-700 transition-all duration-200 text-slate-600 hover:shadow-sm"
+                    >
+                        <User className="w-5 h-5 mr-3" />
+                        Profile & Settings
+                    </SidebarLink>
                     <Link
                         href={route("logout")}
                         method="post"
                         as="button"
-                        className="btn btn-error w-full flex items-center gap-2"
+                        className="group flex items-center w-full px-4 py-3 text-left rounded-xl hover:bg-red-50 hover:text-red-700 transition-all duration-200 text-slate-600"
                     >
-                        <LogOut className="w-5 h-5" />
-                        Logout
+                        <LogOut className="w-5 h-5 mr-3 transition-transform group-hover:-translate-x-1" />
+                        Sign Out
                     </Link>
                 </div>
             </aside>
@@ -232,241 +193,117 @@ export default function VolunteerLayout({ children, auth, points }) {
             {/* Main content */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* Header Section */}
-                <header className="bg-white border-b border-gray-200 shadow-sm">
-                    <div className="flex items-center justify-between px-4 py-3">
+                <header className="bg-white border-b border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between px-8 py-4">
                         {/* Mobile menu button and title */}
                         <div className="flex items-center lg:hidden">
                             <button
                                 onClick={() => setSidebarOpen(true)}
-                                className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 mr-2"
+                                className="p-3 rounded-2xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 mr-3 transition-colors"
                             >
                                 <Menu className="w-5 h-5" />
                             </button>
-                            <span className="font-semibold text-lg text-gray-900">
-                                Volunteer Panel
-                            </span>
+                            <div>
+                                <span className="font-semibold text-lg text-slate-900">
+                                    Volunteer Panel
+                                </span>
+                                <p className="text-sm text-slate-500">
+                                    Welcome back, {auth?.user?.name}
+                                </p>
+                            </div>
                         </div>
 
-                        {/* Desktop spacer - keeps icons aligned to right */}
+                        {/* Desktop spacer */}
                         <div className="hidden lg:block flex-1"></div>
 
                         {/* Right-aligned icons container */}
                         <div className="flex items-center justify-end gap-4">
-                            {/* Messages Icon and Modal */}
-                            <div className="relative" ref={messagesRef}>
-                                <button
-                                    onClick={toggleMessages}
-                                    className="p-2 rounded-lg hover:bg-gray-100 transition-colors relative"
-                                    aria-label="Messages"
-                                >
-                                    <MessageSquare className="w-5 h-5 text-gray-600" />
-                                    {messages.filter((m) => !m.read).length >
-                                        0 && (
-                                        <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-xs flex items-center justify-center">
-                                            {
-                                                messages.filter((m) => !m.read)
-                                                    .length
-                                            }
-                                        </span>
-                                    )}
-                                </button>
-
-                                {/* Messages Modal */}
-                                {messagesOpen && (
-                                    <div className="absolute right-0 top-12 z-50 w-80 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
-                                        <div className="p-3 bg-blue-600 text-white font-semibold flex justify-between items-center">
-                                            <span>Messages</span>
-                                            <button
-                                                onClick={markAllMessagesAsRead}
-                                                className="text-sm font-medium hover:underline"
-                                            >
-                                                Mark all as read
-                                            </button>
-                                        </div>
-
-                                        <div className="max-h-96 overflow-y-auto">
-                                            {messages.length > 0 ? (
-                                                messages.map((message) => (
-                                                    <div
-                                                        key={message.id}
-                                                        className={`p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                                                            !message.read
-                                                                ? "bg-blue-50"
-                                                                : ""
-                                                        }`}
-                                                        onClick={() =>
-                                                            markMessageAsRead(
-                                                                message.id
-                                                            )
-                                                        }
-                                                    >
-                                                        <div className="flex items-start gap-3">
-                                                            <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
-                                                                {message.avatar}
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <div className="flex justify-between items-start">
-                                                                    <p className="text-sm font-medium truncate">
-                                                                        {
-                                                                            message.sender
-                                                                        }
-                                                                    </p>
-                                                                    <span className="text-xs text-gray-500 whitespace-nowrap">
-                                                                        {
-                                                                            message.time
-                                                                        }
-                                                                    </span>
-                                                                </div>
-                                                                <p className="text-sm text-gray-600 truncate">
-                                                                    {
-                                                                        message.text
-                                                                    }
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        {!message.read && (
-                                                            <div className="text-xs text-blue-500 mt-1">
-                                                                Click to mark as
-                                                                read
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="p-4 text-center text-gray-500">
-                                                    No messages
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="p-2 border-t border-gray-200 text-center">
-                                            <Link
-                                                href={route(
-                                                    "volunteer.messages"
-                                                )}
-                                                className="text-sm text-blue-600 hover:underline"
-                                            >
-                                                View all messages
-                                            </Link>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Notifications Icon and Modal */}
-                            {/* <div className="relative" ref={notificationsRef}>
-                                <button
-                                    onClick={toggleNotifications}
-                                    className="p-2 rounded-lg hover:bg-gray-100 transition-colors relative"
-                                    aria-label="Notifications"
-                                >
-                                    <Bell className="w-5 h-5 text-gray-600" />
-                                    {notifications.filter((n) => !n.read)
-                                        .length > 0 && (
-                                        <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-xs flex items-center justify-center">
-                                            {
-                                                notifications.filter(
-                                                    (n) => !n.read
-                                                ).length
-                                            }
-                                        </span>
-                                    )}
-                                </button> */}
-
-                            {/* Notification Modal */}
+                            {/* Notification Bell */}
                             <NotificationBell />
-                            {/* {notificationsOpen && (
-                                    <div className="absolute right-0 top-12 z-50 w-80 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
-                                        <div className="p-3 bg-blue-600 text-white font-semibold flex justify-between items-center">
-                                            <span>Notifications</span>
-                                            <button
-                                                onClick={
-                                                    markAllNotificationsAsRead
+
+                            {/* Messages */}
+                            <Link
+                                href={route("volunteer.messages")}
+                                className="p-3 rounded-2xl hover:bg-slate-100 transition-colors relative group"
+                                aria-label="Messages"
+                            >
+                                <MessageSquare className="w-5 h-5 text-slate-600 group-hover:text-slate-700" />
+                                <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center font-medium">
+                                    3
+                                </span>
+                            </Link>
+
+                            {/* User Profile */}
+                            <div className="dropdown dropdown-end">
+                                <div
+                                    tabIndex={0}
+                                    role="button"
+                                    className="flex items-center space-x-3 hover:bg-slate-50 rounded-2xl p-2 transition-colors cursor-pointer"
+                                >
+                                    <div className="avatar">
+                                        <div className="w-10 rounded-xl ring-2 ring-slate-200 ring-offset-2 ring-offset-white">
+                                            <img
+                                                src={
+                                                    auth?.user?.avatar_url ??
+                                                    "/default-avatar.png"
                                                 }
-                                                className="text-sm font-medium hover:underline"
-                                            >
-                                                Mark all as read
-                                            </button>
-                                        </div>
-
-                                        <div className="max-h-96 overflow-y-auto">
-                                            {notifications.length > 0 ? (
-                                                notifications.map(
-                                                    (notification) => (
-                                                        <div
-                                                            key={
-                                                                notification.id
-                                                            }
-                                                            className={`p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                                                                !notification.read
-                                                                    ? "bg-blue-50"
-                                                                    : ""
-                                                            }`}
-                                                            onClick={() =>
-                                                                markNotificationAsRead(
-                                                                    notification.id
-                                                                )
-                                                            }
-                                                        >
-                                                            <p className="text-sm">
-                                                                {
-                                                                    notification.text
-                                                                }
-                                                            </p>
-                                                            <p className="text-xs text-gray-500 mt-1">
-                                                                {
-                                                                    notification.time
-                                                                }
-                                                            </p>
-                                                            {!notification.read && (
-                                                                <div className="text-xs text-blue-500 mt-1">
-                                                                    Click to
-                                                                    mark as read
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )
-                                                )
-                                            ) : (
-                                                <div className="p-4 text-center text-gray-500">
-                                                    No notifications
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="p-2 border-t border-gray-200 text-center">
-                                            <Link
-                                                href="#"
-                                                className="text-sm text-blue-600 hover:underline"
-                                            >
-                                                View all notifications
-                                            </Link>
+                                                alt={auth?.user?.name}
+                                                className="object-cover"
+                                            />
                                         </div>
                                     </div>
-                                )} */}
-                            {/* </div> */}
-
-                            {/* User Profile Icon */}
-                            <Link
-                                href={route("volunteer.profile")}
-                                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                                aria-label="Profile"
-                            >
-                                <CircleUserIcon className="w-5 h-5 text-gray-600" />
-                            </Link>
+                                    <div className="hidden md:block text-left">
+                                        <p className="text-sm font-medium text-slate-900">
+                                            {auth?.user?.name}
+                                        </p>
+                                        <p className="text-xs text-slate-500">
+                                            Volunteer
+                                        </p>
+                                    </div>
+                                    <ChevronRight className="w-4 h-4 text-slate-400 hidden md:block" />
+                                </div>
+                                <ul
+                                    tabIndex={0}
+                                    className="dropdown-content menu bg-white rounded-2xl z-[1] w-56 p-2 shadow-lg border border-slate-200"
+                                >
+                                    <li>
+                                        <Link
+                                            href={route("volunteer.profile")}
+                                            className="hover:bg-slate-50 rounded-xl"
+                                        >
+                                            <User className="w-4 h-4" />
+                                            Profile & Settings
+                                        </Link>
+                                    </li>
+                                    <div className="divider my-2"></div>
+                                    <li>
+                                        <Link
+                                            href={route("logout")}
+                                            method="post"
+                                            as="button"
+                                            className="text-red-600 hover:bg-red-50 rounded-xl"
+                                        >
+                                            <LogOut className="w-4 h-4" />
+                                            Sign Out
+                                        </Link>
+                                    </li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 </header>
 
                 {/* Main Content Area */}
-                <main className="flex-1 overflow-y-auto p-2">
-                    <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
-                        {children}
+                <main className="flex-1 overflow-y-auto bg-slate-50/30">
+                    <div className="p-8">
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200">
+                            {children}
+                        </div>
                     </div>
                 </main>
 
-                {/* Floating Chat */}
-                <FloatingChat auth={auth} />
+                {/* Chat Sidebar */}
+                <FloatingConversation auth={auth} />
 
                 {/* Conditionally render PlatformReview component */}
                 {hasVolunteerProfile && <PlatformReview />}

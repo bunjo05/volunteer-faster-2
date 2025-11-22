@@ -2,9 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Message extends Model
 {
@@ -13,7 +14,8 @@ class Message extends Model
     protected $fillable = [
         'sender_id',
         'receiver_id',
-        'project_id',
+        'project_public_id',
+        'booking_public_id',
         'message',
         'status',
         'reply_to'
@@ -24,14 +26,15 @@ class Message extends Model
         'updated_at' => 'datetime',
     ];
 
+
     public function sender(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'sender_id');
+        return $this->belongsTo(User::class, 'sender_id', 'id');
     }
 
     public function receiver(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'receiver_id');
+        return $this->belongsTo(User::class, 'receiver_id', 'id');
     }
 
     public function project(): BelongsTo

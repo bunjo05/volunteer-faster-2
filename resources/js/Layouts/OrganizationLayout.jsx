@@ -11,9 +11,15 @@ import {
     Star,
     ChevronRight,
     X,
+    Building2,
+    TrendingUp,
+    Bell,
+    Settings,
+    HelpCircle,
 } from "lucide-react";
 import { Dialog, Transition } from "@headlessui/react";
 import SidebarLink from "@/Components/SidebarLink";
+import FloatingConversation from "@/Components/FloatingConversation";
 import FloatingChat from "@/Components/FloatingChat";
 
 export default function OrganizationLayout({ children, auth }) {
@@ -30,9 +36,9 @@ export default function OrganizationLayout({ children, auth }) {
             "Organization/Projects/Create": "Create Project",
             "Organization/Projects/Edit": "Edit Project",
             "Organization/Messages": "Messages",
-            "Organization/Bookings": "Bookings",
-            "Organization/Points": "Points",
-            "Organization/Profile": "Profile",
+            "Organization/Bookings": "Volunteer Bookings",
+            "Organization/Points": "Rewards & Points",
+            "Organization/Profile": "Organization Profile",
             "Organization/Profile/Edit": "Edit Profile",
         };
 
@@ -135,7 +141,7 @@ export default function OrganizationLayout({ children, auth }) {
     const currentPageTitle = getPageTitle();
 
     return (
-        <div className="flex h-screen bg-gradient-to-br from-base-200 via-base-100 to-base-300">
+        <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30">
             {/* Mobile Sidebar with HeadlessUI */}
             <Transition.Root show={sidebarOpen} as={Fragment}>
                 <Dialog
@@ -152,7 +158,7 @@ export default function OrganizationLayout({ children, auth }) {
                         leaveFrom="opacity-100"
                         leaveTo="opacity-0"
                     >
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
                     </Transition.Child>
 
                     <div className="fixed inset-0 overflow-hidden">
@@ -167,19 +173,22 @@ export default function OrganizationLayout({ children, auth }) {
                                     leaveFrom="translate-x-0"
                                     leaveTo="-translate-x-full"
                                 >
-                                    <Dialog.Panel className="pointer-events-auto relative w-72">
-                                        <div className="flex h-full flex-col bg-base-100 shadow-2xl">
+                                    <Dialog.Panel className="pointer-events-auto relative w-80">
+                                        <div className="flex h-full flex-col bg-white shadow-xl border-r border-slate-200">
                                             {/* Brand Header */}
-                                            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary to-primary-focus">
-                                                <div className="flex items-center space-x-2">
-                                                    <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-                                                        <span className="text-primary font-bold text-sm">
-                                                            VF
+                                            <div className="flex items-center justify-between p-6 bg-gradient-to-r from-blue-600 to-blue-700">
+                                                <div className="flex items-center space-x-3">
+                                                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                                                        <Building2 className="w-6 h-6 text-white" />
+                                                    </div>
+                                                    <div>
+                                                        <span className="font-bold text-white text-lg block">
+                                                            VolunteerFaster
+                                                        </span>
+                                                        <span className="text-white/80 text-sm">
+                                                            Organization
                                                         </span>
                                                     </div>
-                                                    <span className="font-bold text-white text-lg">
-                                                        Volunteer Faster
-                                                    </span>
                                                 </div>
                                                 <button
                                                     onClick={() =>
@@ -192,10 +201,10 @@ export default function OrganizationLayout({ children, auth }) {
                                             </div>
 
                                             {/* User Profile */}
-                                            <div className="p-4 border-b border-base-300">
-                                                <div className="flex items-center space-x-3">
+                                            <div className="p-6 border-b border-slate-100 bg-gradient-to-b from-white to-slate-50">
+                                                <div className="flex items-center space-x-4">
                                                     <div className="avatar">
-                                                        <div className="w-12 rounded-full ring-2 ring-primary ring-offset-2 ring-offset-base-100">
+                                                        <div className="w-14 rounded-full ring-2 ring-white ring-offset-2 ring-offset-slate-50 shadow-sm">
                                                             <img
                                                                 src={
                                                                     auth?.user
@@ -210,29 +219,28 @@ export default function OrganizationLayout({ children, auth }) {
                                                             />
                                                         </div>
                                                     </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="font-semibold text-base-content truncate">
+                                                    <div className="flex-1">
+                                                        <p className="font-semibold text-slate-900 text-lg">
                                                             {auth?.user?.name}
                                                         </p>
-                                                        <p className="text-sm text-base-content/70 truncate">
-                                                            Organization Account
+                                                        <p className="text-sm text-slate-600">
+                                                            Organization Manager
                                                         </p>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             {/* Navigation */}
-                                            <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+                                            <nav className="flex-1 px-4 py-6 space-y-2">
                                                 <SidebarLink
                                                     href={route(
                                                         "organization.dashboard"
                                                     )}
                                                     icon={Home}
-                                                    className="btn btn-ghost justify-start w-full rounded-lg hover:bg-primary/10 hover:text-primary"
-                                                    activeClassName="bg-primary/20 text-primary font-semibold"
-                                                    currentRoute={component}
-                                                    routeName="Organization/Dashboard"
+                                                    className="group flex items-center w-full px-4 py-3 text-left rounded-xl hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 border border-transparent hover:border-blue-100"
+                                                    activeClassName="bg-blue-50 text-blue-700 border-blue-200 shadow-sm"
                                                 >
+                                                    <Home className="w-5 h-5 mr-3" />
                                                     Dashboard
                                                 </SidebarLink>
                                                 <SidebarLink
@@ -240,11 +248,10 @@ export default function OrganizationLayout({ children, auth }) {
                                                         "organization.projects"
                                                     )}
                                                     icon={FolderKanban}
-                                                    className="btn btn-ghost justify-start w-full rounded-lg hover:bg-primary/10 hover:text-primary"
-                                                    activeClassName="bg-primary/20 text-primary font-semibold"
-                                                    currentRoute={component}
-                                                    routeName="Organization/Projects"
+                                                    className="group flex items-center w-full px-4 py-3 text-left rounded-xl hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 border border-transparent hover:border-blue-100"
+                                                    activeClassName="bg-blue-50 text-blue-700 border-blue-200 shadow-sm"
                                                 >
+                                                    <FolderKanban className="w-5 h-5 mr-3" />
                                                     My Projects
                                                 </SidebarLink>
                                                 <SidebarLink
@@ -252,13 +259,12 @@ export default function OrganizationLayout({ children, auth }) {
                                                         "organization.messages"
                                                     )}
                                                     icon={MessageSquare}
-                                                    className="btn btn-ghost justify-start w-full rounded-lg hover:bg-primary/10 hover:text-primary"
-                                                    activeClassName="bg-primary/20 text-primary font-semibold"
-                                                    currentRoute={component}
-                                                    routeName="Organization/Messages"
+                                                    className="group flex items-center w-full px-4 py-3 text-left rounded-xl hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 border border-transparent hover:border-blue-100"
+                                                    activeClassName="bg-blue-50 text-blue-700 border-blue-200 shadow-sm"
                                                 >
+                                                    <MessageSquare className="w-5 h-5 mr-3" />
                                                     Messages
-                                                    <span className="badge badge-primary badge-sm ml-auto">
+                                                    <span className="ml-auto bg-blue-500 text-white text-xs rounded-full px-2 py-1">
                                                         3
                                                     </span>
                                                 </SidebarLink>
@@ -267,11 +273,10 @@ export default function OrganizationLayout({ children, auth }) {
                                                         "organization.bookings"
                                                     )}
                                                     icon={ClipboardList}
-                                                    className="btn btn-ghost justify-start w-full rounded-lg hover:bg-primary/10 hover:text-primary"
-                                                    activeClassName="bg-primary/20 text-primary font-semibold"
-                                                    currentRoute={component}
-                                                    routeName="Organization/Bookings"
+                                                    className="group flex items-center w-full px-4 py-3 text-left rounded-xl hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 border border-transparent hover:border-blue-100"
+                                                    activeClassName="bg-blue-50 text-blue-700 border-blue-200 shadow-sm"
                                                 >
+                                                    <ClipboardList className="w-5 h-5 mr-3" />
                                                     Bookings
                                                 </SidebarLink>
                                                 <SidebarLink
@@ -279,41 +284,37 @@ export default function OrganizationLayout({ children, auth }) {
                                                         "organization.points"
                                                     )}
                                                     icon={Star}
-                                                    className="btn btn-ghost justify-start w-full rounded-lg hover:bg-primary/10 hover:text-primary"
-                                                    activeClassName="bg-primary/20 text-primary font-semibold"
-                                                    currentRoute={component}
-                                                    routeName="Organization/Points"
+                                                    className="group flex items-center w-full px-4 py-3 text-left rounded-xl hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 border border-transparent hover:border-blue-100"
+                                                    activeClassName="bg-blue-50 text-blue-700 border-blue-200 shadow-sm"
                                                 >
-                                                    Points
-                                                    <span className="badge badge-secondary badge-sm ml-auto">
+                                                    <Star className="w-5 h-5 mr-3" />
+                                                    Rewards
+                                                    <span className="ml-auto bg-amber-500 text-white text-xs rounded-full px-2 py-1">
                                                         1.2k
                                                     </span>
                                                 </SidebarLink>
+                                            </nav>
+
+                                            {/* Bottom Section */}
+                                            <div className="p-4 border-t border-slate-200 space-y-2">
                                                 <SidebarLink
                                                     href={route(
                                                         "organization.profile"
                                                     )}
                                                     icon={User}
-                                                    className="btn btn-ghost justify-start w-full rounded-lg hover:bg-primary/10 hover:text-primary"
-                                                    activeClassName="bg-primary/20 text-primary font-semibold"
-                                                    currentRoute={component}
-                                                    routeName="Organization/Profile"
+                                                    className="group flex items-center w-full px-4 py-3 text-left rounded-xl hover:bg-slate-50 hover:text-slate-700 transition-all duration-200"
                                                 >
+                                                    <User className="w-5 h-5 mr-3" />
                                                     Profile
                                                 </SidebarLink>
-                                            </nav>
-
-                                            {/* Logout */}
-                                            <div className="p-4 border-t border-base-300">
                                                 <Link
                                                     href={route("logout")}
                                                     method="post"
                                                     as="button"
-                                                    className="btn btn-error btn-outline w-full rounded-lg group"
+                                                    className="group flex items-center w-full px-4 py-3 text-left rounded-xl hover:bg-red-50 hover:text-red-700 transition-all duration-200 text-slate-600"
                                                 >
-                                                    <LogOut className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
+                                                    <LogOut className="w-5 h-5 mr-3" />
                                                     Sign Out
-                                                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                 </Link>
                                             </div>
                                         </div>
@@ -326,20 +327,18 @@ export default function OrganizationLayout({ children, auth }) {
             </Transition.Root>
 
             {/* Desktop Sidebar */}
-            <aside className="hidden lg:flex lg:flex-col w-80 bg-base-100 border-r border-base-300 shadow-lg">
+            <aside className="hidden lg:flex lg:flex-col w-80 bg-white border-r border-slate-200 shadow-sm">
                 {/* Brand Header */}
-                <div className="p-6 bg-gradient-to-r from-primary to-primary-focus">
-                    <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg">
-                            <span className="text-primary font-bold text-lg">
-                                VF
-                            </span>
+                <div className="p-8 bg-gradient-to-r from-blue-600 to-blue-700">
+                    <div className="flex items-center space-x-4">
+                        <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm shadow-lg">
+                            <Building2 className="w-7 h-7 text-white" />
                         </div>
                         <div>
-                            <span className="font-bold text-white text-xl block">
-                                Volunteer Faster
+                            <span className="font-bold text-white text-2xl block leading-tight">
+                                VolunteerFaster
                             </span>
-                            <span className="text-white/80 text-sm">
+                            <span className="text-white/80 text-sm font-medium">
                                 Organization Portal
                             </span>
                         </div>
@@ -347,10 +346,10 @@ export default function OrganizationLayout({ children, auth }) {
                 </div>
 
                 {/* User Profile */}
-                <div className="p-6 border-b border-base-300">
+                {/* <div className="p-6 border-b border-slate-100 bg-gradient-to-b from-white to-slate-50/50">
                     <div className="flex items-center space-x-4">
                         <div className="avatar">
-                            <div className="w-14 rounded-full ring-4 ring-primary/20 ring-offset-2 ring-offset-base-100">
+                            <div className="w-16 rounded-2xl ring-4 ring-white ring-offset-2 ring-offset-slate-50 shadow-lg">
                                 <img
                                     src={
                                         auth?.user?.avatar_url ??
@@ -362,97 +361,95 @@ export default function OrganizationLayout({ children, auth }) {
                             </div>
                         </div>
                         <div className="flex-1">
-                            <p className="font-semibold text-base-content text-lg">
+                            <p className="font-semibold text-slate-900 text-lg">
                                 {auth?.user?.name}
                             </p>
-                            <p className="text-sm text-base-content/70">
+                            <p className="text-sm text-slate-600">
                                 Organization Manager
                             </p>
+                            <div className="flex items-center mt-1">
+                                <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                                <span className="text-xs text-slate-500">
+                                    Online
+                                </span>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </div> */}
 
                 {/* Navigation */}
                 <nav className="flex-1 px-4 py-6 space-y-2">
                     <SidebarLink
                         href={route("organization.dashboard")}
                         icon={Home}
-                        className="btn btn-ghost justify-start w-full rounded-xl hover:bg-primary/10 hover:text-primary transition-all duration-200"
-                        activeClassName="bg-primary/20 text-primary font-semibold shadow-md"
-                        currentRoute={component}
-                        routeName="Organization/Dashboard"
+                        className="group flex items-center w-full px-4 py-4 text-left rounded-2xl hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 border border-transparent hover:border-blue-200 hover:shadow-sm"
+                        activeClassName="bg-blue-50 text-blue-700 border-blue-200 shadow-sm"
                     >
+                        <Home className="w-5 h-5 mr-3" />
                         Dashboard
                     </SidebarLink>
                     <SidebarLink
                         href={route("organization.projects")}
                         icon={FolderKanban}
-                        className="btn btn-ghost justify-start w-full rounded-xl hover:bg-primary/10 hover:text-primary transition-all duration-200"
-                        activeClassName="bg-primary/20 text-primary font-semibold shadow-md"
-                        currentRoute={component}
-                        routeName="Organization/Projects"
+                        className="group flex items-center w-full px-4 py-4 text-left rounded-2xl hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 border border-transparent hover:border-blue-200 hover:shadow-sm"
+                        activeClassName="bg-blue-50 text-blue-700 border-blue-200 shadow-sm"
                     >
+                        <FolderKanban className="w-5 h-5 mr-3" />
                         My Projects
                     </SidebarLink>
-                    <SidebarLink
+                    {/* <SidebarLink
                         href={route("organization.messages")}
                         icon={MessageSquare}
-                        className="btn btn-ghost justify-start w-full rounded-xl hover:bg-primary/10 hover:text-primary transition-all duration-200"
-                        activeClassName="bg-primary/20 text-primary font-semibold shadow-md"
-                        currentRoute={component}
-                        routeName="Organization/Messages"
+                        className="group flex items-center w-full px-4 py-4 text-left rounded-2xl hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 border border-transparent hover:border-blue-200 hover:shadow-sm"
+                        activeClassName="bg-blue-50 text-blue-700 border-blue-200 shadow-sm"
                     >
+                        <MessageSquare className="w-5 h-5 mr-3" />
                         Messages
-                        <span className="badge badge-primary badge-sm ml-auto">
+                        <span className="ml-auto bg-blue-500 text-white text-xs font-medium rounded-full px-2 py-1 min-w-6 text-center">
                             3
                         </span>
-                    </SidebarLink>
+                    </SidebarLink> */}
                     <SidebarLink
                         href={route("organization.bookings")}
                         icon={ClipboardList}
-                        className="btn btn-ghost justify-start w-full rounded-xl hover:bg-primary/10 hover:text-primary transition-all duration-200"
-                        activeClassName="bg-primary/20 text-primary font-semibold shadow-md"
-                        currentRoute={component}
-                        routeName="Organization/Bookings"
+                        className="group flex items-center w-full px-4 py-4 text-left rounded-2xl hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 border border-transparent hover:border-blue-200 hover:shadow-sm"
+                        activeClassName="bg-blue-50 text-blue-700 border-blue-200 shadow-sm"
                     >
+                        <ClipboardList className="w-5 h-5 mr-3" />
                         Bookings
                     </SidebarLink>
                     <SidebarLink
                         href={route("organization.points")}
                         icon={Star}
-                        className="btn btn-ghost justify-start w-full rounded-xl hover:bg-primary/10 hover:text-primary transition-all duration-200"
-                        activeClassName="bg-primary/20 text-primary font-semibold shadow-md"
-                        currentRoute={component}
-                        routeName="Organization/Points"
+                        className="group flex items-center w-full px-4 py-4 text-left rounded-2xl hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 border border-transparent hover:border-blue-200 hover:shadow-sm"
+                        activeClassName="bg-blue-50 text-blue-700 border-blue-200 shadow-sm"
                     >
-                        Points
-                        <span className="badge badge-secondary badge-sm ml-auto">
+                        <Star className="w-5 h-5 mr-3" />
+                        Rewards
+                        <span className="ml-auto bg-amber-500 text-white text-xs font-medium rounded-full px-2 py-1 min-w-6 text-center">
                             1.2k
                         </span>
                     </SidebarLink>
+                </nav>
+
+                {/* Bottom Section */}
+                <div className="p-6 border-t border-slate-200 space-y-3 bg-slate-50/50">
                     <SidebarLink
                         href={route("organization.profile")}
                         icon={User}
-                        className="btn btn-ghost justify-start w-full rounded-xl hover:bg-primary/10 hover:text-primary transition-all duration-200"
-                        activeClassName="bg-primary/20 text-primary font-semibold shadow-md"
-                        currentRoute={component}
-                        routeName="Organization/Profile"
+                        className="group flex items-center w-full px-4 py-3 text-left rounded-xl hover:bg-white hover:text-slate-700 transition-all duration-200 text-slate-600 hover:shadow-sm"
                     >
-                        Profile
+                        <User className="w-5 h-5 mr-3" />
+                        Profile & Settings
                     </SidebarLink>
-                </nav>
-
-                {/* Logout */}
-                <div className="p-6 border-t border-base-300">
                     <Link
                         href={route("logout")}
                         method="post"
                         as="button"
-                        className="btn btn-error btn-outline w-full rounded-xl group hover:bg-error hover:text-error-content transition-all duration-200"
+                        className="group flex items-center w-full px-4 py-3 text-left rounded-xl hover:bg-red-50 hover:text-red-700 transition-all duration-200 text-slate-600"
                     >
-                        <LogOut className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
+                        <LogOut className="w-5 h-5 mr-3 transition-transform group-hover:-translate-x-1" />
                         Sign Out
-                        <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </Link>
                 </div>
             </aside>
@@ -460,104 +457,144 @@ export default function OrganizationLayout({ children, auth }) {
             {/* Main content */}
             <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Top Navigation Bar */}
-                <div className="navbar bg-base-100 border-b border-base-300 px-6 py-4 shadow-sm">
-                    <div className="flex-none lg:hidden">
-                        <button
-                            onClick={() => setSidebarOpen(true)}
-                            className="btn btn-ghost btn-circle hover:bg-primary/10"
-                        >
-                            <Menu className="w-6 h-6 text-base-content" />
-                        </button>
-                    </div>
+                <header className="bg-white border-b border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between px-8 py-4">
+                        <div className="flex items-center space-x-4">
+                            <div className="flex-none lg:hidden">
+                                <button
+                                    onClick={() => setSidebarOpen(true)}
+                                    className="btn btn-ghost btn-circle hover:bg-blue-50 text-slate-600"
+                                >
+                                    <Menu className="w-5 h-5" />
+                                </button>
+                            </div>
 
-                    <div className="flex-1">
-                        <div className="breadcrumbs text-sm">
-                            <ul>
-                                {breadcrumbs.map((item, index) => (
-                                    <li key={index}>
-                                        {item.current ? (
-                                            <span className="text-base-content/70">
-                                                {item.label}
-                                            </span>
-                                        ) : (
-                                            <Link
-                                                href={item.href}
-                                                className="text-primary hover:text-primary-focus"
-                                            >
-                                                {item.label}
-                                            </Link>
-                                        )}
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
-
-                    <div className="flex-none space-x-4">
-                        <div className="dropdown dropdown-end">
-                            <div
-                                tabIndex={0}
-                                role="button"
-                                className="btn btn-ghost btn-circle avatar hover:bg-primary/10"
-                            >
-                                <div className="w-10 rounded-full ring-2 ring-primary/50 ring-offset-2 ring-offset-base-100">
-                                    <img
-                                        src={
-                                            auth?.user?.avatar_url ??
-                                            "/default-avatar.png"
-                                        }
-                                        alt={auth?.user?.name}
-                                        className="object-cover"
-                                    />
+                            <div className="flex-1">
+                                <div className="flex items-center space-x-4">
+                                    <h1 className="text-2xl font-bold text-slate-900">
+                                        {currentPageTitle}
+                                    </h1>
+                                    <div className="hidden md:flex breadcrumbs text-sm">
+                                        <ul className="flex items-center space-x-2">
+                                            {breadcrumbs.map((item, index) => (
+                                                <li
+                                                    key={index}
+                                                    className="flex items-center"
+                                                >
+                                                    {item.current ? (
+                                                        <span className="text-slate-500 font-medium">
+                                                            {item.label}
+                                                        </span>
+                                                    ) : (
+                                                        <>
+                                                            <Link
+                                                                href={item.href}
+                                                                className="text-blue-600 hover:text-blue-700 font-medium"
+                                                            >
+                                                                {item.label}
+                                                            </Link>
+                                                            <ChevronRight className="w-4 h-4 text-slate-400 mx-2" />
+                                                        </>
+                                                    )}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
-                            <ul
-                                tabIndex={0}
-                                className="dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow-lg border border-base-300"
-                            >
-                                <li>
-                                    <Link
-                                        href={route("organization.profile")}
-                                        className="hover:bg-primary/10 hover:text-primary"
-                                    >
-                                        <User className="w-4 h-4" />
-                                        Profile
-                                    </Link>
-                                </li>
-                                <li>
-                                    <Link
-                                        href={route("logout")}
-                                        method="post"
-                                        as="button"
-                                        className="text-error hover:bg-error/10 hover:text-error"
-                                    >
-                                        <LogOut className="w-4 h-4" />
-                                        Sign Out
-                                    </Link>
-                                </li>
-                            </ul>
+                        </div>
+
+                        <div className="flex items-center space-x-4">
+                            {/* Notification Bell */}
+                            <div className="dropdown dropdown-end">
+                                <div
+                                    tabIndex={0}
+                                    role="button"
+                                    className="btn btn-ghost btn-circle hover:bg-slate-100"
+                                >
+                                    <div className="indicator">
+                                        <Bell className="w-5 h-5 text-slate-600" />
+                                        <span className="badge badge-xs badge-primary indicator-item"></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* User Menu */}
+                            <div className="dropdown dropdown-end">
+                                <div
+                                    tabIndex={0}
+                                    role="button"
+                                    className="flex items-center space-x-3 hover:bg-slate-50 rounded-2xl p-2 transition-colors cursor-pointer"
+                                >
+                                    <div className="avatar">
+                                        <div className="w-10 rounded-xl ring-2 ring-slate-200 ring-offset-2 ring-offset-white">
+                                            <img
+                                                src={
+                                                    auth?.user?.avatar_url ??
+                                                    "/default-avatar.png"
+                                                }
+                                                alt={auth?.user?.name}
+                                                className="object-cover"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="hidden md:block text-left">
+                                        <p className="text-sm font-medium text-slate-900">
+                                            {auth?.user?.name}
+                                        </p>
+                                        <p className="text-xs text-slate-500">
+                                            Organization
+                                        </p>
+                                    </div>
+                                    <ChevronRight className="w-4 h-4 text-slate-400 hidden md:block" />
+                                </div>
+                                <ul
+                                    tabIndex={0}
+                                    className="dropdown-content menu bg-white rounded-2xl z-[1] w-56 p-2 shadow-lg border border-slate-200"
+                                >
+                                    <li>
+                                        <Link
+                                            href={route("organization.profile")}
+                                            className="hover:bg-slate-50 rounded-xl"
+                                        >
+                                            <User className="w-4 h-4" />
+                                            Profile & Settings
+                                        </Link>
+                                    </li>
+                                    <li>
+                                        <Link
+                                            href="#"
+                                            className="hover:bg-slate-50 rounded-xl"
+                                        >
+                                            <HelpCircle className="w-4 h-4" />
+                                            Help & Support
+                                        </Link>
+                                    </li>
+                                    <div className="divider my-2"></div>
+                                    <li>
+                                        <Link
+                                            href={route("logout")}
+                                            method="post"
+                                            as="button"
+                                            className="text-red-600 hover:bg-red-50 rounded-xl"
+                                        >
+                                            <LogOut className="w-4 h-4" />
+                                            Sign Out
+                                        </Link>
+                                    </li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                {/* Page Header */}
-                {/* <div className="bg-base-100 border-b border-base-300 px-6 py-4">
-                    <h1 className="text-2xl font-bold text-base-content">
-                        {currentPageTitle}
-                    </h1>
-                    {auth?.user?.name && (
-                        <p className="text-sm text-base-content/70 mt-1">
-                            Welcome back, {auth.user.name}
-                        </p>
-                    )}
-                </div> */}
+                </header>
 
                 {/* Page Content */}
-                <main className="flex-1 overflow-y-auto bg-base-200/50">
-                    <div className="p-6">{children}</div>
+                <main className="flex-1 overflow-y-auto bg-slate-50/30">
+                    <div className="p-8">{children}</div>
                 </main>
 
                 <FloatingChat auth={auth} />
+                <FloatingConversation auth={auth} />
             </div>
         </div>
     );

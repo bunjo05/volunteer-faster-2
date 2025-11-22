@@ -93,9 +93,9 @@ export default function Messages({
                         latestMessage: e.message,
                         unreadCount:
                             e.message.sender_id !== auth.user.id ? 1 : 0,
-                        project: e.message.project_id
+                        project: e.message.project_public_id
                             ? {
-                                  id: e.message.project_id,
+                                  id: e.message.project + public_id,
                                   type_of_project: "Unknown", // You might need to load this
                                   has_payment: false,
                               }
@@ -310,9 +310,9 @@ export default function Messages({
         // - Use current booking_id if available
         let bookingId = null;
         if (isReplying) {
-            bookingId = replyToMessage.booking_id;
+            bookingId = replyToMessage.booking_public_id;
         } else if (currentBooking) {
-            bookingId = currentBooking.id;
+            bookingId = currentBooking.public_id;
         }
 
         router.post(
@@ -321,8 +321,8 @@ export default function Messages({
                 receiver_id: receiverId,
                 message: cleanedText,
                 reply_to: isReplying ? replyToMessage.id : null,
-                project_id: currentProject?.id || null,
-                booking_id: bookingId,
+                project_public_id: currentProject?.public_id || null,
+                booking_public_id: bookingId,
             },
             {
                 preserveScroll: true,
@@ -341,8 +341,8 @@ export default function Messages({
                         status: "Read",
                         reply_to: isReplying ? replyToMessage.id : null,
                         original_message: isReplying ? replyToMessage : null,
-                        project_id: currentProject?.id || null,
-                        booking_id: bookingId,
+                        project_public_id: currentProject?.public_id || null,
+                        booking_public_id: bookingId,
                     };
 
                     setGroupedMessages((prev) => {

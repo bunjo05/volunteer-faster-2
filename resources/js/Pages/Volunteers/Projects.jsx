@@ -12,11 +12,17 @@ import {
     Star,
     AlertCircle,
     CheckCircle2,
+    Check,
+    X,
     Clock as ClockIcon,
     XCircle,
     ArrowLeft,
     Grid3X3,
     ArrowLeftCircle,
+    Shield,
+    UserCheck,
+    Mail,
+    Phone,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { loadStripe } from "@stripe/stripe-js";
@@ -48,6 +54,128 @@ export default function Projects({ auth, payments, points, totalPoints }) {
     const [showMessageModal, setShowMessageModal] = useState(false);
     const [showMobileSidebar, setShowMobileSidebar] = useState(false);
     const [mobileView, setMobileView] = useState("list"); // 'list' or 'details'
+
+    const [contactRequests, setContactRequests] = useState([]);
+    const [sharedContacts, setSharedContacts] = useState([]);
+
+    // Add to your existing state declarations
+    const [processingContactRequest, setProcessingContactRequest] =
+        useState(false);
+
+    // Check if active booking has any share contacts (pending or approved)
+    const hasShareContacts =
+        activeBooking &&
+        ((activeBooking.contact_requests &&
+            activeBooking.contact_requests.length > 0) ||
+            (activeBooking.shared_contacts &&
+                activeBooking.shared_contacts.length > 0));
+
+    // Add this function to handle contact request responses
+    const handleContactRequestResponse = async (requestId, status) => {
+        setProcessingContactRequest(true);
+
+        try {
+            const response = await axios.post(
+                route("volunteer.contact.respond", { requestId }),
+                { status },
+                {
+                    headers: {
+                        "X-CSRF-TOKEN": document.querySelector(
+                            'meta[name="csrf-token"]'
+                        ).content,
+                    },
+                }
+            );
+
+            if (response.data.success) {
+                // Update the local state for the active booking
+                if (activeBooking) {
+                    const updatedBooking = { ...activeBooking };
+
+                    // Update contact requests
+                    if (updatedBooking.contact_requests) {
+                        updatedBooking.contact_requests =
+                            updatedBooking.contact_requests.map((request) =>
+                                request.public_id === requestId
+                                    ? {
+                                          ...request,
+                                          status: status,
+                                          approved_at:
+                                              status === "approved"
+                                                  ? new Date().toISOString()
+                                                  : null,
+                                      }
+                                    : request
+                            );
+                    }
+
+                    // If approved, move from contact_requests to shared_contacts
+                    if (status === "approved") {
+                        const approvedRequest =
+                            updatedBooking.contact_requests?.find(
+                                (req) => req.public_id === requestId
+                            );
+                        if (approvedRequest) {
+                            updatedBooking.shared_contacts = [
+                                ...(updatedBooking.shared_contacts || []),
+                                approvedRequest,
+                            ];
+                            // Remove from contact_requests
+                            updatedBooking.contact_requests =
+                                updatedBooking.contact_requests.filter(
+                                    (req) => req.public_id !== requestId
+                                );
+                        }
+                    } else if (status === "rejected") {
+                        // Remove from contact_requests if rejected
+                        updatedBooking.contact_requests =
+                            updatedBooking.contact_requests.filter(
+                                (req) => req.public_id !== requestId
+                            );
+                    }
+
+                    setActiveBooking(updatedBooking);
+                }
+
+                setShowSuccess(true);
+            }
+        } catch (error) {
+            console.error("Error responding to contact request:", error);
+            alert("Failed to process request. Please try again.");
+        } finally {
+            setProcessingContactRequest(false);
+        }
+    };
+
+    // Add useEffect to fetch contact requests when activeBooking changes
+    useEffect(() => {
+        if (activeBooking) {
+            fetchContactRequests();
+            fetchSharedContacts();
+        }
+    }, [activeBooking]);
+
+    const fetchContactRequests = async () => {
+        try {
+            const response = await axios.get(
+                route("volunteer.contact.requests")
+            );
+            setContactRequests(response.data.requests);
+        } catch (error) {
+            console.error("Error fetching contact requests:", error);
+        }
+    };
+
+    const fetchSharedContacts = async () => {
+        try {
+            const response = await axios.get(
+                route("volunteer.shared.contacts")
+            );
+            setSharedContacts(response.data.shared_contacts);
+        } catch (error) {
+            console.error("Error fetching shared contacts:", error);
+        }
+    };
 
     // Function to handle project selection (will show details on mobile)
     const handleProjectSelect = (booking) => {
@@ -344,7 +472,6 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                         {/* Mobile Back Button (only shown in details view on mobile) */}
                         {isMobileView && mobileView === "details" && (
                             <div className="lg:hidden fixed py-[2px] rounded-full bg-base-100 shadow-md z-40 mb-4">
-                                {/* <div className="container mx-auto px-2"> */}
                                 <button
                                     onClick={handleBackToList}
                                     className="btn btn-ghost btn-sm gap-2 text-primary hover:bg-primary/10"
@@ -352,7 +479,6 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                     <ArrowLeftCircle className="w-5 h-5" />
                                     <span className="font-medium">Back</span>
                                 </button>
-                                {/* </div> */}
                             </div>
                         )}
 
@@ -360,7 +486,6 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                         <div
                             className={`
                             w-full lg:w-1/3
-
                             ${
                                 isMobileView && mobileView === "details"
                                     ? "hidden"
@@ -455,23 +580,6 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                             <div className="card bg-base-100 shadow-md border border-base-300 overflow-y-auto lg:max-h-[calc(100vh-120px)]">
                                 {activeBooking ? (
                                     <>
-                                        {/* Desktop Back Button */}
-                                        {/* {!isMobileView && (
-                                            <div className="p-4 border-b border-base-300 bg-base-200/50">
-                                                <button
-                                                    onClick={() =>
-                                                        setActiveBooking(null)
-                                                    }
-                                                    className="btn btn-ghost btn-sm gap-2 text-base-content/70 hover:text-primary hover:bg-primary/10 transition-colors"
-                                                >
-                                                    <Grid3X3 className="w-4 h-4" />
-                                                    <span className="font-medium">
-                                                        View All Projects
-                                                    </span>
-                                                </button>
-                                            </div>
-                                        )} */}
-
                                         <div className="bg-primary p-4 lg:pt-[20px] pt-[40px]">
                                             <div className="flex items-center justify-between">
                                                 <div>
@@ -513,6 +621,382 @@ export default function Projects({ auth, payments, points, totalPoints }) {
 
                                         <div className="p-4">
                                             <div className="grid grid-cols-1 gap-4">
+                                                {/* Enhanced Contact Access Section */}
+                                                {hasShareContacts && (
+                                                    <div className="card bg-gradient-to-br from-blue-50 to-indigo-50 shadow-lg border border-blue-200">
+                                                        <div className="card-body p-6">
+                                                            {/* Header Section */}
+                                                            <div className="flex items-center gap-4 mb-6">
+                                                                <div className="bg-blue-100 p-3 rounded-2xl">
+                                                                    <Shield className="h-8 w-8 text-blue-600" />
+                                                                </div>
+                                                                <div>
+                                                                    <h3 className="card-title text-2xl font-bold text-gray-900">
+                                                                        Contact
+                                                                        Access
+                                                                        Management
+                                                                    </h3>
+                                                                    <p className="text-gray-600 mt-1">
+                                                                        Manage
+                                                                        organizations
+                                                                        requesting
+                                                                        access
+                                                                        to your
+                                                                        contact
+                                                                        information
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Contact Requests Section */}
+                                                            {activeBooking.contact_requests &&
+                                                                activeBooking
+                                                                    .contact_requests
+                                                                    .length >
+                                                                    0 && (
+                                                                    <div className="mb-8">
+                                                                        <div className="flex items-center gap-3 mb-4">
+                                                                            <div className="bg-amber-100 p-2 rounded-lg">
+                                                                                <ClockIcon className="h-5 w-5 text-amber-600" />
+                                                                            </div>
+                                                                            <h4 className="text-lg font-semibold text-gray-800">
+                                                                                Pending
+                                                                                Access
+                                                                                Requests
+                                                                            </h4>
+                                                                            <span className="badge badge-warning badge-lg">
+                                                                                {
+                                                                                    activeBooking
+                                                                                        .contact_requests
+                                                                                        .length
+                                                                                }
+                                                                            </span>
+                                                                        </div>
+
+                                                                        <div className="space-y-4">
+                                                                            {activeBooking.contact_requests.map(
+                                                                                (
+                                                                                    request
+                                                                                ) => (
+                                                                                    <div
+                                                                                        key={
+                                                                                            request.public_id
+                                                                                        }
+                                                                                        className="bg-white rounded-xl border border-amber-200 p-5 shadow-sm hover:shadow-md transition-shadow"
+                                                                                    >
+                                                                                        <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+                                                                                            {/* Organization Info */}
+                                                                                            <div className="flex items-start gap-4 flex-1">
+                                                                                                <div className="flex-shrink-0">
+                                                                                                    {request
+                                                                                                        .organization
+                                                                                                        ?.organization_profile
+                                                                                                        ?.logo ? (
+                                                                                                        <img
+                                                                                                            src={`/storage/${request.organization.organization_profile.logo}`}
+                                                                                                            alt={
+                                                                                                                request
+                                                                                                                    .organization
+                                                                                                                    ?.name
+                                                                                                            }
+                                                                                                            className="w-14 h-14 rounded-xl object-cover border-2 border-amber-200"
+                                                                                                        />
+                                                                                                    ) : (
+                                                                                                        <div className="w-14 h-14 rounded-xl bg-amber-100 border-2 border-amber-200 flex items-center justify-center">
+                                                                                                            <Users className="h-6 w-6 text-amber-600" />
+                                                                                                        </div>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                                <div className="flex-1 min-w-0">
+                                                                                                    <h5 className="font-bold text-gray-900 text-lg">
+                                                                                                        {request
+                                                                                                            .organization
+                                                                                                            ?.name ||
+                                                                                                            "Organization"}
+                                                                                                    </h5>
+                                                                                                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
+                                                                                                        <div className="flex items-center gap-1">
+                                                                                                            <CalendarDays className="h-4 w-4" />
+                                                                                                            Requested{" "}
+                                                                                                            {new Date(
+                                                                                                                request.requested_at
+                                                                                                            ).toLocaleDateString()}
+                                                                                                        </div>
+                                                                                                        <div className="badge badge-warning badge-outline">
+                                                                                                            Awaiting
+                                                                                                            Approval
+                                                                                                        </div>
+                                                                                                    </div>
+
+                                                                                                    {/* Request Message */}
+                                                                                                    {request.message && (
+                                                                                                        <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-100">
+                                                                                                            <p className="text-sm text-gray-700">
+                                                                                                                <span className="font-semibold text-amber-700">
+                                                                                                                    Message:
+                                                                                                                </span>{" "}
+                                                                                                                "
+                                                                                                                {
+                                                                                                                    request.message
+                                                                                                                }
+
+                                                                                                                "
+                                                                                                            </p>
+                                                                                                        </div>
+                                                                                                    )}
+
+                                                                                                    {/* Access Details */}
+                                                                                                    <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
+                                                                                                        <div className="flex items-center gap-1">
+                                                                                                            <Mail className="h-3 w-3" />
+                                                                                                            Email
+                                                                                                            access
+                                                                                                        </div>
+                                                                                                        <div className="flex items-center gap-1">
+                                                                                                            <Phone className="h-3 w-3" />
+                                                                                                            Phone
+                                                                                                            access
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+
+                                                                                            {/* Action Buttons */}
+                                                                                            <div className="flex lg:flex-col gap-2 lg:ml-auto">
+                                                                                                <button
+                                                                                                    onClick={() =>
+                                                                                                        handleContactRequestResponse(
+                                                                                                            request.public_id,
+                                                                                                            "approved"
+                                                                                                        )
+                                                                                                    }
+                                                                                                    className="btn btn-success btn-sm lg:btn-md gap-2 flex-1 lg:flex-none"
+                                                                                                    disabled={
+                                                                                                        processingContactRequest
+                                                                                                    }
+                                                                                                >
+                                                                                                    {processingContactRequest ? (
+                                                                                                        <span className="loading loading-spinner loading-sm"></span>
+                                                                                                    ) : (
+                                                                                                        <>
+                                                                                                            <Check className="w-4 h-4" />
+                                                                                                            Approve
+                                                                                                        </>
+                                                                                                    )}
+                                                                                                </button>
+                                                                                                <button
+                                                                                                    onClick={() =>
+                                                                                                        handleContactRequestResponse(
+                                                                                                            request.public_id,
+                                                                                                            "rejected"
+                                                                                                        )
+                                                                                                    }
+                                                                                                    className="btn btn-outline btn-error btn-sm lg:btn-md gap-2 flex-1 lg:flex-none"
+                                                                                                    disabled={
+                                                                                                        processingContactRequest
+                                                                                                    }
+                                                                                                >
+                                                                                                    {processingContactRequest ? (
+                                                                                                        <span className="loading loading-spinner loading-sm"></span>
+                                                                                                    ) : (
+                                                                                                        <>
+                                                                                                            <X className="w-4 h-4" />
+                                                                                                            Decline
+                                                                                                        </>
+                                                                                                    )}
+                                                                                                </button>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+
+                                                            {/* Shared Contacts Section */}
+                                                            {activeBooking.shared_contacts &&
+                                                                activeBooking
+                                                                    .shared_contacts
+                                                                    .length >
+                                                                    0 && (
+                                                                    <div>
+                                                                        <div className="flex items-center gap-3 mb-4">
+                                                                            <div className="bg-green-100 p-2 rounded-lg">
+                                                                                <UserCheck className="h-5 w-5 text-green-600" />
+                                                                            </div>
+                                                                            <h4 className="text-lg font-semibold text-gray-800">
+                                                                                Approved
+                                                                                Contacts
+                                                                            </h4>
+                                                                            <span className="badge badge-success badge-lg">
+                                                                                {
+                                                                                    activeBooking
+                                                                                        .shared_contacts
+                                                                                        .length
+                                                                                }
+                                                                            </span>
+                                                                        </div>
+
+                                                                        <div className="grid gap-4 md:grid-cols-2">
+                                                                            {activeBooking.shared_contacts.map(
+                                                                                (
+                                                                                    contact
+                                                                                ) => (
+                                                                                    <div
+                                                                                        key={
+                                                                                            contact.public_id
+                                                                                        }
+                                                                                        className="bg-white rounded-xl border border-green-200 p-5 shadow-sm"
+                                                                                    >
+                                                                                        <div className="flex items-center gap-4">
+                                                                                            <div className="flex-shrink-0">
+                                                                                                {contact
+                                                                                                    .organization
+                                                                                                    ?.organization_profile
+                                                                                                    ?.logo ? (
+                                                                                                    <img
+                                                                                                        src={`/storage/${contact.organization.organization_profile.logo}`}
+                                                                                                        alt={
+                                                                                                            contact
+                                                                                                                .organization
+                                                                                                                ?.name
+                                                                                                        }
+                                                                                                        className="w-12 h-12 rounded-xl object-cover border-2 border-green-200"
+                                                                                                    />
+                                                                                                ) : (
+                                                                                                    <div className="w-12 h-12 rounded-xl bg-green-100 border-2 border-green-200 flex items-center justify-center">
+                                                                                                        <Users className="h-6 w-6 text-green-600" />
+                                                                                                    </div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                            <div className="flex-1 min-w-0">
+                                                                                                <h5 className="font-semibold text-gray-900">
+                                                                                                    {contact
+                                                                                                        .organization
+                                                                                                        ?.name ||
+                                                                                                        "Organization"}
+                                                                                                </h5>
+                                                                                                <p className="text-sm text-green-600 mt-1">
+                                                                                                    <CheckCircle2 className="h-4 w-4 inline mr-1" />
+                                                                                                    Access
+                                                                                                    granted{" "}
+                                                                                                    {new Date(
+                                                                                                        contact.approved_at
+                                                                                                    ).toLocaleDateString()}
+                                                                                                </p>
+                                                                                                {contact.message && (
+                                                                                                    <p className="text-xs text-gray-500 mt-2 line-clamp-2">
+                                                                                                        "
+                                                                                                        {
+                                                                                                            contact.message
+                                                                                                        }
+                                                                                                        "
+                                                                                                    </p>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+
+                                                            {/* No Requests State */}
+                                                            {(!activeBooking.contact_requests ||
+                                                                activeBooking
+                                                                    .contact_requests
+                                                                    .length ===
+                                                                    0) &&
+                                                                (!activeBooking.shared_contacts ||
+                                                                    activeBooking
+                                                                        .shared_contacts
+                                                                        .length ===
+                                                                        0) && (
+                                                                    <div className="text-center py-8">
+                                                                        <div className="bg-blue-100 p-4 rounded-2xl inline-flex mb-4">
+                                                                            <CheckCircle2 className="h-8 w-8 text-blue-600" />
+                                                                        </div>
+                                                                        <h4 className="text-lg font-semibold text-gray-700 mb-2">
+                                                                            No
+                                                                            Active
+                                                                            Requests
+                                                                        </h4>
+                                                                        <p className="text-gray-500 max-w-md mx-auto">
+                                                                            You
+                                                                            don't
+                                                                            have
+                                                                            any
+                                                                            pending
+                                                                            contact
+                                                                            access
+                                                                            requests
+                                                                            for
+                                                                            this
+                                                                            booking.
+                                                                        </p>
+                                                                    </div>
+                                                                )}
+
+                                                            {/* Privacy Notice */}
+                                                            <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                                                                <div className="flex items-start gap-3">
+                                                                    <Shield className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                                                                    <div>
+                                                                        <h5 className="font-semibold text-blue-800 text-sm mb-1">
+                                                                            Privacy
+                                                                            &
+                                                                            Data
+                                                                            Protection
+                                                                        </h5>
+                                                                        <p className="text-blue-700 text-sm leading-relaxed">
+                                                                            When
+                                                                            you
+                                                                            approve
+                                                                            a
+                                                                            contact
+                                                                            request,
+                                                                            the
+                                                                            organization
+                                                                            will
+                                                                            gain
+                                                                            access
+                                                                            to
+                                                                            your
+                                                                            contact
+                                                                            details
+                                                                            (email
+                                                                            and
+                                                                            phone
+                                                                            number)
+                                                                            for
+                                                                            project-related
+                                                                            communication.
+                                                                            Your
+                                                                            information
+                                                                            is
+                                                                            protected
+                                                                            under
+                                                                            our
+                                                                            privacy
+                                                                            policy
+                                                                            and
+                                                                            will
+                                                                            not
+                                                                            be
+                                                                            shared
+                                                                            with
+                                                                            third
+                                                                            parties.
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
                                                 {/* Project Summary Card */}
                                                 <div className="card bg-base-200 shadow-sm border border-base-300">
                                                     <div className="card-body p-4">
@@ -597,6 +1081,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                     </div>
                                                 </div>
 
+                                                {/* Rest of the existing code remains the same */}
                                                 {/* Payment Information Card */}
                                                 {activeBooking.project
                                                     .type_of_project ===
@@ -851,7 +1336,6 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                         </div>
                                                     </div>
                                                 )}
-
                                                 {/* Project Description Card */}
                                                 <div className="card bg-base-200 shadow-sm border border-base-300">
                                                     <div className="card-body p-4">

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Head, Link, usePage, useForm, router } from "@inertiajs/react";
 import OrganizationLayout from "@/Layouts/OrganizationLayout";
 import {
@@ -16,6 +16,9 @@ import {
     Ban,
     RotateCcw,
     ArrowBigRight,
+    Eye,
+    Phone,
+    MapPin as MapPinIcon,
 } from "lucide-react";
 
 import { Dialog } from "@headlessui/react";
@@ -34,6 +37,11 @@ export default function Bookings({ bookings: initialBookings, auth }) {
     const [isVolunteerModalOpen, setIsVolunteerModalOpen] = useState(false);
     const [selectedVolunteer, setSelectedVolunteer] = useState(null);
 
+    // Add state for contact details modal
+    const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+    const [volunteerContactDetails, setVolunteerContactDetails] =
+        useState(null);
+
     const openVolunteerModal = (volunteer) => {
         setSelectedVolunteer(volunteer);
         setIsVolunteerModalOpen(true);
@@ -43,6 +51,19 @@ export default function Bookings({ bookings: initialBookings, auth }) {
         setIsVolunteerModalOpen(false);
         setSelectedVolunteer(null);
     };
+
+    // Function to open contact details modal
+    const openContactModal = (volunteer) => {
+        setVolunteerContactDetails(volunteer);
+        setIsContactModalOpen(true);
+    };
+
+    // Function to close contact details modal
+    const closeContactModal = () => {
+        setIsContactModalOpen(false);
+        setVolunteerContactDetails(null);
+    };
+
     const statusColors = {
         Pending: "bg-amber-100 text-amber-800",
         Approved: "bg-emerald-100 text-emerald-800",
@@ -159,19 +180,147 @@ export default function Bookings({ bookings: initialBookings, auth }) {
         message: "",
     });
 
-    // Add this function to handle contact requests
-    const handleContactRequest = async (volunteerPublicId, projectPublicId) => {
+    // Initialize sharedContacts as empty array to prevent undefined errors
+    const [sharedContacts, setSharedContacts] = useState([]);
+    const [contactRequests, setContactRequests] = useState([]);
+    const [isLoadingContacts, setIsLoadingContacts] = useState(false);
+    const [contactError, setContactError] = useState(null);
+
+    // Add useEffect to fetch shared contacts and contact requests when activeBooking changes
+    useEffect(() => {
+        if (activeBooking) {
+            fetchSharedContacts();
+        }
+    }, [activeBooking]);
+
+    const fetchSharedContacts = async () => {
+        setIsLoadingContacts(true);
+        setContactError(null);
+        try {
+            console.log("Fetching shared contacts...");
+            const response = await axios.get(
+                route("organization.shared.contacts")
+            );
+
+            console.log("Full API response:", response);
+            console.log("Response data:", response.data);
+
+            // More robust checking of the response structure
+            if (response.data && Array.isArray(response.data.shared_contacts)) {
+                console.log(
+                    "Shared contacts received:",
+                    response.data.shared_contacts
+                );
+                setSharedContacts(response.data.shared_contacts);
+            } else if (
+                response.data &&
+                response.data.shared_contacts === null
+            ) {
+                console.log("No shared contacts found");
+                setSharedContacts([]);
+            } else {
+                console.warn("Unexpected response format:", response.data);
+                setSharedContacts([]);
+                throw new Error("Invalid response format from server");
+            }
+        } catch (error) {
+            console.error("Error fetching shared contacts:", error);
+            let errorMessage = "Failed to load contact information";
+
+            if (error.response?.status === 401) {
+                errorMessage = "Authentication required. Please log in again.";
+            } else if (error.response?.status === 403) {
+                errorMessage =
+                    "You don't have permission to access this resource.";
+            } else if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            }
+
+            setContactError(errorMessage);
+            setSharedContacts([]); // Ensure it's always an array
+        } finally {
+            setIsLoadingContacts(false);
+        }
+    };
+
+    // Check if contact is already approved for this specific booking
+    const hasApprovedContact = () => {
+        if (
+            !activeBooking ||
+            !Array.isArray(sharedContacts) ||
+            sharedContacts.length === 0
+        ) {
+            return false;
+        }
+
+        const hasApproved = sharedContacts.some(
+            (contact) =>
+                contact.volunteer_public_id ===
+                    activeBooking.volunteer.public_id &&
+                contact.organization_public_id === auth.user.public_id &&
+                contact.booking_public_id === activeBooking.public_id &&
+                contact.status === "approved"
+        );
+
+        console.log("hasApprovedContact check:", {
+            activeBooking: activeBooking?.public_id,
+            volunteerId: activeBooking?.volunteer?.public_id,
+            organizationId: auth.user.public_id,
+            sharedContactsCount: sharedContacts.length,
+            hasApproved,
+        });
+
+        return hasApproved;
+    };
+
+    // Check if there's a pending contact request for this specific booking
+    const hasPendingContactRequest = () => {
+        if (!activeBooking || !Array.isArray(sharedContacts)) {
+            return false;
+        }
+
+        const hasPending = sharedContacts.some(
+            (contact) =>
+                contact.volunteer_public_id ===
+                    activeBooking.volunteer.public_id &&
+                contact.organization_public_id === auth.user.public_id &&
+                contact.booking_public_id === activeBooking.public_id &&
+                contact.status === "pending"
+        );
+
+        console.log("hasPendingContactRequest check:", {
+            activeBooking: activeBooking?.public_id,
+            hasPending,
+        });
+
+        return hasPending;
+    };
+    // Updated function to handle contact requests with booking_public_id
+    const handleContactRequest = async (
+        volunteerPublicId,
+        projectPublicId,
+        bookingPublicId
+    ) => {
         setContactRequestStatus({ ...contactRequestStatus, loading: true });
+        setContactError(null);
 
         try {
+            console.log("Making contact request:", {
+                volunteerPublicId,
+                bookingPublicId,
+                projectTitle: activeBooking.project.title,
+            });
+
             const response = await axios.post(
                 route("organization.contact.request"),
                 {
                     volunteer_public_id: volunteerPublicId,
-                    project_public_id: projectPublicId,
+                    booking_public_id: bookingPublicId,
                     message: `I would like to contact you regarding your application for ${activeBooking.project.title}`,
                 }
             );
+
+            console.log("Contact request response:", response.data);
 
             if (response.data.success) {
                 setContactRequestStatus({
@@ -180,12 +329,26 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                     message:
                         "Contact request sent successfully! The volunteer will be notified.",
                 });
+
+                // Refresh shared contacts after successful request
+                setTimeout(() => {
+                    fetchSharedContacts();
+                }, 1000);
+            } else {
+                throw new Error(response.data.message || "Request failed");
             }
         } catch (error) {
             console.error("Contact request error:", error);
+            console.error("Contact request error details:", {
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status,
+                url: error.config?.url,
+            });
 
             // More detailed error handling
-            let errorMessage = "Failed to send contact request.";
+            let errorMessage =
+                "Failed to send contact request. Please try again.";
             if (error.response?.data?.errors) {
                 // Laravel validation errors
                 errorMessage = Object.values(error.response.data.errors)
@@ -194,6 +357,8 @@ export default function Bookings({ bookings: initialBookings, auth }) {
             } else if (error.response?.data?.message) {
                 // Custom error message from backend
                 errorMessage = error.response.data.message;
+            } else if (error.message) {
+                errorMessage = error.message;
             }
 
             setContactRequestStatus({
@@ -201,56 +366,308 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                 requested: false,
                 message: errorMessage,
             });
+            setContactError(errorMessage);
         }
     };
 
+    // Get the current contact status for this booking
+    const getContactStatus = () => {
+        const status = hasApprovedContact()
+            ? "approved"
+            : hasPendingContactRequest()
+            ? "pending"
+            : "none";
+
+        console.log("getContactStatus:", {
+            hasApproved: hasApprovedContact(),
+            hasPending: hasPendingContactRequest(),
+            finalStatus: status,
+        });
+
+        return status;
+    };
+
+    // Debug function to log current state
+    const debugContactState = () => {
+        console.log("=== CONTACT STATE DEBUG ===");
+        console.log("Active Booking:", activeBooking?.public_id);
+        console.log("Volunteer:", activeBooking?.volunteer?.public_id);
+        console.log("Organization:", auth.user.public_id);
+        console.log("Shared Contacts:", sharedContacts);
+        console.log("hasApprovedContact:", hasApprovedContact());
+        console.log("hasPendingContactRequest:", hasPendingContactRequest());
+        console.log("getContactStatus:", getContactStatus());
+        console.log("Contact Request Status:", contactRequestStatus);
+        console.log("Contact Error:", contactError);
+        console.log("===========================");
+    };
+
+    // Call debug on render for troubleshooting
+    useEffect(() => {
+        if (activeBooking) {
+            debugContactState();
+        }
+    }, [activeBooking, sharedContacts, contactRequestStatus]);
+
     return (
         <OrganizationLayout auth={auth}>
-            <section className="bg-gray-50 min-h-screen">
-                <Head title="Volunteer Bookings" />
+            <Head title="Volunteer Bookings" />
 
-                {/* Confirmation Dialog */}
-                <Dialog
-                    open={isDialogOpen}
-                    onClose={closeDialog}
-                    className="relative z-50"
-                >
-                    <div
-                        className="fixed inset-0 bg-black/30"
-                        aria-hidden="true"
-                    />
-                    <div className="fixed inset-0 flex items-center justify-center p-4">
-                        <Dialog.Panel className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-                            <Dialog.Title className="text-lg font-medium text-gray-900">
-                                Confirm Status Update
-                            </Dialog.Title>
-                            <Dialog.Description className="mt-2 text-sm text-gray-600">
-                                Are you sure you want to change the booking
-                                status to{" "}
-                                <span className="font-semibold">
-                                    {selectedStatus}
-                                </span>
-                                ?
-                            </Dialog.Description>
+            {/* Confirmation Dialog */}
+            <Dialog
+                open={isDialogOpen}
+                onClose={closeDialog}
+                className="relative z-50"
+            >
+                <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+                <div className="fixed inset-0 flex items-center justify-center p-4">
+                    <Dialog.Panel className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+                        <Dialog.Title className="text-lg font-medium text-gray-900">
+                            Confirm Status Update
+                        </Dialog.Title>
+                        <Dialog.Description className="mt-2 text-sm text-gray-600">
+                            Are you sure you want to change the booking status
+                            to{" "}
+                            <span className="font-semibold">
+                                {selectedStatus}
+                            </span>
+                            ?
+                        </Dialog.Description>
 
-                            <div className="mt-4 flex justify-end space-x-3">
+                        <div className="mt-4 flex justify-end space-x-3">
+                            <button
+                                onClick={closeDialog}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmStatusUpdate}
+                                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            >
+                                Confirm
+                            </button>
+                        </div>
+                    </Dialog.Panel>
+                </div>
+            </Dialog>
+
+            {/* Contact Details Modal */}
+            <Dialog
+                open={isContactModalOpen}
+                onClose={closeContactModal}
+                className="relative z-50"
+            >
+                <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+                <div className="fixed inset-0 flex items-center justify-center p-4">
+                    <Dialog.Panel className="w-full max-w-md rounded-xl bg-white shadow-xl">
+                        <div className="p-6">
+                            <div className="flex justify-between items-start mb-6">
+                                <Dialog.Title className="text-2xl font-bold text-gray-900">
+                                    Volunteer Contact Details
+                                </Dialog.Title>
                                 <button
-                                    onClick={closeDialog}
-                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                    onClick={closeContactModal}
+                                    className="text-gray-500 hover:text-gray-700"
                                 >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={confirmStatusUpdate}
-                                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                >
-                                    Confirm
+                                    <X className="h-6 w-6" />
                                 </button>
                             </div>
-                        </Dialog.Panel>
-                    </div>
-                </Dialog>
 
+                            {volunteerContactDetails && (
+                                <div className="space-y-6">
+                                    {/* Volunteer Basic Info */}
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex-shrink-0">
+                                            {volunteerContactDetails
+                                                .volunteer_profile
+                                                ?.profile_picture ? (
+                                                <img
+                                                    src={`/storage/${volunteerContactDetails.volunteer_profile.profile_picture}`}
+                                                    alt={
+                                                        volunteerContactDetails.name
+                                                    }
+                                                    className="w-16 h-16 rounded-full object-cover border-2 border-blue-200"
+                                                />
+                                            ) : (
+                                                <div className="w-16 h-16 rounded-full bg-blue-100 border-2 border-blue-200 flex items-center justify-center">
+                                                    <User className="h-8 w-8 text-blue-600" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-semibold text-gray-900">
+                                                {volunteerContactDetails.name}
+                                            </h3>
+                                            {volunteerContactDetails
+                                                .volunteer_profile
+                                                ?.verification_status ===
+                                                "Approved" && (
+                                                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 rounded-full px-3 py-1 border border-emerald-100 mt-1">
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        className="h-3.5 w-3.5 flex-shrink-0"
+                                                        viewBox="0 0 20 20"
+                                                        fill="currentColor"
+                                                    >
+                                                        <path
+                                                            fillRule="evenodd"
+                                                            d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                            clipRule="evenodd"
+                                                        />
+                                                    </svg>
+                                                    Verified Volunteer
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Contact Information */}
+                                    <div className="bg-gray-50 rounded-lg p-4">
+                                        <h4 className="text-lg font-semibold text-gray-800 mb-4">
+                                            Contact Information
+                                        </h4>
+
+                                        <div className="space-y-3">
+                                            {/* Email */}
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                                    <Mail className="h-4 w-4 text-blue-600" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-500">
+                                                        Email
+                                                    </p>
+                                                    <p className="text-gray-900 font-medium">
+                                                        {
+                                                            volunteerContactDetails.email
+                                                        }
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* Phone */}
+                                            {volunteerContactDetails
+                                                .volunteer_profile?.phone && (
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                                                        <Phone className="h-4 w-4 text-green-600" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-500">
+                                                            Phone
+                                                        </p>
+                                                        <p className="text-gray-900 font-medium">
+                                                            {
+                                                                volunteerContactDetails
+                                                                    .volunteer_profile
+                                                                    .phone
+                                                            }
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Location */}
+                                            {volunteerContactDetails
+                                                .volunteer_profile?.city && (
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex-shrink-0 w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                                                        <MapPinIcon className="h-4 w-4 text-purple-600" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-500">
+                                                            Location
+                                                        </p>
+                                                        <p className="text-gray-900 font-medium">
+                                                            {
+                                                                volunteerContactDetails
+                                                                    .volunteer_profile
+                                                                    .city
+                                                            }
+                                                            {volunteerContactDetails
+                                                                .volunteer_profile
+                                                                .country &&
+                                                                `, ${volunteerContactDetails.volunteer_profile.country}`}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Emergency Contact */}
+                                    {volunteerContactDetails.volunteer_profile
+                                        ?.nok && (
+                                        <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                                            <h4 className="text-lg font-semibold text-amber-800 mb-3">
+                                                Emergency Contact
+                                            </h4>
+                                            <div className="space-y-2">
+                                                <div>
+                                                    <p className="text-sm font-medium text-amber-700">
+                                                        Next of Kin
+                                                    </p>
+                                                    <p className="text-amber-900 font-medium">
+                                                        {
+                                                            volunteerContactDetails
+                                                                .volunteer_profile
+                                                                .nok
+                                                        }
+                                                    </p>
+                                                </div>
+                                                {volunteerContactDetails
+                                                    .volunteer_profile
+                                                    .nok_relation && (
+                                                    <div>
+                                                        <p className="text-sm font-medium text-amber-700">
+                                                            Relationship
+                                                        </p>
+                                                        <p className="text-amber-900">
+                                                            {
+                                                                volunteerContactDetails
+                                                                    .volunteer_profile
+                                                                    .nok_relation
+                                                            }
+                                                        </p>
+                                                    </div>
+                                                )}
+                                                {volunteerContactDetails
+                                                    .volunteer_profile
+                                                    .nok_phone && (
+                                                    <div>
+                                                        <p className="text-sm font-medium text-amber-700">
+                                                            Emergency Phone
+                                                        </p>
+                                                        <p className="text-amber-900 font-medium">
+                                                            {
+                                                                volunteerContactDetails
+                                                                    .volunteer_profile
+                                                                    .nok_phone
+                                                            }
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Note */}
+                                    <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                                        <p className="text-sm text-blue-700">
+                                            <strong>Note:</strong> This contact
+                                            information is shared for
+                                            project-related communication only.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </Dialog.Panel>
+                </div>
+            </Dialog>
+
+            <section className="bg-gray-50 min-h-screen">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                     <div className="mb-8">
                         <h1 className="text-3xl font-bold text-gray-900">
@@ -283,7 +700,8 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                         Volunteers ({bookings.length})
                                     </h3>
                                 </div>
-                                <div className="flex-1 overflow-y-auto">
+                                {/* MODIFIED: Set fixed height to quarter of screen with overflow */}
+                                <div className="h-[70vh] overflow-y-auto">
                                     {bookings.map((booking) => (
                                         <div
                                             key={booking.public_id}
@@ -360,7 +778,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                             </div>
 
                             {/* Right side - Booking details */}
-                            <div className="w-full lg:w-2/3 bg-white rounded-xl shadow-md border border-gray-200 flex flex-col">
+                            <div className="w-full lg:w-2/3 bg-white rounded-xl shadow-md border border-gray-200 flex flex-col h-[80vh] overflow-y-auto">
                                 {activeBooking ? (
                                     <>
                                         <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl flex gap-2 items-center">
@@ -437,42 +855,75 @@ export default function Bookings({ bookings: initialBookings, auth }) {
 
                                                             {hasDepositPaid() && (
                                                                 <div className="space-y-1">
-                                                                    <div className="flex items-center text-gray-600">
-                                                                        <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                                                                        <span className="truncate">
-                                                                            {
-                                                                                activeBooking
-                                                                                    .volunteer
-                                                                                    .email
-                                                                            }
-                                                                        </span>
-                                                                    </div>
-
                                                                     <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
                                                                         <h3 className="text-lg font-semibold text-blue-800 mb-2">
                                                                             Contact
                                                                             Volunteer
                                                                         </h3>
                                                                         <p className="text-sm text-blue-600 mb-3">
-                                                                            Request
-                                                                            access
-                                                                            to
-                                                                            this
-                                                                            volunteer's
-                                                                            contact
-                                                                            information
+                                                                            {getContactStatus() ===
+                                                                            "approved"
+                                                                                ? "You have access to this volunteer's contact information"
+                                                                                : getContactStatus() ===
+                                                                                  "pending"
+                                                                                ? "Contact request is pending approval"
+                                                                                : "Request access to this volunteer's contact information"}
                                                                         </p>
 
-                                                                        {contactRequestStatus.requested ? (
-                                                                            <div className="bg-green-50 p-3 rounded-md">
-                                                                                <p className="text-green-700 text-sm">
-                                                                                    ✓{" "}
+                                                                        {contactError && (
+                                                                            <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-3">
+                                                                                <p className="text-red-700 text-sm">
                                                                                     {
-                                                                                        contactRequestStatus.message
+                                                                                        contactError
                                                                                     }
+                                                                                </p>
+                                                                                <button
+                                                                                    onClick={
+                                                                                        fetchSharedContacts
+                                                                                    }
+                                                                                    className="text-red-600 hover:text-red-800 text-sm underline mt-1"
+                                                                                >
+                                                                                    Try
+                                                                                    again
+                                                                                </button>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {isLoadingContacts ? (
+                                                                            <div className="flex justify-center py-4">
+                                                                                <span className="loading loading-spinner loading-md"></span>
+                                                                            </div>
+                                                                        ) : getContactStatus() ===
+                                                                          "approved" ? (
+                                                                            // Show View Contact Details button if contact is approved
+                                                                            <button
+                                                                                onClick={() =>
+                                                                                    openContactModal(
+                                                                                        activeBooking.volunteer
+                                                                                    )
+                                                                                }
+                                                                                className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                                                                            >
+                                                                                <Eye className="w-4 h-4 mr-2" />
+                                                                                View
+                                                                                Contact
+                                                                                Details
+                                                                            </button>
+                                                                        ) : getContactStatus() ===
+                                                                          "pending" ? (
+                                                                            // Show Pending Request message - HIDE the Request button
+                                                                            <div className="bg-amber-50 p-3 rounded-md border border-amber-200">
+                                                                                <p className="text-amber-700 text-sm flex items-center">
+                                                                                    <Clock className="w-4 h-4 mr-2" />
+                                                                                    Contact
+                                                                                    request
+                                                                                    pending
+                                                                                    volunteer
+                                                                                    approval
                                                                                 </p>
                                                                             </div>
                                                                         ) : (
+                                                                            // Show Request Contact Details button if no request exists
                                                                             <button
                                                                                 onClick={() =>
                                                                                     handleContactRequest(
@@ -481,13 +932,14 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                                             .public_id,
                                                                                         activeBooking
                                                                                             .project
-                                                                                            .public_id
+                                                                                            .public_id,
+                                                                                        activeBooking.public_id
                                                                                     )
                                                                                 }
                                                                                 disabled={
                                                                                     contactRequestStatus.loading
                                                                                 }
-                                                                                className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                                                                                className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
                                                                             >
                                                                                 {contactRequestStatus.loading ? (
                                                                                     <span className="loading loading-spinner"></span>
@@ -503,7 +955,8 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                         )}
 
                                                                         {contactRequestStatus.message &&
-                                                                            !contactRequestStatus.requested && (
+                                                                            getContactStatus() ===
+                                                                                "none" && (
                                                                                 <p className="text-red-600 text-sm mt-2">
                                                                                     {
                                                                                         contactRequestStatus.message
@@ -511,29 +964,6 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                                 </p>
                                                                             )}
                                                                     </div>
-                                                                    {/* {activeBooking
-                                                                        .volunteer
-                                                                        .volunteer_profile
-                                                                        ?.phone && (
-                                                                        <div className="flex items-center text-gray-600">
-                                                                            <svg
-                                                                                xmlns="http://www.w3.org/2000/svg"
-                                                                                className="h-4 w-4 mr-2 text-gray-400"
-                                                                                viewBox="0 0 20 20"
-                                                                                fill="currentColor"
-                                                                            >
-                                                                                <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
-                                                                            </svg>
-                                                                            <span>
-                                                                                {
-                                                                                    activeBooking
-                                                                                        .volunteer
-                                                                                        .volunteer_profile
-                                                                                        .phone
-                                                                                }
-                                                                            </span>
-                                                                        </div>
-                                                                    )} */}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -1174,6 +1604,8 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                     )}
                 </div>
             </section>
+
+            {/* Existing Volunteer Profile Modal */}
             <Dialog
                 open={isVolunteerModalOpen}
                 onClose={closeVolunteerModal}
@@ -1206,7 +1638,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                         .volunteer_profile
                                                         ?.profile_picture
                                                         ? `/storage/${selectedVolunteer.volunteer_profile.profile_picture}`
-                                                        : "/images/default-profile.jpg"
+                                                        : "/no-profile-pic.jpg"
                                                 }
                                                 alt={selectedVolunteer.name}
                                                 className="w-32 h-32 rounded-full object-cover border-4 border-white shadow mb-4"

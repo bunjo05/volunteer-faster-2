@@ -22,6 +22,10 @@ return new class extends Migration
                 ->nullable()
                 ->constrained('users', 'public_id')
                 ->onDelete('cascade');
+            $table->foreignUlid('booking_public_id')
+                ->nullable()
+                ->constrained('volunteer_bookings', 'public_id')
+                ->onDelete('cascade');
             $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
             $table->text('message')->nullable();
             $table->timestamp('requested_at');

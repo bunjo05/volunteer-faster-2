@@ -14,6 +14,8 @@ class ShareContact extends Model
         'public_id',
         'volunteer_public_id',
         'organization_public_id',
+        'booking_public_id',
+        'project_public_id',
         'status',
         'message',
         'requested_at',
@@ -39,6 +41,22 @@ class ShareContact extends Model
     public function organization(): BelongsTo
     {
         return $this->belongsTo(User::class, 'organization_public_id', 'public_id');
+    }
+
+    /**
+     * Get the booking associated with the contact request.
+     */
+    public function booking(): BelongsTo
+    {
+        return $this->belongsTo(VolunteerBooking::class, 'booking_public_id', 'public_id');
+    }
+
+    /**
+     * Get the project associated with the contact request.
+     */
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(Project::class, 'project_public_id', 'public_id');
     }
 
     /**

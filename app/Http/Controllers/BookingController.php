@@ -75,9 +75,9 @@ class BookingController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'nullable|string',
-            'email' => 'nullable|email|unique:users,email',
-            'password' => 'nullable|string|min:6',
+            'name' => 'required|string', // Changed from nullable to required
+            'email' => 'required|email|unique:users,email', // Changed from nullable to required
+            'password' => 'required|string|min:6', // Changed from nullable to required
             'gender' => 'nullable|string',
             'dob' => 'nullable|date',
             'country' => 'nullable|string',
@@ -108,7 +108,6 @@ class BookingController extends Controller
             'aspect_needs_funding' => 'nullable|array',
             'skills' => 'nullable|array',
         ]);
-
 
         // 1. Create user
         $user = User::create([
@@ -161,9 +160,9 @@ class BookingController extends Controller
             'phone' => $validated['phone'],
         ]);
 
-        // 3. Create booking
+        // 3. Create booking - Use the newly created user's public_id
         $booking = VolunteerBooking::create([
-            'user_public_id' => Auth::user()->public_id,
+            'user_public_id' => $user->public_id, // Use $user->public_id instead of Auth::user()->public_id
             'project_public_id' => $validated['project_public_id'],
             'start_date' => $validated['start_date'],
             'end_date' => $validated['end_date'],
@@ -173,10 +172,9 @@ class BookingController extends Controller
         ]);
 
         // 4. Create sponsorship if sponsorship data is provided
-        // if (!empty($validated['total_amount']) || !empty($validated['self_introduction'])) {
-        $sponsorship =  VolunteerSponsorship::create([
-            'user_public_id' => Auth::user()->public_id,
-            'booking_public_id' => $booking->public_id,
+        $sponsorship = VolunteerSponsorship::create([
+            'user_public_id' => $user->public_id, // Use $user->public_id instead of Auth::user()->public_id
+            'booking_public_id' => $booking->public_id, // Add this back since it's required in the model
             'total_amount' => $validated['total_amount'] ?? 0,
             'accommodation' => $validated['accommodation'] ?? 0,
             'meals' => $validated['meals'] ?? 0,
@@ -191,12 +189,17 @@ class BookingController extends Controller
             'privacy' => $validated['privacy'] ?? false,
             'aspect_needs_funding' => $validated['aspect_needs_funding'] ?? [],
             'skills' => $validated['skills'] ?? [],
-            // 'updates' => $validated['updates'] ?? false
         ]);
-        // }
 
         // Get project details
-        $project = Project::with('organizationProfile')->find($validated['project_public_id']);
+        $project = Project::with('organizationProfile')->where('public_id', $validated['project_public_id'])->first();
+
+        if (!$project) {
+            return redirect()->back()->withErrors(['project' => 'Project not found.']);
+        }
+
+        // Get the project owner (receiver)
+        $projectOwner = User::where('public_id', $project->user_public_id)->first();
 
         // After creating booking
         NotificationService::notifyNewBooking($booking);
@@ -204,19 +207,39 @@ class BookingController extends Controller
         // Send confirmation email to volunteer
         Mail::to($user->email)->send(new VolunteerBookingConfirmation($booking, $project));
 
-        // Send notification to project owner (use user's email as fallback)
-        $ownerEmail = $project->user->email;
-        if ($ownerEmail) {
-            Mail::to($ownerEmail)
+        // Send notification to project owner
+        if ($projectOwner && $projectOwner->email) {
+            Mail::to($projectOwner->email)
                 ->send(new ProjectOwnerBookingNotification($booking, $project, $user));
         }
 
-        return redirect(route('projects'))->with('success', 'Booking made successfully. A confirmation has been sent to your email.');
-    }
+        // Only create message if one was provided
+        if (!empty($filteredMessage) && $projectOwner) {
+            Message::create([
+                'sender_id' => $user->id,
+                'receiver_id' => $projectOwner->id,
+                'message' => $filteredMessage,
+                'project_public_id' => $validated['project_public_id'],
+                'booking_public_id' => $booking->public_id,
+                'status' => 'Unread',
+            ]);
+        }
 
+        // Auto-login the user after registration
+        Auth::login($user);
+
+        return redirect(route('volunteer.projects'))->with('success', 'Booking made successfully. A confirmation has been sent to your email.');
+    }
     public function authStore(Request $request)
     {
         $user = Auth::user();
+
+        // Add validation to ensure user is authenticated
+        if (!$user) {
+            return redirect()->route('login')->withErrors([
+                'auth' => 'Please log in to make a booking.'
+            ]);
+        }
 
         $validated = $request->validate([
             'start_date' => 'required|date',
@@ -225,10 +248,6 @@ class BookingController extends Controller
             'message' => 'nullable|string',
             'project_public_id' => 'required|exists:projects,public_id',
             'booking_status' => 'required',
-            'sender_id' => 'nullable',
-            'receiver_id' => 'nullable',
-            'status' => 'nullable',
-
 
             // Sponsorship fields
             'total_amount' => 'nullable|numeric|min:0',
@@ -245,7 +264,6 @@ class BookingController extends Controller
             'privacy' => 'nullable|boolean',
             'aspect_needs_funding' => 'nullable|array',
             'skills' => 'nullable|array',
-            // 'updates' => 'nullable|string'
         ]);
 
         // Check if user already has a pending booking for this project
@@ -277,11 +295,9 @@ class BookingController extends Controller
             }
         }
 
-
-
         // Create booking
         $booking = VolunteerBooking::create([
-            'user_public_id' => Auth::user()->public_id,
+            'user_public_id' => $user->public_id,
             'project_public_id' => $validated['project_public_id'],
             'start_date' => $validated['start_date'],
             'end_date' => $validated['end_date'],
@@ -290,13 +306,10 @@ class BookingController extends Controller
             'booking_status' => $validated['booking_status']
         ]);
 
-
-
         // Create sponsorship if sponsorship data is provided
-        // if (!empty($validated['total_amount']) || !empty($validated['self_introduction'])) {
         $sponsorship = VolunteerSponsorship::create([
-            'user_public_id' => Auth::user()->public_id, // Add this
-            'booking_public_id' => $booking->public_id,
+            'user_public_id' => $user->public_id,
+            'booking_public_id' => $booking->public_id, // Add this back
             'total_amount' => $validated['total_amount'] ?? 0,
             'travel' => $validated['travel'] ?? 0,
             'accommodation' => $validated['accommodation'] ?? 0,
@@ -311,12 +324,21 @@ class BookingController extends Controller
             'privacy' => $validated['privacy'] ?? false,
             'aspect_needs_funding' => $validated['aspect_needs_funding'] ?? [],
             'skills' => $validated['skills'] ?? [],
-            // 'updates' => $validated['updates'] ?? false
         ]);
-        // }
 
         // Get project details
-        $project = Project::with('organizationProfile')->find($validated['project_public_id']);
+        $project = Project::with('organizationProfile')->where('public_id', $validated['project_public_id'])->first();
+
+        if (!$project) {
+            return redirect()->back()->withErrors(['project' => 'Project not found.']);
+        }
+
+        // Get the project owner (receiver)
+        $projectOwner = User::where('public_id', $project->user_public_id)->first();
+
+        if (!$projectOwner) {
+            return redirect()->back()->withErrors(['project' => 'Project owner not found.']);
+        }
 
         // After creating booking
         NotificationService::notifyNewBooking($booking);
@@ -324,19 +346,20 @@ class BookingController extends Controller
         // Send confirmation email to volunteer
         Mail::to($user->email)->send(new VolunteerBookingConfirmation($booking, $project));
 
-        // Send notification to project owner (use user's email as fallback)
-        $ownerEmail = $project->user->email;
-        if ($ownerEmail) {
-            Mail::to($ownerEmail)
+        // Send notification to project owner
+        if ($projectOwner->email) {
+            Mail::to($projectOwner->email)
                 ->send(new ProjectOwnerBookingNotification($booking, $project, $user));
         }
+
         // Only create message if one was provided
-        if (!empty($validated['message'])) {
+        if (!empty($filteredMessage)) {
             Message::create([
-                'sender_id' => $user->public_id,
-                'receiver_id' => $project->user_public_id,
+                'sender_id' => $user->id,
+                'receiver_id' => $projectOwner->id,
                 'message' => $filteredMessage,
                 'project_public_id' => $validated['project_public_id'],
+                'booking_public_id' => $booking->public_id,
                 'status' => 'Unread',
             ]);
         }
