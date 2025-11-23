@@ -14,42 +14,98 @@ import {
 } from "lucide-react";
 import axios from "axios";
 
-export default function FloatingConversation({ auth }) {
-    const [isOpen, setIsOpen] = useState(false);
+export default function FloatingConversation({ auth, isOpen, onClose }) {
     const [activeChat, setActiveChat] = useState(null);
     const [openChats, setOpenChats] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
-    const [isLoading, setIsLoading] = useState({}); // Track loading per chat
+    const [isLoading, setIsLoading] = useState({});
     const [allConversations, setAllConversations] = useState([]);
     const [pollingError, setPollingError] = useState(null);
     const messagesEndRef = useRef(null);
     const pollingInterval = useRef(null);
-    const continuousPollingInterval = useRef(null); // Separate interval for continuous polling
-    const messageCounter = useRef(0); // Counter for unique message keys
-    const lastMessageTimeRef = useRef({}); // Track last message time per chat for targeted polling
-    const lastPollTimeRef = useRef(Date.now()); // Track last poll time
+    const continuousPollingInterval = useRef(null);
+    const messageCounter = useRef(0);
+    const lastMessageTimeRef = useRef({});
+    const lastPollTimeRef = useRef(Date.now());
     const { processing } = useForm();
 
     const { props } = usePage();
     const { messages = {} } = props;
     const { conversations: initialConversations = [] } = messages;
 
-    // Separate form state for each chat
     const [chatInputs, setChatInputs] = useState({});
+
+    // Create a ref for the sidebar
+    const sidebarRef = useRef(null);
+
+    // State for window size detection
+    const [windowSize, setWindowSize] = useState({
+        width: typeof window !== "undefined" ? window.innerWidth : 0,
+        height: typeof window !== "undefined" ? window.innerHeight : 0,
+    });
+
+    // Detect window size changes
+    useEffect(() => {
+        const handleResize = () => {
+            setWindowSize({
+                width: window.innerWidth,
+                height: window.innerHeight,
+            });
+        };
+
+        window.addEventListener("resize", handleResize);
+        handleResize(); // Initial call
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
+    // Determine device type and max chat windows
+    const isMobile = windowSize.width < 768;
+    const isTablet = windowSize.width >= 768 && windowSize.width < 1024;
+    const isDesktop = windowSize.width >= 1024;
+
+    const getMaxChatWindows = () => {
+        if (isMobile) return 1;
+        if (isTablet) return 2;
+        return 3; // Desktop
+    };
+
+    const maxChatWindows = getMaxChatWindows();
+
+    // Click outside handler to close sidebar
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (
+                isOpen &&
+                sidebarRef.current &&
+                !sidebarRef.current.contains(event.target) &&
+                !event.target.closest(".chat-toggle-button") &&
+                !event.target.closest(".chat-window")
+            ) {
+                if (onClose) {
+                    onClose();
+                } else {
+                    setIsOpen(false);
+                }
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isOpen, onClose]);
 
     // Initialize with initial conversations
     useEffect(() => {
         setAllConversations(initialConversations);
     }, [initialConversations]);
 
-    // Improved date validation function
     const isValidDate = (dateString) => {
         if (!dateString) return false;
         const date = new Date(dateString);
         return !isNaN(date.getTime());
     };
 
-    // Format time function
     const formatTime = (dateString) => {
         if (!dateString || !isValidDate(dateString)) {
             return "Just now";
@@ -65,7 +121,6 @@ export default function FloatingConversation({ auth }) {
         }
     };
 
-    // Format date function
     const formatDate = (dateString) => {
         if (!dateString || !isValidDate(dateString)) {
             return "Recently";
@@ -84,7 +139,6 @@ export default function FloatingConversation({ auth }) {
         }
     };
 
-    // Generate unique message key
     const generateMessageKey = (message, index = 0) => {
         if (message.id) {
             return `msg-${message.id}`;
@@ -92,32 +146,23 @@ export default function FloatingConversation({ auth }) {
         if (message.temp_id) {
             return `temp-${message.temp_id}`;
         }
-        // Use counter for truly unique keys
         messageCounter.current += 1;
         return `msg-${Date.now()}-${messageCounter.current}-${index}`;
     };
 
-    // ENHANCED: Silent background polling specifically for Horizontal Chat Windows
+    // Enhanced polling function
     const pollForChatWindows = async (targetChatIds = null) => {
         try {
             let chatIdsToPoll;
             if (targetChatIds) {
-                // Poll only specific chats
                 chatIdsToPoll = targetChatIds;
             } else if (openChats.length > 0) {
-                // Poll all open chats in the Horizontal Chat Windows
                 chatIdsToPoll = openChats.map((chat) => chat.sender.id);
             } else {
-                // No open chats to poll
                 return;
             }
 
-            // If no valid chat IDs, return
             if (chatIdsToPoll.length === 0) return;
-
-            console.log(
-                `🔄 Polling chat windows for: ${chatIdsToPoll.join(", ")}`
-            );
 
             const response = await axios.get(
                 route(
@@ -130,20 +175,16 @@ export default function FloatingConversation({ auth }) {
                         polling: true,
                         open_chats: chatIdsToPoll.join(","),
                         timestamp: Date.now(),
-                        focus_chat_windows: true, // New parameter to indicate this is for chat windows
+                        focus_chat_windows: true,
                     },
                 }
             );
 
             const updatedConversations = response.data.messages || [];
-
-            // Update last poll time
             lastPollTimeRef.current = Date.now();
 
             let hasNewMessages = false;
-            let updatedActiveChat = false;
 
-            // Update open chats with new messages - FOCUS ON CHAT WINDOWS
             setOpenChats((prevOpenChats) => {
                 return prevOpenChats.map((openChat) => {
                     const updatedConversation = updatedConversations.find(
@@ -151,22 +192,23 @@ export default function FloatingConversation({ auth }) {
                     );
 
                     if (updatedConversation) {
-                        // Check if there are new messages
-                        const currentLastMessageId =
-                            openChat.messages[openChat.messages.length - 1]?.id;
-                        const newLastMessageId =
-                            updatedConversation.messages?.[
-                                updatedConversation.messages.length - 1
-                            ]?.id;
+                        const currentMessageIds = new Set(
+                            openChat.messages
+                                .map((msg) => msg.id)
+                                .filter(Boolean)
+                        );
+                        const newMessages = (
+                            updatedConversation.messages || []
+                        ).filter(
+                            (serverMsg) =>
+                                serverMsg.id &&
+                                !currentMessageIds.has(serverMsg.id)
+                        );
 
-                        if (newLastMessageId !== currentLastMessageId) {
+                        if (newMessages.length > 0) {
                             hasNewMessages = true;
-                            console.log(
-                                `🆕 New messages found for ${openChat.sender.name} in chat window`
-                            );
                         }
 
-                        // Preserve optimistic messages and local state
                         const existingOptimisticMessages =
                             openChat.messages.filter(
                                 (msg) =>
@@ -180,7 +222,6 @@ export default function FloatingConversation({ auth }) {
                         )
                             .filter(
                                 (serverMsg) =>
-                                    // Don't overwrite optimistic messages
                                     !existingOptimisticMessages.some(
                                         (optMsg) =>
                                             optMsg.temp_id &&
@@ -195,7 +236,6 @@ export default function FloatingConversation({ auth }) {
                                 _key: generateMessageKey(msg, index),
                             }));
 
-                        // Combine optimistic messages with server messages
                         const combinedMessages = [
                             ...existingOptimisticMessages,
                             ...sanitizedMessages,
@@ -222,33 +262,35 @@ export default function FloatingConversation({ auth }) {
                                 : null,
                         };
 
-                        // Check if this is the active chat
-                        if (activeChat?.sender.id === openChat.sender.id) {
-                            updatedActiveChat = true;
-                        }
-
                         return updatedChat;
                     }
                     return openChat;
                 });
             });
 
-            // Update active chat if it's one of the open chats
             if (activeChat) {
                 const updatedActiveChatData = updatedConversations.find(
                     (conv) => conv.sender.id === activeChat.sender.id
                 );
                 if (updatedActiveChatData) {
-                    setActiveChat((prev) => ({
-                        ...prev,
-                        messages: prev.messages, // Keep current messages, they're updated above
-                        unreadCount: updatedActiveChatData.unreadCount || 0,
-                        latestMessage: updatedActiveChatData.latestMessage,
-                    }));
+                    setActiveChat((prev) => {
+                        if (!prev) return prev;
+                        const currentOpenChat = openChats.find(
+                            (chat) => chat.sender.id === activeChat.sender.id
+                        );
+                        return (
+                            currentOpenChat || {
+                                ...prev,
+                                unreadCount:
+                                    updatedActiveChatData.unreadCount || 0,
+                                latestMessage:
+                                    updatedActiveChatData.latestMessage,
+                            }
+                        );
+                    });
                 }
             }
 
-            // Update ALL conversations (for sidebar) as well
             setAllConversations((prevAllConversations) => {
                 return prevAllConversations.map((conv) => {
                     const updatedConv = updatedConversations.find(
@@ -258,109 +300,72 @@ export default function FloatingConversation({ auth }) {
                 });
             });
 
-            // Auto-scroll to bottom if new messages came in and this chat is active
-            if (
-                hasNewMessages &&
-                activeChat &&
-                targetChatIds?.includes(activeChat.sender.id)
-            ) {
-                setTimeout(scrollToBottom, 100);
-            }
-
-            // Auto-scroll for any active chat with new messages
-            if (hasNewMessages && updatedActiveChat) {
-                setTimeout(scrollToBottom, 100);
+            if (hasNewMessages) {
+                setTimeout(scrollToBottom, 150);
             }
 
             setPollingError(null);
         } catch (error) {
             console.error("Chat window polling error:", error);
-            // Silent error - don't disrupt user experience
             setPollingError("Connection issue - retrying...");
         }
     };
 
-    // NON-STOP SILENT BACKGROUND POLLING FOR CHAT WINDOWS
     const startChatWindowPolling = () => {
         if (continuousPollingInterval.current) {
             clearInterval(continuousPollingInterval.current);
         }
 
-        // Silent background polling runs every 2 seconds for instant updates
         continuousPollingInterval.current = setInterval(() => {
             if (openChats.length > 0) {
-                pollForChatWindows();
+                pollForChatWindows().catch((error) => {
+                    console.error("Polling error:", error);
+                });
             }
-        }, 2000); // Faster polling for better real-time experience
-
-        console.log(
-            "🔍 SILENT background polling started for chat windows (every 2 seconds)"
-        );
+        }, 2000);
     };
 
-    // Stop continuous polling
     const stopChatWindowPolling = () => {
         if (continuousPollingInterval.current) {
             clearInterval(continuousPollingInterval.current);
             continuousPollingInterval.current = null;
-            console.log("🛑 Chat window polling stopped");
         }
     };
 
-    // Immediate targeted polling after message send
     const triggerImmediatePoll = (chatId) => {
-        console.log(`🚀 Triggering immediate poll for chat: ${chatId}`);
-
-        // Update last message time for this chat
         lastMessageTimeRef.current[chatId] = Date.now();
-
-        // Trigger immediate poll for this specific chat
-        setTimeout(() => pollForChatWindows([chatId]), 300);
-
-        // Schedule additional polls for the next few seconds to ensure we get the latest
-        setTimeout(() => pollForChatWindows([chatId]), 1000);
-        setTimeout(() => pollForChatWindows([chatId]), 2000);
+        Promise.resolve()
+            .then(() => pollForChatWindows([chatId]))
+            .catch(console.error);
     };
 
-    // START NON-STOP SILENT BACKGROUND POLLING FOR CHAT WINDOWS
+    // Restart polling when openChats changes
     useEffect(() => {
         startChatWindowPolling();
-
-        // Clean up on unmount
         return () => {
+            stopChatWindowPolling();
             if (pollingInterval.current) {
                 clearInterval(pollingInterval.current);
-                pollingInterval.current = null;
-            }
-            if (continuousPollingInterval.current) {
-                clearInterval(continuousPollingInterval.current);
-                continuousPollingInterval.current = null;
             }
         };
-    }, []); // Empty dependency array - runs once on mount
+    }, []);
 
-    // RESTART CHAT WINDOW POLLING WHEN OPEN CHATS CHANGE
     useEffect(() => {
         if (openChats.length > 0) {
-            console.log(
-                `💬 ${openChats.length} chat window(s) open - polling active`
-            );
-            // Trigger immediate poll when chats open
-            pollForChatWindows();
-        } else {
-            console.log("💤 No chat windows open - polling continues silently");
+            startChatWindowPolling();
+            pollForChatWindows().catch(console.error);
         }
-    }, [openChats.length]);
+    }, [
+        openChats.length,
+        JSON.stringify(openChats.map((chat) => chat.sender.id)),
+    ]);
 
-    // Enhanced polling when active chat changes
     useEffect(() => {
         if (openChats.length > 0 && activeChat) {
-            // Trigger immediate poll when active chat changes
-            pollForChatWindows([activeChat.sender.id]);
+            triggerImmediatePoll(activeChat.sender.id);
         }
     }, [activeChat?.sender?.id]);
 
-    // Scroll to bottom of messages
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
@@ -380,7 +385,6 @@ export default function FloatingConversation({ auth }) {
         setChatInputs(newChatInputs);
     }, [openChats]);
 
-    // Filter conversations based on search
     const filteredConversations = allConversations.filter((conversation) =>
         conversation.sender?.name
             ?.toLowerCase()
@@ -388,7 +392,6 @@ export default function FloatingConversation({ auth }) {
     );
 
     const startChat = (conversation) => {
-        // Check if chat is already open
         const existingChatIndex = openChats.findIndex(
             (chat) => chat.sender.id === conversation.sender.id
         );
@@ -397,7 +400,6 @@ export default function FloatingConversation({ auth }) {
             const existingChat = openChats[existingChatIndex];
             setActiveChat(existingChat);
 
-            // If minimized, maximize it
             if (existingChat.isMinimized) {
                 setOpenChats((prev) =>
                     prev.map((chat) =>
@@ -408,23 +410,27 @@ export default function FloatingConversation({ auth }) {
                 );
             }
 
-            // Trigger immediate poll for this specific chat
             triggerImmediatePoll(conversation.sender.id);
             return;
         }
 
-        // Limit to maximum 4 chat windows
         let newOpenChats = [...openChats];
-        if (newOpenChats.length >= 4) {
-            newOpenChats = newOpenChats.slice(1);
+
+        // Handle different screen sizes
+        if (newOpenChats.length >= maxChatWindows) {
+            if (isMobile) {
+                // Mobile: replace the existing chat
+                newOpenChats = [];
+            } else {
+                // Tablet and Desktop: remove the oldest chat
+                newOpenChats = newOpenChats.slice(1);
+            }
         }
 
-        // Get project and booking context
         const latestMessage = conversation.latestMessage;
         const projectPublicId = latestMessage?.project_public_id;
         const bookingPublicId = latestMessage?.booking_public_id;
 
-        // Ensure messages have valid dates and unique keys
         const sanitizedMessages = (conversation.messages || []).map(
             (msg, index) => ({
                 ...msg,
@@ -457,11 +463,11 @@ export default function FloatingConversation({ auth }) {
             markMessagesAsRead(conversation.sender.id);
         }
 
-        // Trigger immediate poll after opening new chat
-        triggerImmediatePoll(conversation.sender.id);
+        setTimeout(() => {
+            triggerImmediatePoll(conversation.sender.id);
+        }, 100);
     };
 
-    // Function to mark messages as read
     const markMessagesAsRead = async (senderId) => {
         try {
             await router.patch(
@@ -547,19 +553,16 @@ export default function FloatingConversation({ auth }) {
 
         const receiverId = chat.sender.id;
 
-        // Clear input immediately for better UX
         setChatInputs((prev) => ({
             ...prev,
             [chat.sender.id]: "",
         }));
 
-        // Set loading state for this specific chat
         setIsLoading((prev) => ({
             ...prev,
             [chat.sender.id]: true,
         }));
 
-        // Optimistic update - create the optimistic message
         const tempId = `temp-${Date.now()}-${Math.random()
             .toString(36)
             .substr(2, 9)}`;
@@ -579,7 +582,6 @@ export default function FloatingConversation({ auth }) {
             _key: generateMessageKey({ temp_id: tempId }),
         };
 
-        // IMMEDIATELY update the open chat with optimistic message
         setOpenChats((prevOpenChats) => {
             return prevOpenChats.map((openChat) => {
                 if (openChat.sender.id === chat.sender.id) {
@@ -598,7 +600,6 @@ export default function FloatingConversation({ auth }) {
             });
         });
 
-        // Also update active chat if it's the current one
         if (activeChat?.sender.id === chat.sender.id) {
             setActiveChat((prev) => {
                 if (prev && prev.sender.id === chat.sender.id) {
@@ -612,21 +613,18 @@ export default function FloatingConversation({ auth }) {
             });
         }
 
-        // Update sidebar conversations for instant display
         setAllConversations((prev) =>
             prev.map((conv) =>
                 conv.sender.id === chat.sender.id
                     ? {
                           ...conv,
                           latestMessage: optimisticMessage,
-                          // Don't increment unread count for our own messages
                           unreadCount: conv.unreadCount,
                       }
                     : conv
             )
         );
 
-        // Scroll to bottom to show the new message
         setTimeout(scrollToBottom, 100);
 
         try {
@@ -663,11 +661,6 @@ export default function FloatingConversation({ auth }) {
             const result = await response.json();
 
             if (result.success) {
-                console.log(
-                    "✅ Message sent successfully, triggering silent polling..."
-                );
-
-                // Update optimistic message status to "Sent"
                 setOpenChats((prevOpenChats) => {
                     return prevOpenChats.map((openChat) => {
                         if (openChat.sender.id === chat.sender.id) {
@@ -687,7 +680,6 @@ export default function FloatingConversation({ auth }) {
                     });
                 });
 
-                // Update active chat
                 if (activeChat?.sender.id === chat.sender.id) {
                     setActiveChat((prev) => {
                         if (prev && prev.sender.id === chat.sender.id) {
@@ -706,15 +698,15 @@ export default function FloatingConversation({ auth }) {
                     });
                 }
 
-                // TRIGGER SILENT BACKGROUND POLLING IMMEDIATELY
-                triggerImmediatePoll(chat.sender.id);
+                setTimeout(() => {
+                    triggerImmediatePoll(chat.sender.id);
+                }, 500);
             } else {
                 throw new Error(result.message || "Failed to send message");
             }
         } catch (error) {
             console.error("Error sending message:", error);
 
-            // Mark message as failed instead of removing it
             setOpenChats((prevOpenChats) => {
                 return prevOpenChats.map((openChat) => {
                     if (openChat.sender.id === chat.sender.id) {
@@ -733,7 +725,6 @@ export default function FloatingConversation({ auth }) {
                 });
             });
 
-            // Update active chat with failed status
             if (activeChat?.sender.id === chat.sender.id) {
                 setActiveChat((prev) => {
                     if (prev && prev.sender.id === chat.sender.id) {
@@ -752,7 +743,6 @@ export default function FloatingConversation({ auth }) {
                 });
             }
 
-            // Revert sidebar conversation update on failure
             setAllConversations((prev) =>
                 prev.map((conv) =>
                     conv.sender.id === chat.sender.id
@@ -764,7 +754,6 @@ export default function FloatingConversation({ auth }) {
                 )
             );
         } finally {
-            // Clear loading state for this chat
             setIsLoading((prev) => ({
                 ...prev,
                 [chat.sender.id]: false,
@@ -780,43 +769,83 @@ export default function FloatingConversation({ auth }) {
         return Math.random() > 0.3;
     };
 
-    // Calculate total unread messages
     const totalUnread = allConversations.reduce(
         (total, conv) => total + (conv.unreadCount || 0),
         0
     );
 
+    // Responsive chat window dimensions - FIXED: Added parameters
+    const getChatWindowStyles = (chat, index) => {
+        if (isMobile) {
+            return {
+                width: "calc(100vw - 2rem)",
+                height: chat.isMinimized ? "3.5rem" : "24rem",
+                maxWidth: "400px",
+                marginLeft: 0,
+                marginBottom: "1rem",
+            };
+        } else if (isTablet) {
+            return {
+                width: "22rem",
+                height: chat.isMinimized ? "3.5rem" : "28rem",
+                marginLeft: index === 0 ? 0 : "1rem",
+            };
+        } else {
+            return {
+                width: "20rem",
+                height: chat.isMinimized ? "3.5rem" : "24rem",
+                marginLeft: index === 0 ? 0 : "1.25rem",
+            };
+        }
+    };
+
     return (
         <>
             {/* Chat Sidebar Toggle Button */}
-            <div className="fixed bottom-6 left-6 z-30">
-                <button
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="bg-primary hover:bg-primary-focus text-white rounded-full p-4 shadow-lg transition-all duration-300 hover:scale-110 relative"
+            {!onClose && (
+                <div
+                    className={`fixed ${
+                        isMobile ? "bottom-4 right-4" : "bottom-6 left-6"
+                    } z-30`}
                 >
-                    <MessageCircle className="w-6 h-6" />
-                    {totalUnread > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center font-medium">
-                            {totalUnread}
-                        </span>
-                    )}
-                </button>
-            </div>
+                    <button
+                        onClick={() => setIsOpen(!isOpen)}
+                        className="chat-toggle-button bg-primary hover:bg-primary-focus text-white rounded-full p-4 shadow-lg transition-all duration-300 hover:scale-110 relative"
+                    >
+                        <MessageCircle className="w-6 h-6" />
+                        {totalUnread > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center font-medium">
+                                {totalUnread}
+                            </span>
+                        )}
+                    </button>
+                </div>
+            )}
 
             {/* Facebook-style Chat Sidebar */}
             <div
+                ref={sidebarRef}
                 className={`fixed right-0 top-0 h-full z-40 transition-all duration-300 ${
-                    isOpen ? "w-80 translate-x-0" : "w-0 translate-x-full"
+                    isOpen
+                        ? `${isMobile ? "w-full" : "w-80"} translate-x-0`
+                        : "w-0 translate-x-full"
                 }`}
             >
                 <div className="flex flex-col h-full bg-white border-l border-gray-200 shadow-2xl">
-                    {/* Sidebar Header */}
                     <div className="p-4 border-b border-gray-200 bg-white">
                         <div className="flex items-center justify-between">
                             <h3 className="font-semibold text-gray-800">
                                 Chats {totalUnread > 0 && `(${totalUnread})`}
                             </h3>
                             <div className="flex items-center space-x-1">
+                                {onClose && (
+                                    <button
+                                        onClick={onClose}
+                                        className="p-1 hover:bg-gray-100 rounded transition-colors"
+                                    >
+                                        <X className="w-4 h-4 text-gray-600" />
+                                    </button>
+                                )}
                                 <button className="p-1 hover:bg-gray-100 rounded transition-colors">
                                     <Video className="w-4 h-4 text-gray-600" />
                                 </button>
@@ -826,7 +855,6 @@ export default function FloatingConversation({ auth }) {
                             </div>
                         </div>
 
-                        {/* Search Bar */}
                         <div className="mt-3 relative">
                             <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                             <input
@@ -839,13 +867,9 @@ export default function FloatingConversation({ auth }) {
                         </div>
                     </div>
 
-                    {/* Conversations List */}
                     <div className="flex-1 overflow-y-auto">
                         {filteredConversations.length === 0 ? (
-                            <div
-                                key="no-conversations"
-                                className="text-center text-gray-500 text-sm py-8"
-                            >
+                            <div className="text-center text-gray-500 text-sm py-8">
                                 {searchTerm
                                     ? "No conversations found"
                                     : "No conversations yet"}
@@ -861,7 +885,7 @@ export default function FloatingConversation({ auth }) {
                                             ? "bg-blue-50 border-blue-200"
                                             : ""
                                     } ${
-                                        openChats.length >= 4 &&
+                                        openChats.length >= maxChatWindows &&
                                         !openChats.find(
                                             (chat) =>
                                                 chat.sender.id ===
@@ -871,7 +895,7 @@ export default function FloatingConversation({ auth }) {
                                             : ""
                                     }`}
                                     disabled={
-                                        openChats.length >= 4 &&
+                                        openChats.length >= maxChatWindows &&
                                         !openChats.find(
                                             (chat) =>
                                                 chat.sender.id ===
@@ -880,7 +904,6 @@ export default function FloatingConversation({ auth }) {
                                     }
                                 >
                                     <div className="flex space-x-3">
-                                        {/* Avatar */}
                                         <div className="flex-shrink-0 relative">
                                             <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
                                                 {getInitials(
@@ -892,7 +915,6 @@ export default function FloatingConversation({ auth }) {
                                             )}
                                         </div>
 
-                                        {/* Conversation Info */}
                                         <div className="flex-1 min-w-0">
                                             <div className="flex justify-between items-start">
                                                 <p className="font-medium text-sm text-gray-900 truncate">
@@ -913,7 +935,6 @@ export default function FloatingConversation({ auth }) {
                                             </p>
                                         </div>
 
-                                        {/* Unread Badge */}
                                         {conversation.unreadCount > 0 && (
                                             <div className="flex-shrink-0">
                                                 <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1 min-w-5 text-center">
@@ -922,8 +943,7 @@ export default function FloatingConversation({ auth }) {
                                             </div>
                                         )}
 
-                                        {/* Max limit indicator */}
-                                        {openChats.length >= 4 &&
+                                        {openChats.length >= maxChatWindows &&
                                             !openChats.find(
                                                 (chat) =>
                                                     chat.sender.id ===
@@ -943,239 +963,315 @@ export default function FloatingConversation({ auth }) {
                 </div>
             </div>
 
-            {/* Horizontal Chat Windows - Positioned at bottom right */}
-            <div className="fixed bottom-4 right-4 z-50 flex items-end">
-                {openChats.map((chat, index) => (
-                    <div
-                        key={`chat-${chat.sender.id}-${
-                            chat._instanceId || index
-                        }`}
-                        className={`backdrop-blur-md bg-white/90 rounded-xl shadow-2xl border border-gray-200 transition-all duration-300 flex flex-col ${
-                            chat.isMinimized ? "h-14" : "h-96"
-                        } w-80`}
-                        style={{
-                            marginLeft: index === 0 ? 0 : "20px",
-                            zIndex: 50 + index,
-                        }}
-                    >
-                        {/* Header */}
+            {/* Horizontal Chat Windows - Fully Responsive */}
+            <div
+                className={`fixed z-50 flex items-end chat-window ${
+                    isMobile
+                        ? "bottom-0 left-0 right-0 justify-center px-4 pb-4 flex-col space-y-2"
+                        : "bottom-4 right-4 flex-row"
+                }`}
+            >
+                {openChats.map((chat, index) => {
+                    // FIXED: Pass chat and index as parameters
+                    const styles = getChatWindowStyles(chat, index);
+                    return (
                         <div
-                            className={`flex items-center justify-between px-3 py-2 rounded-t-xl cursor-pointer border-b ${
-                                activeChat?.sender?.id === chat.sender.id
-                                    ? "bg-primary text-white border-primary"
-                                    : "bg-gray-100 border-gray-200"
-                            } transition-colors`}
-                            onClick={() => setActiveChat(chat)}
+                            key={`chat-${chat.sender.id}-${
+                                chat._instanceId || index
+                            }`}
+                            className={`backdrop-blur-md bg-white/90 rounded-xl shadow-2xl border border-gray-200 transition-all duration-300 flex flex-col ${
+                                isMobile ? "mx-auto" : ""
+                            }`}
+                            style={{
+                                ...styles,
+                                zIndex: 50 + index,
+                            }}
                         >
-                            <div className="flex items-center space-x-2 min-w-0">
-                                <div
-                                    className={`w-2 h-2 rounded-full ${
-                                        getOnlineStatus()
-                                            ? "bg-green-400"
-                                            : "bg-gray-400"
-                                    }`}
-                                ></div>
+                            <div
+                                className={`flex items-center justify-between px-3 py-2 rounded-t-xl border-b ${
+                                    activeChat?.sender?.id === chat.sender.id
+                                        ? "bg-primary text-white border-primary"
+                                        : "bg-gray-100 border-gray-200"
+                                } transition-colors`}
+                            >
+                                <div className="flex items-center space-x-2 min-w-0">
+                                    <div
+                                        className={`w-2 h-2 rounded-full ${
+                                            getOnlineStatus()
+                                                ? "bg-green-400"
+                                                : "bg-gray-400"
+                                        }`}
+                                    ></div>
 
-                                <span
-                                    className={`font-semibold text-sm truncate ${
-                                        activeChat?.sender?.id ===
-                                        chat.sender.id
-                                            ? "text-white"
-                                            : "text-gray-800"
-                                    }`}
-                                >
-                                    {chat.sender.name}
-                                </span>
-                            </div>
-
-                            <div className="flex items-center space-x-1">
-                                <button
-                                    onClick={(e) =>
-                                        toggleMinimizeChat(chat.sender.id, e)
-                                    }
-                                    className="p-1 rounded hover:bg-white/20 transition"
-                                >
-                                    {chat.isMinimized ? (
-                                        <Maximize2 className="w-4 h-4" />
-                                    ) : (
-                                        <Minimize2 className="w-4 h-4" />
-                                    )}
-                                </button>
-                                <button
-                                    onClick={(e) =>
-                                        closeChat(chat.sender.id, e)
-                                    }
-                                    className="p-1 rounded hover:bg-white/20 transition"
-                                >
-                                    <X className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Messages Area */}
-                        {!chat.isMinimized && (
-                            <div className="flex flex-col flex-1 overflow-hidden">
-                                <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50">
-                                    {chat.messages?.length === 0 ? (
-                                        <div
-                                            key="no-messages"
-                                            className="text-center text-gray-500 text-sm py-10"
+                                    <button
+                                        onClick={() => {
+                                            setActiveChat(chat);
+                                            toggleMinimizeChat(chat.sender.id);
+                                        }}
+                                        className="min-w-0 group"
+                                    >
+                                        <span
+                                            className={`font-semibold text-sm truncate transition-all duration-200 ${
+                                                activeChat?.sender?.id ===
+                                                chat.sender.id
+                                                    ? "text-white"
+                                                    : "text-gray-800"
+                                            } group-hover:underline underline-offset-2 decoration-2`}
+                                            title={`Click to ${
+                                                chat.isMinimized
+                                                    ? "maximize"
+                                                    : "minimize"
+                                            }`}
                                         >
-                                            No messages yet. Start a
-                                            conversation!
-                                        </div>
-                                    ) : (
-                                        chat.messages.map((message) => {
-                                            const isMine =
-                                                message.sender_id ===
-                                                auth.user.id;
+                                            {chat.sender.name}
+                                        </span>
+                                    </button>
+                                </div>
 
-                                            return (
-                                                <div
-                                                    key={message._key}
-                                                    className={`flex ${
-                                                        isMine
-                                                            ? "justify-end"
-                                                            : "justify-start"
-                                                    }`}
-                                                >
+                                <div className="flex items-center space-x-1">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActiveChat(chat);
+                                            toggleMinimizeChat(
+                                                chat.sender.id,
+                                                e
+                                            );
+                                        }}
+                                        className="p-1 rounded hover:bg-white/20 transition"
+                                        title={
+                                            chat.isMinimized
+                                                ? "Maximize"
+                                                : "Minimize"
+                                        }
+                                    >
+                                        {chat.isMinimized ? (
+                                            <Maximize2 className="w-4 h-4" />
+                                        ) : (
+                                            <Minimize2 className="w-4 h-4" />
+                                        )}
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            closeChat(chat.sender.id, e);
+                                        }}
+                                        className="p-1 rounded hover:bg-white/20 transition"
+                                        title="Close chat"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {!chat.isMinimized && (
+                                <div className="flex flex-col flex-1 overflow-hidden">
+                                    <div
+                                        className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50"
+                                        onClick={() => setActiveChat(chat)}
+                                    >
+                                        {chat.messages?.length === 0 ? (
+                                            <div className="text-center text-gray-500 text-sm py-10">
+                                                No messages yet. Start a
+                                                conversation!
+                                            </div>
+                                        ) : (
+                                            chat.messages.map((message) => {
+                                                const isMine =
+                                                    message.sender_id ===
+                                                    auth.user.id;
+                                                return (
                                                     <div
-                                                        className={`max-w-[75%] px-3 py-2 rounded-2xl shadow-sm ${
+                                                        key={message._key}
+                                                        className={`flex ${
                                                             isMine
-                                                                ? "bg-primary text-white rounded-br-none"
-                                                                : "bg-white text-gray-900 border border-gray-200 rounded-bl-none"
-                                                        } ${
-                                                            message.status ===
-                                                            "Sending"
-                                                                ? "opacity-70"
-                                                                : message.status ===
-                                                                  "Failed"
-                                                                ? "bg-red-100 border-red-300"
-                                                                : ""
+                                                                ? "justify-end"
+                                                                : "justify-start"
                                                         }`}
                                                     >
-                                                        {/* Show replied message if exists */}
-                                                        {message.original_message && (
-                                                            <div className="mb-2 p-2 bg-black/10 rounded-lg text-xs">
-                                                                <div className="font-medium">
-                                                                    {
-                                                                        message
-                                                                            .original_message
-                                                                            .sender
-                                                                            ?.name
-                                                                    }
-                                                                </div>
-                                                                <div className="truncate">
-                                                                    {
-                                                                        message
-                                                                            .original_message
-                                                                            .message
-                                                                    }
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                        <p className="text-sm leading-snug">
-                                                            {message.message}
-                                                        </p>
-                                                        <p
-                                                            className={`text-[10px] mt-1 text-right ${
+                                                        <div
+                                                            className={`max-w-[85%] px-3 py-2 rounded-2xl shadow-sm ${
                                                                 isMine
-                                                                    ? "text-primary-100"
-                                                                    : "text-gray-500"
+                                                                    ? "bg-primary text-white rounded-br-none"
+                                                                    : "bg-white text-gray-900 border border-gray-200 rounded-bl-none"
                                                             } ${
                                                                 message.status ===
-                                                                "Failed"
-                                                                    ? "text-red-500"
+                                                                "Sending"
+                                                                    ? "opacity-70"
+                                                                    : message.status ===
+                                                                      "Failed"
+                                                                    ? "bg-red-100 border-red-300"
                                                                     : ""
                                                             }`}
                                                         >
-                                                            {formatTime(
-                                                                message.created_at
+                                                            {message.original_message && (
+                                                                <div className="mb-2 p-2 bg-black/10 rounded-lg text-xs">
+                                                                    <div className="font-medium">
+                                                                        {
+                                                                            message
+                                                                                .original_message
+                                                                                .sender
+                                                                                ?.name
+                                                                        }
+                                                                    </div>
+                                                                    <div className="truncate">
+                                                                        {
+                                                                            message
+                                                                                .original_message
+                                                                                .message
+                                                                        }
+                                                                    </div>
+                                                                </div>
                                                             )}
-                                                            {message.status ===
-                                                                "Sending" &&
-                                                                " • Sending..."}
-                                                            {message.status ===
-                                                                "Failed" &&
-                                                                " • Failed to send"}
-                                                        </p>
+                                                            <p className="text-sm leading-snug break-words">
+                                                                {
+                                                                    message.message
+                                                                }
+                                                            </p>
+                                                            <p
+                                                                className={`text-[10px] mt-1 text-right ${
+                                                                    isMine
+                                                                        ? "text-primary-100"
+                                                                        : "text-gray-500"
+                                                                } ${
+                                                                    message.status ===
+                                                                    "Failed"
+                                                                        ? "text-red-500"
+                                                                        : ""
+                                                                }`}
+                                                            >
+                                                                {formatTime(
+                                                                    message.created_at
+                                                                )}
+                                                                {message.status ===
+                                                                    "Sending" &&
+                                                                    " • Sending..."}
+                                                                {message.status ===
+                                                                    "Failed" &&
+                                                                    " • Failed to send"}
+                                                            </p>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })
-                                    )}
+                                                );
+                                            })
+                                        )}
+                                        <div ref={messagesEndRef} />
+                                    </div>
 
-                                    <div ref={messagesEndRef} />
-                                </div>
-
-                                {/* Input Area */}
-                                <div className="p-3 border-t bg-white">
-                                    <form
-                                        onSubmit={(e) =>
-                                            handleSendMessage(chat, e)
-                                        }
-                                        className="flex items-center space-x-2"
-                                    >
-                                        <input
-                                            type="text"
-                                            value={
-                                                chatInputs[chat.sender.id] || ""
+                                    <div className="p-3 border-t bg-white">
+                                        <form
+                                            onSubmit={(e) =>
+                                                handleSendMessage(chat, e)
                                             }
-                                            onChange={(e) =>
-                                                handleInputChange(
-                                                    chat.sender.id,
-                                                    e.target.value
-                                                )
-                                            }
-                                            placeholder="Type a message..."
-                                            className="flex-1 rounded-full border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
-                                            disabled={
-                                                isLoading[chat.sender.id] ||
-                                                processing
-                                            }
-                                        />
-
-                                        <button
-                                            type="submit"
-                                            disabled={
-                                                processing ||
-                                                isLoading[chat.sender.id] ||
-                                                !chatInputs[
-                                                    chat.sender.id
-                                                ]?.trim()
-                                            }
-                                            className="bg-primary hover:bg-primary-focus text-white p-2 rounded-full transition disabled:bg-gray-400"
+                                            className="flex items-center space-x-2"
                                         >
-                                            {isLoading[chat.sender.id] ? (
-                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                            ) : (
-                                                <Send className="w-4 h-4" />
-                                            )}
-                                        </button>
-                                    </form>
+                                            <input
+                                                type="text"
+                                                value={
+                                                    chatInputs[
+                                                        chat.sender.id
+                                                    ] || ""
+                                                }
+                                                onChange={(e) => {
+                                                    handleInputChange(
+                                                        chat.sender.id,
+                                                        e.target.value
+                                                    );
+                                                    if (
+                                                        e.target.value.trim() &&
+                                                        activeChat?.sender
+                                                            ?.id !==
+                                                            chat.sender.id
+                                                    ) {
+                                                        setActiveChat(chat);
+                                                    }
+                                                }}
+                                                onFocus={() => {
+                                                    if (
+                                                        activeChat?.sender
+                                                            ?.id !==
+                                                        chat.sender.id
+                                                    ) {
+                                                        setActiveChat(chat);
+                                                    }
+                                                }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (
+                                                        activeChat?.sender
+                                                            ?.id !==
+                                                        chat.sender.id
+                                                    ) {
+                                                        setActiveChat(chat);
+                                                    }
+                                                }}
+                                                placeholder="Type a message..."
+                                                className="flex-1 rounded-full border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                                                disabled={
+                                                    isLoading[chat.sender.id] ||
+                                                    processing
+                                                }
+                                            />
+                                            <button
+                                                type="submit"
+                                                onClick={() => {
+                                                    if (
+                                                        activeChat?.sender
+                                                            ?.id !==
+                                                        chat.sender.id
+                                                    ) {
+                                                        setActiveChat(chat);
+                                                    }
+                                                }}
+                                                onFocus={() => {
+                                                    if (
+                                                        activeChat?.sender
+                                                            ?.id !==
+                                                        chat.sender.id
+                                                    ) {
+                                                        setActiveChat(chat);
+                                                    }
+                                                }}
+                                                disabled={
+                                                    processing ||
+                                                    isLoading[chat.sender.id] ||
+                                                    !chatInputs[
+                                                        chat.sender.id
+                                                    ]?.trim()
+                                                }
+                                                className="bg-primary hover:bg-primary-focus text-white p-2 rounded-full transition disabled:bg-gray-400"
+                                            >
+                                                {isLoading[chat.sender.id] ? (
+                                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                ) : (
+                                                    <Send className="w-4 h-4" />
+                                                )}
+                                            </button>
+                                        </form>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                    </div>
-                ))}
+                            )}
+                        </div>
+                    );
+                })}
             </div>
 
             {/* Overlay for mobile */}
-            {isOpen && (
+            {isOpen && onClose && (
                 <div
-                    key="overlay"
                     className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
-                    onClick={() => setIsOpen(false)}
+                    onClick={onClose}
                 />
             )}
 
-            {openChats.length >= 4 && (
-                <div
-                    key="max-limit-notification"
-                    className="fixed bottom-16 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 text-sm"
-                >
-                    Maximum of 4 chat windows reached. Close one to open
-                    another.
+            {/* Responsive max limit notification */}
+            {openChats.length >= maxChatWindows && (
+                <div className="fixed bottom-16 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 text-sm max-w-xs text-center">
+                    {isMobile
+                        ? "Only 1 chat allowed on mobile. New chats replace current ones."
+                        : isTablet
+                        ? "Maximum of 2 chats on tablet. Close one to open another."
+                        : "Maximum of 3 chats reached. Close one to open another."}
                 </div>
             )}
         </>

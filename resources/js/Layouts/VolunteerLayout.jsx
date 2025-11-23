@@ -24,6 +24,7 @@ import {
 export default function VolunteerLayout({ children, auth, points }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [hasVolunteerProfile, setHasVolunteerProfile] = useState(false);
+    const [isMessageSidebarOpen, setIsMessageSidebarOpen] = useState(false);
 
     const totalPoints = auth?.user?.points || points || 0;
 
@@ -41,9 +42,16 @@ export default function VolunteerLayout({ children, auth, points }) {
         }
     }, [auth]);
 
+    // Close message sidebar when main sidebar opens on mobile
+    useEffect(() => {
+        if (sidebarOpen && window.innerWidth < 1024) {
+            setIsMessageSidebarOpen(false);
+        }
+    }, [sidebarOpen]);
+
     return (
         <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
-            {/* Sidebar */}
+            {/* Main Sidebar */}
             <aside
                 className={`
                     fixed inset-y-0 left-0 z-30 w-80 bg-white shadow-xl border-r border-slate-200
@@ -71,27 +79,6 @@ export default function VolunteerLayout({ children, auth, points }) {
 
                 {/* User Profile & Points */}
                 <div className="p-6 border-b border-slate-100 bg-gradient-to-b from-white to-slate-50/50">
-                    {/* <div className="flex items-center space-x-4 mb-4">
-                        <div className="avatar">
-                            <div className="w-14 rounded-xl ring-3 ring-white ring-offset-2 ring-offset-slate-50 shadow-sm">
-                                <img
-                                    src={
-                                        auth?.user?.avatar_url ??
-                                        "/default-avatar.png"
-                                    }
-                                    alt={auth?.user?.name}
-                                    className="object-cover"
-                                />
-                            </div>
-                        </div>
-                        <div className="flex-1">
-                            <p className="font-semibold text-slate-900 text-lg">
-                                {auth?.user?.name}
-                            </p>
-                            <p className="text-sm text-slate-600">Volunteer</p>
-                        </div>
-                    </div> */}
-
                     {/* Points Display */}
                     <div className="bg-gradient-to-r from-amber-500 to-amber-600 rounded-2xl p-4 text-white shadow-lg">
                         <div className="flex items-center justify-between">
@@ -146,18 +133,6 @@ export default function VolunteerLayout({ children, auth, points }) {
                             {totalPoints}
                         </span>
                     </SidebarLink>
-                    {/* <SidebarLink
-                        href={route("volunteer.messages")}
-                        icon={MessageSquare}
-                        className="group flex items-center w-full px-4 py-4 text-left rounded-2xl hover:bg-emerald-50 hover:text-emerald-700 transition-all duration-200 border border-transparent hover:border-emerald-200 hover:shadow-sm"
-                        activeClassName="bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm"
-                    >
-                        <MessageSquare className="w-5 h-5 mr-3" />
-                        Messages
-                        <span className="ml-auto bg-blue-500 text-white text-xs font-medium rounded-full px-2 py-1 min-w-6 text-center">
-                            3
-                        </span>
-                    </SidebarLink> */}
                 </nav>
 
                 {/* Bottom Section */}
@@ -221,9 +196,9 @@ export default function VolunteerLayout({ children, auth, points }) {
                             {/* Notification Bell */}
                             <NotificationBell />
 
-                            {/* Messages */}
-                            <Link
-                                href={route("volunteer.messages")}
+                            {/* Messages - Modified to open message sidebar */}
+                            <button
+                                onClick={() => setIsMessageSidebarOpen(true)}
                                 className="p-3 rounded-2xl hover:bg-slate-100 transition-colors relative group"
                                 aria-label="Messages"
                             >
@@ -231,7 +206,7 @@ export default function VolunteerLayout({ children, auth, points }) {
                                 <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center font-medium">
                                     3
                                 </span>
-                            </Link>
+                            </button>
 
                             {/* User Profile */}
                             <div className="dropdown dropdown-end">
@@ -302,8 +277,12 @@ export default function VolunteerLayout({ children, auth, points }) {
                     </div>
                 </main>
 
-                {/* Chat Sidebar */}
-                <FloatingConversation auth={auth} />
+                {/* Chat Sidebar - Modified to be controlled by state */}
+                <FloatingConversation
+                    auth={auth}
+                    isOpen={isMessageSidebarOpen}
+                    onClose={() => setIsMessageSidebarOpen(false)}
+                />
 
                 {/* Conditionally render PlatformReview component */}
                 {hasVolunteerProfile && <PlatformReview />}

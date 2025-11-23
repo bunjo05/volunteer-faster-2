@@ -1,4 +1,4 @@
-import { useState, Fragment } from "react";
+import { useState, Fragment, useEffect } from "react";
 import { Link, usePage } from "@inertiajs/react";
 import {
     ClipboardList,
@@ -25,6 +25,8 @@ import FloatingChat from "@/Components/FloatingChat";
 export default function OrganizationLayout({ children, auth }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const { url, component } = usePage();
+    const [isMessageSidebarOpen, setIsMessageSidebarOpen] = useState(false);
+    // const [sidebarOpen, setSidebarOpen] = useState(false);
 
     // Get current page title based on route name
     const getPageTitle = () => {
@@ -136,6 +138,13 @@ export default function OrganizationLayout({ children, auth }) {
             ]),
         ];
     };
+
+    // Close message sidebar when main sidebar opens on mobile
+    useEffect(() => {
+        if (sidebarOpen && window.innerWidth < 1024) {
+            setIsMessageSidebarOpen(false);
+        }
+    }, [sidebarOpen]);
 
     const breadcrumbs = getBreadcrumbs();
     const currentPageTitle = getPageTitle();
@@ -474,7 +483,7 @@ export default function OrganizationLayout({ children, auth }) {
                                     <h1 className="text-2xl font-bold text-slate-900">
                                         {currentPageTitle}
                                     </h1>
-                                    <div className="hidden md:flex breadcrumbs text-sm">
+                                    {/* <div className="hidden md:flex breadcrumbs text-sm">
                                         <ul className="flex items-center space-x-2">
                                             {breadcrumbs.map((item, index) => (
                                                 <li
@@ -499,7 +508,7 @@ export default function OrganizationLayout({ children, auth }) {
                                                 </li>
                                             ))}
                                         </ul>
-                                    </div>
+                                    </div> */}
                                 </div>
                             </div>
                         </div>
@@ -518,6 +527,16 @@ export default function OrganizationLayout({ children, auth }) {
                                     </div>
                                 </div>
                             </div>
+                            <button
+                                onClick={() => setIsMessageSidebarOpen(true)}
+                                className="p-3 rounded-2xl hover:bg-slate-100 transition-colors relative group"
+                                aria-label="Messages"
+                            >
+                                <MessageSquare className="w-5 h-5 text-slate-600 group-hover:text-slate-700" />
+                                <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center font-medium">
+                                    3
+                                </span>
+                            </button>
 
                             {/* User Menu */}
                             <div className="dropdown dropdown-end">
@@ -594,7 +613,12 @@ export default function OrganizationLayout({ children, auth }) {
                 </main>
 
                 <FloatingChat auth={auth} />
-                <FloatingConversation auth={auth} />
+                {/* Chat Sidebar - Modified to be controlled by state */}
+                <FloatingConversation
+                    auth={auth}
+                    isOpen={isMessageSidebarOpen}
+                    onClose={() => setIsMessageSidebarOpen(false)}
+                />
             </div>
         </div>
     );
