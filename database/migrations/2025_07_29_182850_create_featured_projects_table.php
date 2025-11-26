@@ -21,7 +21,12 @@ return new class extends Migration
 
             $table->string('plan_type'); // 1_month, 3_months, 6_months, 1_year
             $table->decimal('amount', 10, 2);
-            $table->string('stripe_payment_id');
+            // $table->string('stripe_payment_id');
+            $table->string('paypal_order_id')->nullable();
+            $table->string('paypal_capture_id')->nullable();
+            $table->index(['paypal_order_id']);
+            $table->index(['paypal_capture_id']);
+
             $table->timestamp('start_date')->nullable();
             $table->timestamp('end_date')->nullable();
             $table->enum('status', ['pending', 'approved', 'rejected', 'expired'])->default('pending');

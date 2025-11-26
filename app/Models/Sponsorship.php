@@ -16,7 +16,9 @@ class Sponsorship extends Model
         'sponsorship_public_id',
         'amount',
         'funding_allocation',
-        'stripe_payment_id',
+        // 'stripe_payment_id',
+        'paypal_order_id',   // Add PayPal fields
+        'paypal_capture_id',
         'status',
         'payment_method',
         'is_anonymous'
@@ -67,5 +69,11 @@ class Sponsorship extends Model
     public function organizationProfile()
     {
         return $this->belongsTo(OrganizationProfile::class, 'organization_public_id', 'public_id');
+    }
+
+    // Add this relationship
+    public function appreciations()
+    {
+        return $this->hasMany(Appreciation::class, 'sponsorship_public_id', 'public_id');
     }
 }

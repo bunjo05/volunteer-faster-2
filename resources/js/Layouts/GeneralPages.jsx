@@ -6,6 +6,23 @@ import { LogOut } from "lucide-react";
 export default function GeneralPages({ children, auth }) {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+    // Function to get the correct dashboard route based on user role
+    const getDashboardRoute = () => {
+        if (!auth?.user) return "/dashboard";
+
+        const role = auth.user.role;
+        switch (role) {
+            case "Volunteer":
+                return "/volunteer/dashboard";
+            case "Organization":
+                return "/organization/dashboard";
+            case "Sponsor":
+                return "/sponsor/dashboard";
+            default:
+                return "/dashboard";
+        }
+    };
+
     return (
         <div className="min-h-screen bg-base-100 flex flex-col">
             {/* Navbar */}
@@ -51,7 +68,7 @@ export default function GeneralPages({ children, auth }) {
                         {auth?.user ? (
                             <>
                                 <Link
-                                    href={route("dashboard")}
+                                    href={getDashboardRoute()}
                                     className="btn btn-primary"
                                 >
                                     Dashboard
@@ -156,7 +173,7 @@ export default function GeneralPages({ children, auth }) {
                                 {auth?.user ? (
                                     <>
                                         <Link
-                                            href={route("dashboard")}
+                                            href={getDashboardRoute()}
                                             className="btn btn-primary"
                                         >
                                             Dashboard

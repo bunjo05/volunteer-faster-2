@@ -37,6 +37,11 @@ export default function AdminLayout({ children }) {
         },
         { name: "Volunteers", href: route("admin.volunteers"), icon: Users },
         {
+            name: "Sponsorships",
+            href: route("admin.sponsor.index"),
+            icon: Users,
+        },
+        {
             name: "Projects",
             icon: Folder,
             subItems: [

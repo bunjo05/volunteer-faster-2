@@ -2,378 +2,354 @@
 
 namespace App\Http\Controllers;
 
-use Stripe\Stripe;
-use Stripe\Webhook;
-use App\Models\Sponsorship;
 use Illuminate\Http\Request;
-use Stripe\Checkout\Session;
 use Illuminate\Support\Facades\Log;
 use App\Models\VolunteerSponsorship;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
-use App\Mail\SponsorshipDonationReceivedMail;
-use Symfony\Component\HttpFoundation\Response;
-use Stripe\Exception\SignatureVerificationException;
+use App\Models\Sponsorship as SponsorshipDonation;
+use App\Mail\SponsorshipPaymentReceived;
 
 class SponsorshipPaymentController extends Controller
 {
-    public function createCheckoutSession(Request $request)
+    private $clientId;
+    private $clientSecret;
+    private $mode;
+
+    public function __construct()
+    {
+        $this->clientId = config('services.paypal.client_id');
+        $this->clientSecret = config('services.paypal.client_secret');
+        $this->mode = config('services.paypal.mode');
+    }
+
+    private function getAccessToken()
+    {
+        $response = Http::withBasicAuth($this->clientId, $this->clientSecret)
+            ->asForm()
+            ->post($this->getBaseUrl() . '/v1/oauth2/token', [
+                'grant_type' => 'client_credentials'
+            ]);
+
+        if ($response->successful()) {
+            return $response->json()['access_token'];
+        }
+
+        throw new \Exception('Failed to get PayPal access token');
+    }
+
+    private function getBaseUrl()
+    {
+        return $this->mode === 'live'
+            ? 'https://api.paypal.com'
+            : 'https://api.sandbox.paypal.com';
+    }
+
+    public function createOrder(Request $request)
     {
         try {
             $request->validate([
                 'sponsorship_public_id' => 'required|exists:volunteer_sponsorships,public_id',
                 'amount' => 'required|numeric|min:1',
+                'is_anonymous' => 'boolean',
                 'funding_allocation' => 'nullable|array',
-                'custom_amount' => 'nullable|numeric',
-                'is_anonymous' => 'nullable|boolean'
+                'custom_amount' => 'nullable|string',
+                'include_processing_fee' => 'boolean'
             ]);
 
-            $sponsorship = VolunteerSponsorship::with(['user', 'booking.project'])
-                ->where('public_id', $request->sponsorship_public_id)
+            $sponsorship = VolunteerSponsorship::where('public_id', $request->sponsorship_public_id)
+                ->with(['user', 'booking.project'])
                 ->firstOrFail();
 
-            Stripe::setApiKey(config('services.stripe.secret'));
+            $amount = $request->amount;
 
-            // Get user public_id if logged in, otherwise null
-            $userPublicId = Auth::check() ? Auth::user()->public_id : null;
+            $accessToken = $this->getAccessToken();
 
-            $session = Session::create([
-                'payment_method_types' => ['card'],
-                'line_items' => [[
-                    'price_data' => [
-                        'currency' => 'usd',
-                        'product_data' => [
-                            'name' => 'Sponsorship for ' . $sponsorship->user->name,
-                            'description' => 'Support for volunteer project: ' . $sponsorship->booking->project->title,
+            $orderData = [
+                'intent' => 'CAPTURE',
+                'purchase_units' => [
+                    [
+                        'reference_id' => $sponsorship->public_id,
+                        'description' => 'Sponsorship for ' . $sponsorship->user->name . ' - ' . $sponsorship->booking->project->title,
+                        'custom_id' => json_encode([
+                            'sponsorship_public_id' => $sponsorship->public_id,
+                            'amount' => $amount,
+                            'is_anonymous' => $request->is_anonymous ?? false,
+                            'funding_allocation' => $request->funding_allocation,
+                            'custom_amount' => $request->custom_amount,
+                            'include_processing_fee' => $request->include_processing_fee ?? false
+                        ]),
+                        'amount' => [
+                            'currency_code' => 'USD',
+                            'value' => number_format($amount, 2, '.', ''),
+                            'breakdown' => [
+                                'item_total' => [
+                                    'currency_code' => 'USD',
+                                    'value' => number_format($amount, 2, '.', '')
+                                ]
+                            ]
                         ],
-                        'unit_amount' => round($request->amount * 100),
-                    ],
-                    'quantity' => 1,
-                ]],
-                'mode' => 'payment',
-                'success_url' => route('sponsorship.payment.success') . '?session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url' => route('sponsorship.payment.cancel'),
-                'metadata' => [
-                    'sponsorship_public_id' => $sponsorship->public_id,
-                    'user_public_id' => $userPublicId,
-                    'booking_public_id' => $sponsorship->booking_public_id,
-                    'amount' => (float) $request->amount,
-                    'funding_allocation' => json_encode($request->funding_allocation),
-                    'custom_amount' => $request->custom_amount,
-                    'is_anonymous' => $request->boolean('is_anonymous'),
+                        'items' => [
+                            [
+                                'name' => 'Volunteer Sponsorship - ' . $sponsorship->user->name,
+                                'description' => 'Support volunteer mission: ' . $sponsorship->booking->project->title,
+                                'quantity' => '1',
+                                'unit_amount' => [
+                                    'currency_code' => 'USD',
+                                    'value' => number_format($amount, 2, '.', '')
+                                ]
+                            ]
+                        ]
+                    ]
                 ],
-            ]);
+                'application_context' => [
+                    'brand_name' => config('app.name'),
+                    'landing_page' => 'LOGIN',
+                    'user_action' => 'PAY_NOW',
+                    'return_url' => route('sponsorship.payment.success'),
+                    'cancel_url' => route('sponsorship.payment.cancel'),
+                    'shipping_preference' => 'NO_SHIPPING'
+                ]
+            ];
 
-            return response()->json(['sessionId' => $session->id]);
+            $response = Http::withToken($accessToken)
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                    'Prefer' => 'return=representation'
+                ])
+                ->post($this->getBaseUrl() . '/v2/checkout/orders', $orderData);
+
+            if ($response->successful()) {
+                $order = $response->json();
+                return response()->json([
+                    'orderID' => $order['id'],
+                    'approveUrl' => collect($order['links'])->firstWhere('rel', 'approve')['href']
+                ]);
+            }
+
+            throw new \Exception('PayPal order creation failed: ' . $response->body());
         } catch (\Exception $e) {
-            Log::error('Sponsorship payment error: ' . $e->getMessage());
+            Log::error('Sponsorship PayPal create order error: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
-    public function handleSuccess(Request $request)
+    public function captureOrder(Request $request)
     {
-        $sessionId = $request->get('session_id');
-
         try {
-            Stripe::setApiKey(config('services.stripe.secret'));
-            $session = Session::retrieve($sessionId);
+            $request->validate([
+                'orderID' => 'required'
+            ]);
 
-            if ($session->payment_status === 'paid') {
-                $sponsorshipPublicId = $session->metadata->sponsorship_public_id ?? null;
-                $userPublicId = $session->metadata->user_public_id ?? null;
-                $bookingPublicId = $session->metadata->booking_public_id ?? null;
-                $amount = isset($session->metadata->amount) ? (float) $session->metadata->amount : null;
-                $isAnonymous = filter_var($session->metadata->is_anonymous ?? false, FILTER_VALIDATE_BOOLEAN);
+            Log::info('Attempting to capture sponsorship PayPal order', ['orderID' => $request->orderID]);
 
-                if (!$sponsorshipPublicId || !$bookingPublicId) {
-                    Log::error('Stripe success: Missing required metadata in session', [
-                        'session_id' => $session->id,
-                        'sponsorship_public_id' => $sponsorshipPublicId,
-                        'booking_public_id' => $bookingPublicId
+            $accessToken = $this->getAccessToken();
+            $captureUrl = $this->getBaseUrl() . '/v2/checkout/orders/' . $request->orderID . '/capture';
+
+            $response = Http::withToken($accessToken)
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                    'Prefer' => 'return=representation',
+                    'PayPal-Request-Id' => uniqid(),
+                ])
+                ->withBody('{}', 'application/json')
+                ->post($captureUrl);
+
+            Log::info('Sponsorship PayPal capture response status', ['status' => $response->status()]);
+            Log::info('Sponsorship PayPal capture response body', ['body' => $response->body()]);
+
+            $capture = $response->json();
+
+            if ($response->successful()) {
+                if ($capture['status'] === 'COMPLETED') {
+                    Log::info('Sponsorship PayPal capture completed successfully', [
+                        'order_id' => $request->orderID,
+                        'capture_id' => $capture['purchase_units'][0]['payments']['captures'][0]['id'] ?? 'unknown'
                     ]);
-                    throw new \Exception('Missing required metadata in session');
-                }
-
-                // Find the sponsorship with user relationship
-                $sponsorship = VolunteerSponsorship::with(['user', 'booking.project'])
-                    ->where('public_id', $sponsorshipPublicId)
-                    ->first();
-
-                if (!$sponsorship) {
-                    Log::error('Stripe success: Sponsorship not found', [
-                        'sponsorship_public_id' => $sponsorshipPublicId
+                    return $this->handleSuccessfulSponsorshipPayment($capture);
+                } else {
+                    Log::warning('Sponsorship PayPal capture not completed', [
+                        'order_id' => $request->orderID,
+                        'status' => $capture['status']
                     ]);
-                    throw new \Exception('Sponsorship not found');
-                }
-
-                // Try to find payment by payment_intent
-                $payment = Sponsorship::where('stripe_payment_id', $session->payment_intent)->first();
-
-                if (!$payment) {
-                    // Check if payment already exists
-                    $payment = Sponsorship::where([
-                        'sponsorship_public_id' => $sponsorshipPublicId,
-                        'booking_public_id' => $bookingPublicId,
-                        'amount' => $amount
-                    ])
-                        ->when($userPublicId, function ($query, $userPublicId) {
-                            return $query->where('user_public_id', $userPublicId);
-                        }, function ($query) {
-                            return $query->whereNull('user_public_id');
-                        })
-                        ->whereIn('status', ['completed', 'pending'])
-                        ->first();
-
-                    if (!$payment) {
-                        // Create payment record
-                        $payment = Sponsorship::create([
-                            'public_id' => \Illuminate\Support\Str::ulid(),
-                            'user_public_id' => $userPublicId,
-                            'booking_public_id' => $bookingPublicId,
-                            'sponsorship_public_id' => $sponsorshipPublicId,
-                            'amount' => $amount,
-                            'funding_allocation' => json_decode($session->metadata->funding_allocation ?? '[]', true),
-                            'stripe_payment_id' => $session->payment_intent,
-                            'status' => 'completed',
-                            'is_anonymous' => $isAnonymous,
-                            'payment_method' => $session->payment_method_types[0] ?? 'card',
-                        ]);
-                    } else {
-                        // Update existing payment
-                        $payment->update([
-                            'status' => 'completed',
-                            'payment_method' => $session->payment_method_types[0] ?? 'card',
-                            'stripe_payment_id' => $session->payment_intent,
-                            'user_public_id' => $userPublicId,
-                            'is_anonymous' => $isAnonymous,
-                        ]);
-                    }
-                } else {
-                    // Update payment status if pending
-                    if ($payment->status === 'pending') {
-                        $payment->update([
-                            'status' => 'completed',
-                            'payment_method' => $session->payment_method_types[0] ?? 'card',
-                            'user_public_id' => $userPublicId,
-                            'is_anonymous' => $isAnonymous,
-                        ]);
-                    }
-                }
-
-                // Update sponsorship with funded amount
-                $sponsorship->increment('funded_amount', $payment->amount);
-
-                // Send email notification to sponsorship owner
-                $this->sendDonationNotification($sponsorship, $payment);
-
-                // Redirect based on authentication status
-                if (Auth::check()) {
-                    return redirect()->route('dashboard')
-                        ->with('success', 'Thank you for your sponsorship! Your payment was successful.');
-                } else {
-                    return redirect()->route('home')
-                        ->with('success', 'Thank you for your sponsorship! Your payment was successful.');
+                    return response()->json([
+                        'error' => 'Payment status: ' . $capture['status']
+                    ], 400);
                 }
             }
-        } catch (\Exception $e) {
-            Log::error('Sponsorship payment success handling error: ' . $e->getMessage(), [
-                'session_id' => $sessionId
-            ]);
-        }
 
-        return redirect()->route('sponsorship.payment.cancel');
+            if (isset($capture['details'])) {
+                $errorDetails = collect($capture['details'])
+                    ->pluck('description')
+                    ->implode(', ');
+                Log::error('Sponsorship PayPal capture detailed error', [
+                    'details' => $errorDetails,
+                    'debug_id' => $capture['debug_id'] ?? 'unknown'
+                ]);
+                throw new \Exception($errorDetails);
+            }
+
+            throw new \Exception($capture['message'] ?? 'Unknown PayPal API error');
+        } catch (\Exception $e) {
+            Log::error('Sponsorship PayPal capture exception: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Payment processing failed: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
-    protected function sendDonationNotification($sponsorship, $payment)
+    private function handleSuccessfulSponsorshipPayment($capture)
     {
         try {
-            // Check if sponsorship has a user and the user has an email
+            $purchaseUnit = $capture['purchase_units'][0];
+            $payments = $purchaseUnit['payments'];
+            $captureData = $payments['captures'][0];
+
+            $customData = json_decode($purchaseUnit['custom_id'], true);
+            $sponsorshipPublicId = $customData['sponsorship_public_id'];
+            $processedAmount = $customData['amount'];
+            $isAnonymous = $customData['is_anonymous'] ?? false;
+            $fundingAllocation = $customData['funding_allocation'] ?? null;
+            $customAmount = $customData['custom_amount'] ?? null;
+            $includeProcessingFee = $customData['include_processing_fee'] ?? false;
+
+            $sponsorship = VolunteerSponsorship::with(['user', 'booking.project'])
+                ->where('public_id', $sponsorshipPublicId)
+                ->first();
+
+            if (!$sponsorship) {
+                throw new \Exception('Sponsorship not found');
+            }
+
+            // Check if payment already exists
+            $existingPayment = SponsorshipDonation::where('paypal_order_id', $capture['id'])->first();
+            if ($existingPayment) {
+                Log::info('Sponsorship PayPal payment already processed', ['order_id' => $capture['id']]);
+                return response()->json(['success' => true]);
+            }
+
+            // Calculate the stored amount (6% less than processed amount)
+            $storedAmount = $this->calculateStoredAmount($processedAmount, $includeProcessingFee);
+
+            // Generate ULID for public_id
+            $publicId = (string) \Illuminate\Support\Str::ulid();
+
+            // Create sponsorship donation record with stored amount (6% less)
+            $sponsorshipDonation = SponsorshipDonation::create([
+                'public_id' => $publicId,
+                'user_public_id' => Auth::check() ? Auth::user()->public_id : null,
+                'booking_public_id' => $sponsorship->booking_public_id,
+                'sponsorship_public_id' => $sponsorship->public_id,
+                'amount' => $storedAmount, // Store the amount after 6% deduction
+                'processed_amount' => $processedAmount, // Store the original processed amount for reference
+                'funding_allocation' => $fundingAllocation,
+                'paypal_order_id' => $capture['id'],
+                'paypal_capture_id' => $captureData['id'],
+                'status' => 'completed',
+                'payment_method' => 'paypal',
+                'is_anonymous' => $isAnonymous,
+                'include_processing_fee' => $includeProcessingFee,
+            ]);
+
+            Log::info('Sponsorship PayPal payment processed successfully', [
+                'sponsorship_public_id' => $sponsorshipPublicId,
+                'processed_amount' => $processedAmount,
+                'stored_amount' => $storedAmount,
+                'order_id' => $capture['id'],
+                'capture_id' => $captureData['id'],
+                'donation_public_id' => $publicId,
+                'include_processing_fee' => $includeProcessingFee
+            ]);
+
+            // Send email notifications
+            $this->sendPaymentNotifications($sponsorship, $sponsorshipDonation);
+
+            return response()->json(['success' => true]);
+        } catch (\Exception $e) {
+            Log::error('Sponsorship handle successful payment error: ' . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Calculate the amount to be stored in database (6% less than processed amount)
+     *
+     * @param float $processedAmount The original amount processed through PayPal
+     * @param bool $includeProcessingFee Whether processing fee was included in the payment
+     * @return float
+     */
+    private function calculateStoredAmount($processedAmount, $includeProcessingFee)
+    {
+        if ($includeProcessingFee) {
+            // If processing fee was included, the base amount is 94.34% of processed amount
+            // because: baseAmount + (baseAmount * 0.06) = processedAmount
+            // baseAmount * 1.06 = processedAmount
+            // baseAmount = processedAmount / 1.06
+            $baseAmount = $processedAmount / 1.06;
+
+            // Store the base amount (which is effectively 6% less than the total processed amount)
+            return round($baseAmount, 2);
+        } else {
+            // If processing fee was not included, simply deduct 6% from processed amount
+            return round($processedAmount * 0.94, 2);
+        }
+    }
+
+    private function sendPaymentNotifications($sponsorship, $sponsorshipDonation)
+    {
+        try {
+            // Send notification to the sponsorship owner (volunteer)
             if ($sponsorship->user && $sponsorship->user->email) {
                 Mail::to($sponsorship->user->email)
-                    ->send(new SponsorshipDonationReceivedMail($sponsorship, $payment));
+                    ->send(new SponsorshipPaymentReceived($sponsorship, $sponsorshipDonation, 'volunteer'));
 
-                Log::info('Sponsorship donation notification sent', [
-                    'sponsorship_public_id' => $sponsorship->public_id,
-                    'recipient_email' => $sponsorship->user->email,
-                    'amount' => $payment->amount
-                ]);
-            } else {
-                Log::warning('Could not send sponsorship donation notification - missing user or email', [
-                    'sponsorship_public_id' => $sponsorship->public_id,
-                    'has_user' => !is_null($sponsorship->user),
-                    'has_email' => $sponsorship->user && !empty($sponsorship->user->email)
+                Log::info('Sponsorship payment notification sent to volunteer', [
+                    'volunteer_email' => $sponsorship->user->email,
+                    'sponsorship_id' => $sponsorship->public_id,
+                    'processed_amount' => $sponsorshipDonation->processed_amount,
+                    'stored_amount' => $sponsorshipDonation->amount
                 ]);
             }
+
+            // Send notification to the donor (if not anonymous and user is logged in)
+            if (!$sponsorshipDonation->is_anonymous && $sponsorshipDonation->user_public_id) {
+                $donor = \App\Models\User::where('public_id', $sponsorshipDonation->user_public_id)->first();
+                if ($donor && $donor->email) {
+                    Mail::to($donor->email)
+                        ->send(new SponsorshipPaymentReceived($sponsorship, $sponsorshipDonation, 'donor'));
+
+                    Log::info('Sponsorship payment confirmation sent to donor', [
+                        'donor_email' => $donor->email,
+                        'sponsorship_id' => $sponsorship->public_id,
+                        'processed_amount' => $sponsorshipDonation->processed_amount,
+                        'stored_amount' => $sponsorshipDonation->amount
+                    ]);
+                }
+            }
+
+            // Send notification to admin (optional)
+            // $admins = \App\Models\Admin::all();
+            // foreach ($admins as $admin) {
+            //     Mail::to($admin->email)
+            //         ->send(new SponsorshipPaymentReceived($sponsorship, $sponsorshipDonation, 'admin'));
+            // }
+
         } catch (\Exception $e) {
-            Log::error('Failed to send sponsorship donation notification: ' . $e->getMessage(), [
-                'sponsorship_public_id' => $sponsorship->public_id
-            ]);
+            Log::error('Failed to send sponsorship payment notifications: ' . $e->getMessage());
+            // Don't throw the error - we don't want to fail the payment if email fails
         }
     }
 
-    public function handleCancel()
+    public function success(Request $request)
     {
-        if (Auth::check()) {
-            return redirect()->route('dashboard')
-                ->with('error', 'Sponsorship payment was cancelled.');
-        } else {
-            return redirect()->route('home')
-                ->with('error', 'Sponsorship payment was cancelled.');
-        }
+        return redirect()->route('volunteer.guest.sponsorship.page.with.volunteer', $request->sponsorship_public_id)
+            ->with('success', 'Sponsorship payment completed successfully!');
     }
 
-    public function handleWebhook(Request $request)
+    public function cancel()
     {
-        $payload = $request->getContent();
-        $sigHeader = $request->header('Stripe-Signature');
-        $webhookSecret = config('services.stripe.webhook_secret');
-
-        try {
-            $event = Webhook::constructEvent(
-                $payload,
-                $sigHeader,
-                $webhookSecret
-            );
-        } catch (\UnexpectedValueException $e) {
-            Log::error('Stripe webhook error (Invalid payload): ' . $e->getMessage());
-            return response()->json(['error' => 'Invalid payload'], Response::HTTP_BAD_REQUEST);
-        } catch (SignatureVerificationException $e) {
-            Log::error('Stripe webhook error (Invalid signature): ' . $e->getMessage());
-            return response()->json(['error' => 'Invalid signature'], Response::HTTP_BAD_REQUEST);
-        }
-
-        Log::info('Stripe webhook received: ' . $event->type);
-
-        switch ($event->type) {
-            case 'checkout.session.completed':
-                $session = $event->data->object;
-                $this->handleCheckoutSessionCompleted($session);
-                break;
-
-            case 'payment_intent.succeeded':
-                $paymentIntent = $event->data->object;
-                $this->handlePaymentIntentSucceeded($paymentIntent);
-                break;
-
-            case 'payment_intent.payment_failed':
-                $paymentIntent = $event->data->object;
-                $this->handlePaymentIntentFailed($paymentIntent);
-                break;
-
-            default:
-                Log::info('Unhandled Stripe event type: ' . $event->type);
-        }
-
-        return response()->json(['success' => true]);
-    }
-
-    protected function handleCheckoutSessionCompleted($session)
-    {
-        try {
-            if ($session->payment_status === 'paid') {
-                $sponsorshipPublicId = $session->metadata->sponsorship_public_id ?? null;
-                $userPublicId = $session->metadata->user_public_id ?? null;
-                $bookingPublicId = $session->metadata->booking_public_id ?? null;
-                $amount = isset($session->metadata->amount) ? (float) $session->metadata->amount : null;
-                $isAnonymous = filter_var($session->metadata->is_anonymous ?? false, FILTER_VALIDATE_BOOLEAN);
-
-                if (!$sponsorshipPublicId || !$bookingPublicId) {
-                    Log::error('Stripe webhook: Missing required metadata in session', [
-                        'session_id' => $session->id,
-                        'sponsorship_public_id' => $sponsorshipPublicId,
-                        'booking_public_id' => $bookingPublicId
-                    ]);
-                    return;
-                }
-
-                // Check if payment already exists
-                $existingPayment = Sponsorship::where('stripe_payment_id', $session->payment_intent)->first();
-                if ($existingPayment) {
-                    if ($existingPayment->status !== 'completed') {
-                        $existingPayment->update([
-                            'status' => 'completed',
-                            'payment_method' => $session->payment_method_types[0] ?? 'card',
-                            'user_public_id' => $userPublicId,
-                            'is_anonymous' => $isAnonymous,
-                        ]);
-                    }
-                    Log::info('Stripe webhook: Payment already processed', [
-                        'payment_intent' => $session->payment_intent
-                    ]);
-                    return;
-                }
-
-                // Find the sponsorship with user relationship
-                $sponsorship = VolunteerSponsorship::with(['user', 'booking.project'])
-                    ->where('public_id', $sponsorshipPublicId)
-                    ->first();
-
-                if (!$sponsorship) {
-                    Log::error('Stripe webhook: Sponsorship not found', [
-                        'sponsorship_public_id' => $sponsorshipPublicId
-                    ]);
-                    return;
-                }
-
-                // Create payment record
-                $payment = Sponsorship::create([
-                    'public_id' => \Illuminate\Support\Str::ulid(),
-                    'user_public_id' => $userPublicId,
-                    'booking_public_id' => $bookingPublicId,
-                    'sponsorship_public_id' => $sponsorshipPublicId,
-                    'amount' => $amount,
-                    'funding_allocation' => json_decode($session->metadata->funding_allocation ?? '[]', true),
-                    'stripe_payment_id' => $session->payment_intent,
-                    'status' => 'completed',
-                    'is_anonymous' => $isAnonymous,
-                    'payment_method' => $session->payment_method_types[0] ?? 'card',
-                ]);
-
-                // Update sponsorship with funded amount
-                $sponsorship->increment('funded_amount', $amount);
-
-                // Send email notification to sponsorship owner
-                $this->sendDonationNotification($sponsorship, $payment);
-
-                Log::info('Stripe webhook: Sponsorship payment processed successfully', [
-                    'sponsorship_public_id' => $sponsorshipPublicId,
-                    'payment_intent' => $session->payment_intent,
-                    'amount' => $amount,
-                    'user_public_id' => $userPublicId,
-                    'is_anonymous' => $isAnonymous
-                ]);
-            }
-        } catch (\Exception $e) {
-            Log::error('Stripe webhook error in handleCheckoutSessionCompleted: ' . $e->getMessage(), [
-                'session_id' => $session->id ?? null
-            ]);
-        }
-    }
-
-    protected function handlePaymentIntentSucceeded($paymentIntent)
-    {
-        Log::info('PaymentIntent succeeded: ' . $paymentIntent->id);
-    }
-
-    protected function handlePaymentIntentFailed($paymentIntent)
-    {
-        $sponsorshipPublicId = $paymentIntent->metadata->sponsorship_public_id ?? null;
-
-        if ($sponsorshipPublicId) {
-            $payment = Sponsorship::where('stripe_payment_id', $paymentIntent->id)->first();
-
-            if ($payment) {
-                $payment->update([
-                    'status' => 'failed',
-                ]);
-
-                Log::info('Payment failed for sponsorship', [
-                    'sponsorship_public_id' => $sponsorshipPublicId,
-                    'payment_intent' => $paymentIntent->id,
-                    'failure_message' => $paymentIntent->last_payment_error->message ?? null
-                ]);
-            }
-        }
+        return redirect()->back()
+            ->with('error', 'Sponsorship payment was cancelled.');
     }
 }

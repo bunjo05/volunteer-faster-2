@@ -4,6 +4,8 @@ import SidebarLink from "@/Components/SidebarLink";
 import FloatingConversation from "@/Components/FloatingConversation";
 import PlatformReview from "@/Components/PlatformReview";
 import NotificationBell from "@/Components/NotificationBell";
+import axios from "axios";
+import "../../css/animations.css";
 
 import {
     Home,
@@ -132,6 +134,16 @@ export default function VolunteerLayout({ children, auth, points }) {
                         <span className="ml-auto bg-amber-500 text-white text-xs font-medium rounded-full px-2 py-1">
                             {totalPoints}
                         </span>
+                    </SidebarLink>
+
+                    <SidebarLink
+                        href={route("volunteer.sponsorships")}
+                        icon={HeartHandshake}
+                        className="group flex items-center w-full px-4 py-4 text-left rounded-2xl hover:bg-emerald-50 hover:text-emerald-700 transition-all duration-200 border border-transparent hover:border-emerald-200 hover:shadow-sm"
+                        activeClassName="bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm"
+                    >
+                        <HeartHandshake className="w-5 h-5 mr-3" />
+                        Sponsorships
                     </SidebarLink>
                 </nav>
 

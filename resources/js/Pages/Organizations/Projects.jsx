@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Eye, Users, Shield, Lock, CreditCard } from "lucide-react";
 import OrganizationLayout from "@/Layouts/OrganizationLayout";
-import { loadStripe } from "@stripe/stripe-js";
+import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import axios from "axios";
 
 export default function Projects({
@@ -32,20 +32,17 @@ export default function Projects({
     const [selectedProject, setSelectedProject] = useState(null);
     const [selectedPlan, setSelectedPlan] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [stripeLoading, setStripeLoading] = useState(true);
-    const [stripeError, setStripeError] = useState(null);
-    const [activeTab, setActiveTab] = useState("all"); // "all", "featured", "pending", "expired"
     const [showSuccessBadge, setShowSuccessBadge] = useState(false);
     const [successMessage, setSuccessMessage] = useState("");
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+    // Add this missing state variable
+    const [activeTab, setActiveTab] = useState("all"); // "all", "featured", "pending", "expired"
+
     const [projectsData, setProjectsData] = useState(projects);
 
-    // Get stripeKey from shared props
-    const stripeKey = props?.stripeKey || import.meta.env.VITE_STRIPE_KEY;
-
-    const stripePromiseRef = useRef(null);
-    const stripeInitialized = useRef(false);
+    // PayPal configuration
+    const paypalClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID || "test";
 
     const { post } = useForm();
 
@@ -60,45 +57,6 @@ export default function Projects({
         tooltipMessage =
             "Please complete your organization profile before creating projects.";
     }
-
-    useEffect(() => {
-        setStripeLoading(true);
-        setStripeError(null);
-
-        const initializeStripe = async () => {
-            try {
-                if (!stripeKey) {
-                    throw new Error("Stripe key is missing");
-                }
-
-                stripePromiseRef.current = loadStripe(stripeKey);
-                const stripe = await stripePromiseRef.current;
-
-                if (!stripe) {
-                    throw new Error("Stripe failed to initialize");
-                }
-
-                stripeInitialized.current = true;
-            } catch (error) {
-                console.error("Stripe initialization error:", error);
-                setStripeError(error.message);
-                stripeInitialized.current = false;
-            } finally {
-                setStripeLoading(false);
-            }
-        };
-
-        if (stripeKey) {
-            initializeStripe();
-        } else {
-            setStripeLoading(false);
-            setStripeError("Stripe key is missing");
-        }
-
-        return () => {
-            // Cleanup if needed
-        };
-    }, [stripeKey]);
 
     useEffect(() => {
         const flash = props?.flash;
@@ -126,6 +84,90 @@ export default function Projects({
         setShowFeatureModal(false);
         setSelectedProject(null);
         setSelectedPlan(null);
+    };
+
+    // PayPal order creation
+    const createOrder = async (data, actions) => {
+        try {
+            if (!selectedProject || !selectedPlan) {
+                throw new Error("Please select a project and plan");
+            }
+
+            const response = await axios.post(
+                route("paypal.featured.create-order"),
+                {
+                    project_public_id: selectedProject.public_id,
+                    plan_type: selectedPlan,
+                }
+            );
+
+            return response.data.orderID;
+        } catch (error) {
+            console.error("PayPal order creation error:", error);
+            throw error;
+        }
+    };
+
+    // PayPal payment approval
+    const onApprove = async (data, actions) => {
+        try {
+            console.log("=== PAYPAL FEATURED PROJECT APPROVE START ===");
+            console.log("Order ID:", data.orderID);
+            console.log("Selected Project:", selectedProject);
+            console.log("Selected Plan:", selectedPlan);
+
+            const response = await axios.post(
+                route("paypal.featured.capture-order"),
+                {
+                    orderID: data.orderID,
+                }
+            );
+
+            console.log("Capture response:", response.data);
+
+            if (response.data.success) {
+                setShowSuccessBadge(true);
+                setSuccessMessage(
+                    "Payment completed successfully! Your project will be featured after admin approval."
+                );
+                setShowFeatureModal(false);
+
+                // Wait a moment before reloading to show success message
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                throw new Error(
+                    response.data.error || "Payment capture failed"
+                );
+            }
+        } catch (error) {
+            console.error("=== PAYPAL CAPTURE ERROR ===");
+            console.error("Full error object:", error);
+            console.error("Error message:", error.message);
+            console.error("Response data:", error.response?.data);
+            console.error("Response status:", error.response?.status);
+
+            let errorMessage = "Payment processing failed. Please try again.";
+
+            if (error.response?.data?.error) {
+                errorMessage = error.response.data.error;
+
+                if (error.response.data.debug_id) {
+                    errorMessage += ` (Debug ID: ${error.response.data.debug_id})`;
+                }
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+
+            alert(`Payment Error: ${errorMessage}`);
+
+            // Restart the payment process
+            if (actions && actions.restart) {
+                console.log("Restarting PayPal payment flow...");
+                actions.restart();
+            }
+        }
     };
 
     const projectsWithFeaturedStatus = projectsData.map((project) => {
@@ -162,7 +204,7 @@ export default function Projects({
             has_expired_feature: hasExpiredFeature,
             active_featured_project: activeFeaturedProject,
             expired_featured_projects: expiredFeaturedProjects,
-            featured_projects: featuredProjects, // Keep original array
+            featured_projects: featuredProjects,
         };
     });
 
@@ -179,85 +221,6 @@ export default function Projects({
                 return true; // "all" tab
         }
     });
-
-    const handleCheckout = async () => {
-        if (!selectedPlan || !selectedProject) {
-            alert("Please select a plan and project");
-            return;
-        }
-
-        if (stripeLoading) {
-            alert("Payment system is still initializing. Please wait...");
-            return;
-        }
-
-        if (!stripeInitialized.current || stripeError) {
-            alert(
-                stripeError ||
-                    "Payment system is not available. Please try again later."
-            );
-            return;
-        }
-
-        setIsProcessing(true);
-
-        try {
-            const stripe = await stripePromiseRef.current;
-
-            if (!stripe) {
-                throw new Error("Stripe is not available");
-            }
-
-            const csrfToken = document.querySelector(
-                'meta[name="csrf-token"]'
-            )?.content;
-
-            if (!csrfToken) {
-                throw new Error("CSRF token not found");
-            }
-
-            axios.defaults.headers.common["X-CSRF-TOKEN"] = csrfToken;
-            axios.defaults.headers.common["X-Requested-With"] =
-                "XMLHttpRequest";
-            axios.defaults.headers.common["Accept"] = "application/json";
-
-            const response = await axios.post(route("featured.checkout"), {
-                project_public_id: selectedProject.public_id,
-                plan_type: selectedPlan,
-            });
-
-            if (!response.data.sessionId) {
-                throw new Error("No session ID returned from server");
-            }
-
-            const result = await stripe.redirectToCheckout({
-                sessionId: response.data.sessionId,
-            });
-
-            if (result.error) {
-                alert("Payment processing failed: " + result.error.message);
-            }
-        } catch (error) {
-            console.error("Checkout error:", error);
-            let errorMessage = "An error occurred during payment processing.";
-
-            if (error.response) {
-                errorMessage =
-                    error.response.data?.error ||
-                    error.response.data?.message ||
-                    errorMessage;
-            } else if (error.request) {
-                errorMessage =
-                    "No response from server. Please check your connection.";
-            } else {
-                errorMessage = error.message || errorMessage;
-            }
-
-            alert(errorMessage);
-        } finally {
-            setIsProcessing(false);
-        }
-    };
 
     const handleRequestReview = (projectPublicId) => {
         post(route("projects.requestReview", projectPublicId), {
@@ -524,24 +487,6 @@ export default function Projects({
                                     />
                                 </svg>
                             </button>
-                        </div>
-                    </div>
-                )}
-
-                {/* Stripe Error Banner */}
-                {stripeError && (
-                    <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 rounded-md shadow-sm">
-                        <div className="flex items-center">
-                            <AlertCircle className="h-5 w-5 text-red-400 mr-3" />
-                            <div>
-                                <p className="text-sm text-red-700">
-                                    Payment system unavailable: {stripeError}
-                                </p>
-                                <p className="text-xs text-red-600 mt-1">
-                                    Please contact support if this issue
-                                    persists.
-                                </p>
-                            </div>
                         </div>
                     </div>
                 )}
@@ -987,90 +932,99 @@ export default function Projects({
 
                 {showFeatureModal && selectedProject && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-70">
-                        <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-xl shadow-2xl">
-                            {/* Header */}
-                            <div className="sticky top-0 z-10 flex items-center justify-between p-6 bg-gradient-to-r from-primary to-primary-focus text-white rounded-t-xl">
-                                <div>
-                                    <h2 className="text-2xl font-bold">
-                                        Feature "{selectedProject.title}"
-                                    </h2>
-                                    <p className="text-primary-content/90 mt-1">
-                                        Boost visibility and attract more
-                                        volunteers
-                                    </p>
+                        <div className="relative w-full max-w-4xl max-h-[95vh] overflow-y-auto bg-white rounded-2xl shadow-2xl">
+                            {/* Enhanced Header */}
+                            <div className="sticky top-0  flex items-center justify-between p-8 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-2xl z-10">
+                                <div className="flex items-center gap-4">
+                                    <div className="bg-white/20 p-3 rounded-xl">
+                                        <Crown className="w-8 h-8 text-white" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-2xl font-bold">
+                                            Feature "{selectedProject.title}"
+                                        </h2>
+                                        <p className="text-blue-100 mt-1 text-lg">
+                                            Boost visibility and attract more
+                                            volunteers
+                                        </p>
+                                    </div>
                                 </div>
                                 <button
                                     onClick={handleCloseModal}
-                                    className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"
+                                    className="p-3 text-white hover:bg-white/20 rounded-xl transition-all duration-200 hover:scale-110"
                                     aria-label="Close modal"
                                 >
                                     <X className="w-6 h-6" />
                                 </button>
                             </div>
 
-                            {/* Content */}
-                            <div className="p-6">
+                            {/* Enhanced Content */}
+                            <div className="p-8">
                                 {/* Benefits Section */}
                                 <div className="mb-8">
-                                    <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                                        🚀 Featured Project Benefits
+                                    <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                                        <div className="bg-gradient-to-r from-blue-500 to-purple-500 p-2 rounded-lg">
+                                            <Zap className="w-5 h-5 text-white" />
+                                        </div>
+                                        Premium Benefits
                                     </h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
-                                            <Eye className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                                            <div>
-                                                <h4 className="font-medium text-blue-800">
-                                                    5x More Visibility
-                                                </h4>
-                                                <p className=" text-sm text-blue-600">
-                                                    Top placement in search
-                                                    results
-                                                </p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
+                                            <div className="bg-blue-100 p-3 rounded-lg w-12 h-12 flex items-center justify-center mb-3">
+                                                <Eye className="w-6 h-6 text-blue-600" />
                                             </div>
+                                            <h4 className="font-semibold text-blue-900 mb-2">
+                                                5x More Visibility
+                                            </h4>
+                                            <p className="text-blue-700 text-sm">
+                                                Top placement in search results
+                                            </p>
                                         </div>
-                                        <div className="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
-                                            <Users className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                                            <div>
-                                                <h4 className="font-medium text-green-800">
-                                                    3x More Applications
-                                                </h4>
-                                                <p className="text-sm text-green-600">
-                                                    Attract quality volunteers
-                                                </p>
+                                        <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border border-green-100">
+                                            <div className="bg-green-100 p-3 rounded-lg w-12 h-12 flex items-center justify-center mb-3">
+                                                <Users className="w-6 h-6 text-green-600" />
                                             </div>
+                                            <h4 className="font-semibold text-green-900 mb-2">
+                                                3x More Applications
+                                            </h4>
+                                            <p className="text-green-700 text-sm">
+                                                Attract quality volunteers
+                                            </p>
                                         </div>
-                                        <div className="flex items-start space-x-3 p-3 bg-purple-50 rounded-lg">
-                                            <Crown className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
-                                            <div>
-                                                <h4 className="font-medium text-purple-800">
-                                                    Premium Badge
-                                                </h4>
-                                                <p className="text-sm text-purple-600">
-                                                    Stand out with featured
-                                                    status
-                                                </p>
+                                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-100">
+                                            <div className="bg-purple-100 p-3 rounded-lg w-12 h-12 flex items-center justify-center mb-3">
+                                                <Crown className="w-6 h-6 text-purple-600" />
                                             </div>
+                                            <h4 className="font-semibold text-purple-900 mb-2">
+                                                Premium Badge
+                                            </h4>
+                                            <p className="text-purple-700 text-sm">
+                                                Stand out with featured status
+                                            </p>
                                         </div>
-                                        <div className="flex items-start space-x-3 p-3 bg-orange-50 rounded-lg">
-                                            <Zap className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" />
-                                            <div>
-                                                <h4 className="font-medium text-orange-800">
-                                                    Priority Support
-                                                </h4>
-                                                <p className="text-sm text-orange-600">
-                                                    Dedicated assistance
-                                                </p>
+                                        <div className="bg-gradient-to-br from-orange-50 to-amber-50 p-4 rounded-xl border border-orange-100">
+                                            <div className="bg-orange-100 p-3 rounded-lg w-12 h-12 flex items-center justify-center mb-3">
+                                                <Star className="w-6 h-6 text-orange-600" />
                                             </div>
+                                            <h4 className="font-semibold text-orange-900 mb-2">
+                                                Priority Support
+                                            </h4>
+                                            <p className="text-orange-700 text-sm">
+                                                Dedicated assistance
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Pricing Plans */}
-                                <div className="mb-6">
-                                    <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                                        📅 Choose Your Featured Duration
+                                <div className="mb-8">
+                                    <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                                        <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-2 rounded-lg">
+                                            <CreditCard className="w-5 h-5 text-white" />
+                                        </div>
+                                        Choose Your Plan
                                     </h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                         {Object.entries(pricingPlans).map(
                                             ([key, plan]) => {
                                                 const isPopular =
@@ -1081,10 +1035,10 @@ export default function Projects({
                                                 return (
                                                     <div
                                                         key={key}
-                                                        className={`relative p-5 rounded-xl border-2 transition-all duration-300 cursor-pointer transform hover:scale-105 ${
+                                                        className={`relative p-6 rounded-2xl border-2 transition-all duration-300 cursor-pointer transform hover:scale-105 ${
                                                             isSelected
-                                                                ? "border-primary bg-primary/5 shadow-lg"
-                                                                : "border-gray-200 hover:border-primary/50"
+                                                                ? "border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-xl"
+                                                                : "border-gray-200 bg-white hover:border-blue-300 shadow-lg hover:shadow-xl"
                                                         } ${
                                                             isPopular
                                                                 ? "ring-2 ring-yellow-400 ring-opacity-50"
@@ -1095,19 +1049,19 @@ export default function Projects({
                                                         }
                                                     >
                                                         {isPopular && (
-                                                            <div className="absolute -top-2 -right-2">
-                                                                <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-full">
-                                                                    POPULAR
+                                                            <div className="absolute -top-3 -right-3">
+                                                                <span className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-xs font-bold px-3 py-2 rounded-full shadow-lg">
+                                                                    MOST POPULAR
                                                                 </span>
                                                             </div>
                                                         )}
 
-                                                        <div className="flex justify-between items-start mb-3">
+                                                        <div className="flex justify-between items-start mb-4">
                                                             <div>
-                                                                <h4 className="font-semibold text-gray-900">
+                                                                <h4 className="font-bold text-gray-900 text-lg">
                                                                     {plan.label}
                                                                 </h4>
-                                                                <p className="text-sm text-gray-600 mt-1">
+                                                                <p className="text-gray-600 text-sm mt-1">
                                                                     {
                                                                         plan.duration_days
                                                                     }{" "}
@@ -1116,40 +1070,56 @@ export default function Projects({
                                                                 </p>
                                                             </div>
                                                             {isSelected && (
-                                                                <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
-                                                                    <CheckCircle className="w-4 h-4 text-white" />
+                                                                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
+                                                                    <CheckCircle className="w-5 h-5 text-white" />
                                                                 </div>
                                                             )}
                                                         </div>
 
-                                                        <div className="flex items-baseline mb-3">
-                                                            <span className="text-2xl font-bold text-gray-900">
+                                                        <div className="flex items-baseline mb-4">
+                                                            <span className="text-3xl font-bold text-gray-900">
                                                                 ${plan.price}
                                                             </span>
-                                                            <span className="text-sm text-gray-500 ml-1">
+                                                            <span className="text-gray-500 ml-2 text-sm">
                                                                 one-time
                                                             </span>
                                                         </div>
 
-                                                        <div className="flex items-center text-sm text-gray-600">
-                                                            <span className="text-green-600 font-medium">
-                                                                {key ===
-                                                                    "3_months" &&
-                                                                    "20% savings"}
-                                                                {key ===
-                                                                    "6_months" &&
-                                                                    "33% savings"}
-                                                                {key ===
-                                                                    "1_year" &&
-                                                                    "42% savings"}
-                                                            </span>
-                                                            {key ===
-                                                                "1_month" && (
-                                                                <span className="text-gray-500">
-                                                                    Most
-                                                                    flexible
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center text-sm">
+                                                                <span
+                                                                    className={`font-medium ${
+                                                                        key ===
+                                                                        "3_months"
+                                                                            ? "text-green-600"
+                                                                            : key ===
+                                                                              "6_months"
+                                                                            ? "text-green-600"
+                                                                            : key ===
+                                                                              "1_year"
+                                                                            ? "text-green-600"
+                                                                            : "text-gray-500"
+                                                                    }`}
+                                                                >
+                                                                    {key ===
+                                                                        "3_months" &&
+                                                                        "✓ Save 20%"}
+                                                                    {key ===
+                                                                        "6_months" &&
+                                                                        "✓ Save 33%"}
+                                                                    {key ===
+                                                                        "1_year" &&
+                                                                        "✓ Save 42%"}
+                                                                    {key ===
+                                                                        "1_month" &&
+                                                                        "Most flexible"}
                                                                 </span>
-                                                            )}
+                                                            </div>
+                                                            <div className="text-xs text-gray-500">
+                                                                {
+                                                                    plan.description
+                                                                }
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 );
@@ -1160,30 +1130,34 @@ export default function Projects({
 
                                 {/* Selected Plan Summary */}
                                 {selectedPlan && (
-                                    <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-5 rounded-xl mb-6">
-                                        <h4 className="font-semibold text-primary mb-3">
-                                            ✅ Selected Plan
-                                        </h4>
-                                        <div className="flex justify-between items-center">
-                                            <div>
-                                                <p className="text-lg font-bold text-gray-900">
-                                                    {
-                                                        pricingPlans[
-                                                            selectedPlan
-                                                        ].label
-                                                    }
-                                                </p>
-                                                <p className="text-sm text-gray-600">
-                                                    {
-                                                        pricingPlans[
-                                                            selectedPlan
-                                                        ].duration_days
-                                                    }{" "}
-                                                    days of featured placement
-                                                </p>
+                                    <div className="bg-gradient-to-r from-blue-500 to-purple-500 p-6 rounded-2xl mb-8 text-white">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <div className="bg-white/20 p-3 rounded-xl">
+                                                    <CheckCircle className="w-6 h-6 text-white" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-bold text-lg">
+                                                        Selected Plan
+                                                    </h4>
+                                                    <p className="text-blue-100">
+                                                        {
+                                                            pricingPlans[
+                                                                selectedPlan
+                                                            ].label
+                                                        }{" "}
+                                                        •{" "}
+                                                        {
+                                                            pricingPlans[
+                                                                selectedPlan
+                                                            ].duration_days
+                                                        }{" "}
+                                                        days
+                                                    </p>
+                                                </div>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-2xl font-bold text-primary">
+                                                <p className="text-3xl font-bold">
                                                     $
                                                     {
                                                         pricingPlans[
@@ -1191,7 +1165,7 @@ export default function Projects({
                                                         ].price
                                                     }
                                                 </p>
-                                                <p className="text-sm text-gray-500">
+                                                <p className="text-blue-100 text-sm">
                                                     one-time payment
                                                 </p>
                                             </div>
@@ -1199,50 +1173,240 @@ export default function Projects({
                                     </div>
                                 )}
 
-                                {/* Payment Security */}
-                                <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                                    <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-                                        <Shield className="w-4 h-4 text-green-600" />
-                                        <span>
-                                            Secure payment processed by Stripe
-                                        </span>
-                                        <Lock className="w-4 h-4 text-green-600" />
+                                {/* Enhanced PayPal Payment Section */}
+                                {selectedPlan && (
+                                    <div className="mb-8">
+                                        <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                                            <div className="bg-gradient-to-r from-blue-500 to-purple-500 p-2 rounded-lg">
+                                                <Shield className="w-5 h-5 text-white" />
+                                            </div>
+                                            Secure Payment
+                                        </h3>
+
+                                        <div className="bg-gradient-to-br from-gray-50 to-blue-50 p-6 rounded-2xl border border-gray-200">
+                                            <div className="flex flex-col lg:flex-row gap-6 items-start">
+                                                {/* Payment Info */}
+                                                <div className="flex-1">
+                                                    <div className="bg-white p-4 rounded-xl border border-gray-200 mb-4">
+                                                        <div className="flex justify-between items-center mb-2">
+                                                            <span className="text-gray-600">
+                                                                Plan:
+                                                            </span>
+                                                            <span className="font-semibold">
+                                                                {
+                                                                    pricingPlans[
+                                                                        selectedPlan
+                                                                    ].label
+                                                                }
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center mb-2">
+                                                            <span className="text-gray-600">
+                                                                Duration:
+                                                            </span>
+                                                            <span className="font-semibold">
+                                                                {
+                                                                    pricingPlans[
+                                                                        selectedPlan
+                                                                    ]
+                                                                        .duration_days
+                                                                }{" "}
+                                                                days
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center border-t pt-2">
+                                                            <span className="text-gray-600 font-semibold">
+                                                                Total:
+                                                            </span>
+                                                            <span className="text-xl font-bold text-blue-600">
+                                                                $
+                                                                {
+                                                                    pricingPlans[
+                                                                        selectedPlan
+                                                                    ].price
+                                                                }
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Trust Indicators */}
+                                                    <div className="grid grid-cols-2 gap-3 text-center">
+                                                        <div className="bg-white p-3 rounded-lg border border-gray-200">
+                                                            <Lock className="w-4 h-4 text-green-500 mx-auto mb-1" />
+                                                            <span className="text-xs text-gray-600">
+                                                                SSL Secure
+                                                            </span>
+                                                        </div>
+                                                        <div className="bg-white p-3 rounded-lg border border-gray-200">
+                                                            <Shield className="w-4 h-4 text-blue-500 mx-auto mb-1" />
+                                                            <span className="text-xs text-gray-600">
+                                                                PCI Compliant
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* PayPal Button Container */}
+                                                <div className="flex-1 w-full min-w-0">
+                                                    <div className="bg-white p-4 rounded-xl border border-gray-200">
+                                                        <div className="flex items-center justify-between mb-4">
+                                                            <span className="text-sm font-medium text-gray-700">
+                                                                Pay with:
+                                                            </span>
+                                                            <div className="flex items-center gap-2">
+                                                                <img
+                                                                    src="https://www.paypalobjects.com/webstatic/mktg/logo/pp_cc_mark_111x69.jpg"
+                                                                    alt="PayPal"
+                                                                    className="h-6"
+                                                                />
+                                                                <span className="text-xs text-gray-500">
+                                                                    or Credit
+                                                                    Card
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        <PayPalScriptProvider
+                                                            options={{
+                                                                "client-id":
+                                                                    paypalClientId,
+                                                                currency: "USD",
+                                                                components:
+                                                                    "buttons",
+                                                                intent: "capture",
+                                                                "enable-funding":
+                                                                    "card,venmo",
+                                                                "disable-funding":
+                                                                    "",
+                                                                "data-page-type":
+                                                                    "checkout",
+                                                            }}
+                                                        >
+                                                            <PayPalButtons
+                                                                style={{
+                                                                    layout: "vertical",
+                                                                    height: 48,
+                                                                    color: "blue",
+                                                                    shape: "rect",
+                                                                    label: "checkout",
+                                                                    tagline: false,
+                                                                }}
+                                                                createOrder={
+                                                                    createOrder
+                                                                }
+                                                                onApprove={
+                                                                    onApprove
+                                                                }
+                                                                onError={(
+                                                                    err
+                                                                ) => {
+                                                                    console.error(
+                                                                        "PayPal error:",
+                                                                        err
+                                                                    );
+                                                                    alert(
+                                                                        "Payment failed. Please try again."
+                                                                    );
+                                                                }}
+                                                                onCancel={() => {
+                                                                    console.log(
+                                                                        "Payment cancelled by user"
+                                                                    );
+                                                                }}
+                                                            />
+                                                        </PayPalScriptProvider>
+
+                                                        <div className="mt-3 text-center">
+                                                            <p className="text-xs text-gray-500">
+                                                                By continuing,
+                                                                you agree to our{" "}
+                                                                <a
+                                                                    href="#"
+                                                                    className="text-blue-600 hover:underline"
+                                                                >
+                                                                    Terms
+                                                                </a>{" "}
+                                                                and{" "}
+                                                                <a
+                                                                    href="#"
+                                                                    className="text-blue-600 hover:underline"
+                                                                >
+                                                                    Privacy
+                                                                    Policy
+                                                                </a>
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Enhanced Payment Security */}
+                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-2xl border border-green-200">
+                                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="bg-green-100 p-3 rounded-xl">
+                                                <Shield className="w-6 h-6 text-green-600" />
+                                            </div>
+                                            <div>
+                                                <h4 className="font-semibold text-green-900">
+                                                    Your payment is secure
+                                                </h4>
+                                                <p className="text-green-700 text-sm">
+                                                    Encrypted and processed by
+                                                    PayPal. We never store your
+                                                    payment details.
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <img
+                                                src="https://www.paypalobjects.com/webstatic/mktg/logo/AM_SbyPP_mc_vs_dc_ae.jpg"
+                                                alt="Payment Methods"
+                                                className="h-8"
+                                            />
+                                            <div className="text-xs text-green-700 text-right">
+                                                <div>
+                                                    256-bit SSL encryption
+                                                </div>
+                                                <div>PCI DSS compliant</div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Footer */}
-                            <div className="sticky bottom-0 bg-white border-t p-6 rounded-b-xl">
-                                <div className="flex flex-col sm:flex-row gap-3 justify-end">
-                                    <button
-                                        onClick={handleCloseModal}
-                                        className="px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors duration-200"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={handleCheckout}
-                                        disabled={!selectedPlan || isProcessing}
-                                        className={`px-8 py-3 rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2 ${
-                                            !selectedPlan
-                                                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                                                : isProcessing
-                                                ? "bg-primary/80 text-white"
-                                                : "bg-primary hover:bg-primary-focus text-white shadow-lg hover:shadow-xl transform hover:scale-105"
-                                        }`}
-                                    >
-                                        {isProcessing ? (
-                                            <>
-                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                                <span>Processing...</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <CreditCard className="w-5 h-5" />
-                                                <span>Continue to Payment</span>
-                                            </>
+                            {/* Enhanced Footer */}
+                            <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6 rounded-b-2xl">
+                                <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
+                                    <div className="text-sm text-gray-500">
+                                        Need help?{" "}
+                                        <a
+                                            href="#"
+                                            className="text-blue-600 hover:underline"
+                                        >
+                                            Contact support
+                                        </a>
+                                    </div>
+                                    <div className="flex flex-col sm:flex-row gap-3">
+                                        <button
+                                            onClick={handleCloseModal}
+                                            className="px-8 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl font-medium transition-all duration-200 hover:scale-105 border border-gray-300"
+                                        >
+                                            Cancel
+                                        </button>
+                                        {!selectedPlan && (
+                                            <button
+                                                onClick={() => {}}
+                                                className="px-8 py-3 bg-gray-400 text-white rounded-xl font-medium cursor-not-allowed"
+                                                disabled
+                                            >
+                                                Select a Plan
+                                            </button>
                                         )}
-                                    </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

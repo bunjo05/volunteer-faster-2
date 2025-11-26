@@ -91,8 +91,8 @@ class HomeController extends Controller
             ->with(['category', 'organizationProfile']);
 
         // Check if user is logged in and has volunteer profile with skills
-        if (auth()->check() && auth()->user()->volunteerProfile && !empty(auth()->user()->volunteerProfile->skills)) {
-            $volunteerSkills = auth()->user()->volunteerProfile->skills;
+        if (Auth::check() && Auth::user()->volunteerProfile && !empty(auth()->user()->volunteerProfile->skills)) {
+            $volunteerSkills = Auth::user()->volunteerProfile->skills;
 
             // Get projects that match any of the volunteer's skills
             $suggestedQuery->where(function ($query) use ($volunteerSkills) {
@@ -115,8 +115,8 @@ class HomeController extends Controller
 
         // Check if user is following the organization
         $isFollowing = false;
-        if (auth()->check()) {
-            $isFollowing = auth()->user()->followingOrganizations()
+        if (Auth::check()) {
+            $isFollowing = Auth::user()->followingOrganizations()
                 ->where('organization_public_id', $project->organizationProfile->public_id)
                 ->exists();
         }
@@ -249,8 +249,8 @@ class HomeController extends Controller
 
         // Add follow status check
         $isFollowing = false;
-        if (auth()->check()) {
-            $isFollowing = auth()->user()->followingOrganizations()
+        if (Auth::check()) {
+            $isFollowing = Auth::user()->followingOrganizations()
                 ->where('organization_profiles.public_id', $project->organizationProfile->public_id)
                 ->exists();
         }
@@ -292,29 +292,55 @@ class HomeController extends Controller
 
     public function sponsorshipPage()
     {
-        $sponsorships = VolunteerSponsorship::with(['user', 'booking.project', 'volunteer_profile'])
+        $currentDate = now()->format('Y-m-d');
+
+        // Active sponsorships (still need funding)
+        $sponsorships = VolunteerSponsorship::with(['user', 'booking.project', 'volunteer_profile', 'sponsorships'])
             ->where('status', 'Approved')
+            ->whereHas('booking', function ($query) use ($currentDate) {
+                $query->whereDate('start_date', '<=', $currentDate);
+            })
+            ->get()
+            ->filter(function ($s) {
+                // Calculate remaining amount
+                $remaining = $s->total_amount - $s->funded_amount;
+                // Only include if still needs funds
+                return $remaining > 0;
+            })
+            ->values();
+
+        // ✅ Include funded_amount in the JSON response
+        $sponsorships->each->append('funded_amount');
+
+        // Successfully funded sponsorships (fully funded AND has at least one sponsorship donation)
+        $successfulSponsorships = VolunteerSponsorship::with(['user', 'booking.project', 'volunteer_profile', 'sponsorships'])
+            ->where('status', 'Approved')
+            ->whereHas('booking', function ($query) use ($currentDate) {
+                $query->whereDate('start_date', '<=', $currentDate);
+            })
             ->get()
             ->filter(function ($s) {
                 // Calculate remaining amount
                 $remaining = $s->total_amount - $s->funded_amount;
 
-                // Only include if still needs funds
-                return $remaining > 0;
-            })
-            ->values(); // reset array keys
+                // Check if fully funded AND has at least one completed sponsorship donation
+                $hasSponsorshipDonations = $s->sponsorships()
+                    ->where('status', 'completed')
+                    ->exists();
 
-        // ✅ Include funded_amount in the JSON response
-        $sponsorships->each->append('funded_amount');
+                // Only include if fully funded AND has sponsorship donations
+                return $remaining <= 0 && $hasSponsorshipDonations;
+            })
+            ->values();
+
+        // ✅ Include funded_amount in the JSON response for successful ones too
+        $successfulSponsorships->each->append('funded_amount');
 
         return inertia('Sponsorship/Sponsorship', [
-            'sponsorships' => $sponsorships
+            'sponsorships' => $sponsorships,
+            'successfulSponsorships' => $successfulSponsorships
         ]);
     }
-
-
-
-
 
     public function sponsorshipPageIndividual($sponsorship_public_id)
     {
@@ -327,13 +353,25 @@ class HomeController extends Controller
             'sponsorships.user'
         ])
             ->where('status', 'Approved')
-            ->where('public_id', $sponsorship_public_id) // Changed to use public_id
+            ->where('public_id', $sponsorship_public_id)
             ->firstOrFail();
 
+        // Calculate funded allocations from completed sponsorships
+        $fundedAllocations = [];
+        $completedSponsorships = $sponsorship->sponsorships->where('status', 'completed');
+
+        foreach ($completedSponsorships as $donation) {
+            if ($donation->funding_allocation) {
+                foreach ($donation->funding_allocation as $key => $allocated) {
+                    if ($allocated) {
+                        $fundedAllocations[$key] = true;
+                    }
+                }
+            }
+        }
+
         // Check if sponsorship is fully funded
-        $fundedAmount = $sponsorship->sponsorships
-            ->where('status', 'completed')
-            ->sum('amount');
+        $fundedAmount = $completedSponsorships->sum('amount');
 
         // If fully funded, return 404
         if ($fundedAmount >= $sponsorship->total_amount) {
@@ -343,7 +381,7 @@ class HomeController extends Controller
         // Get related sponsorships for the sidebar (filter out fully funded ones)
         $relatedSponsorships = VolunteerSponsorship::with(['user', 'booking.project', 'sponsorships'])
             ->where('status', 'Approved')
-            ->where('public_id', '!=', $sponsorship_public_id) // Changed to use public_id
+            ->where('public_id', '!=', $sponsorship_public_id)
             ->get()
             ->filter(function ($relatedSponsorship) {
                 $relatedFundedAmount = $relatedSponsorship->sponsorships
@@ -356,7 +394,8 @@ class HomeController extends Controller
 
         return inertia('Sponsorship/ViewIndividual', [
             'sponsorship' => $sponsorship,
-            'relatedSponsorships' => $relatedSponsorships->values()
+            'relatedSponsorships' => $relatedSponsorships->values(),
+            'fundedAllocations' => $fundedAllocations // Add this line
         ]);
     }
 }

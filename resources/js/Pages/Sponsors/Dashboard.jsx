@@ -62,6 +62,8 @@ export default function Dashboard({
                 id: sponsorship.public_id,
                 project:
                     sponsorship.booking?.project?.title || "Unknown Project",
+                volunteer:
+                    sponsorship.booking?.user?.name || "Unknown Volunteer",
                 amount: parseFloat(sponsorship.amount),
                 date: sponsorship.created_at,
                 status: sponsorship.status,
@@ -75,6 +77,8 @@ export default function Dashboard({
                 id: sponsorship.public_id,
                 project:
                     sponsorship.booking?.project?.title || "Unknown Project",
+                volunteer:
+                    sponsorship.sponsorship?.user?.name || "Unknown Volunteer",
                 renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
                     .toISOString()
                     .split("T")[0],
@@ -271,36 +275,6 @@ export default function Dashboard({
                             </div>
                         </div>
                     </div>
-                    {/* </div> */}
-
-                    {/* <div className="bg-white rounded-lg shadow p-6">
-                        <div className="flex items-center">
-                            <div className="rounded-full bg-blue-100 p-3 mr-4">
-                                <svg
-                                    className="w-6 h-6 text-blue-600"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                                    />
-                                </svg>
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">
-                                    Social ROI
-                                </p>
-                                <p className="text-2xl font-bold text-gray-900">
-                                    {dashboardData.performanceMetrics.roi}x
-                                </p>
-                            </div>
-                        </div>
-                    </div> */}
                 </div>
 
                 {/* Tabs */}
@@ -375,6 +349,12 @@ export default function Dashboard({
                                                             }
                                                         </h4>
                                                         <p className="text-sm text-gray-500">
+                                                            Supporting:{" "}
+                                                            {
+                                                                sponsorship.volunteer
+                                                            }
+                                                        </p>
+                                                        <p className="text-xs text-gray-400">
                                                             {new Date(
                                                                 sponsorship.date
                                                             ).toLocaleDateString()}
@@ -396,7 +376,12 @@ export default function Dashboard({
                                     )}
                                 </div>
                                 <div className="px-6 py-4 bg-gray-50">
-                                    <button className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                                    <button
+                                        onClick={() =>
+                                            setActiveTab("sponsorships")
+                                        }
+                                        className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                                    >
                                         View all sponsorships →
                                     </button>
                                 </div>
@@ -424,6 +409,10 @@ export default function Dashboard({
                                                             {renewal.project}
                                                         </h4>
                                                         <p className="text-sm text-gray-500">
+                                                            Volunteer:{" "}
+                                                            {renewal.volunteer}
+                                                        </p>
+                                                        <p className="text-xs text-gray-400">
                                                             Due{" "}
                                                             {new Date(
                                                                 renewal.renewalDate

@@ -22,7 +22,8 @@ class FeaturedProject extends Model
         'user_public_id',
         'plan_type',
         'amount',
-        'stripe_payment_id',
+        'paypal_order_id',   // Add PayPal fields
+        'paypal_capture_id',
         'start_date',
         'end_date',
         'status',

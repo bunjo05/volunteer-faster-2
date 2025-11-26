@@ -16,7 +16,6 @@ return new class extends Migration
             $table->ulid('public_id')->unique();
             $table->foreignUlid('user_public_id')->constrained('users', 'public_id')->onDelete('cascade');
             $table->foreignUlid('booking_public_id')->constrained('volunteer_bookings', 'public_id')->onDelete('cascade');
-
             // $table->foreignId('user_id')->constrained()->onDelete('cascade');
             // $table->foreignId('booking_id')->nullable()->constrained('volunteer_bookings')->onDelete('cascade');
             $table->json('aspect_needs_funding');
@@ -34,7 +33,6 @@ return new class extends Migration
             $table->boolean('privacy')->default(false);
             $table->enum('status', ['Pending', 'Approved', 'Rejected'])->default('Pending');
             $table->boolean('agreement')->default(false);
-
             $table->timestamps();
         });
     }

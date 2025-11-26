@@ -17,6 +17,7 @@ use App\Http\Controllers\VolunteerController;
 use App\Http\Controllers\SocialAuthController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrganizationController;
+use App\Http\Controllers\PayPalPaymentController;
 use App\Http\Controllers\StripePaymentController;
 use App\Http\Controllers\VolunteerFeedController;
 use App\Http\Controllers\Admin\ReferralController;
@@ -29,8 +30,16 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 
 Route::get('/api/check-volunteer-profile', function () {
     $user = Auth::user();
+
+    if (!$user) {
+        return response()->json(['hasProfile' => false]);
+    }
+
     $hasProfile = $user->volunteerProfile()->exists();
-    return response()->json(['hasProfile' => $hasProfile]);
+    return response()->json([
+        'hasProfile' => $hasProfile,
+        'profile' => $hasProfile ? $user->volunteerProfile : null
+    ]);
 })->middleware('auth');
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -51,10 +60,15 @@ Route::post('/volunteer/email/verify', [BookingController::class, 'verify'])->na
 Route::post('/volunteer-booking/store', [BookingController::class, 'store'])->name('volunteer.booking.store');
 Route::get('/corporate-impact-sponsorship', [HomeController::class, 'sponsorshipPage'])->name('guest.sponsorship.page');
 Route::get('/corporate-impact-sponsorship/{sponsorship_public_id}', [HomeController::class, 'sponsorshipPageIndividual'])->name('volunteer.guest.sponsorship.page.with.volunteer');
-Route::post('/sponsorship/payment', [SponsorshipPaymentController::class, 'createCheckoutSession']);
-Route::get('/sponsorship/payment/success', [SponsorshipPaymentController::class, 'handleSuccess'])->name('sponsorship.payment.success');
-Route::get('/sponsorship/payment/cancel', [SponsorshipPaymentController::class, 'handleCancel'])->name('sponsorship.payment.cancel');
-Route::post('/stripe/sponsorship-webhook', [SponsorshipPaymentController::class, 'handleWebhook']);
+
+Route::post('/sponsorship/paypal/create-order', [SponsorshipPaymentController::class, 'createOrder']);
+Route::post('/sponsorship/paypal/capture-order', [SponsorshipPaymentController::class, 'captureOrder']);
+Route::get('/sponsorship/payment/success', [SponsorshipPaymentController::class, 'success'])->name('sponsorship.payment.success');
+Route::get('/sponsorship/payment/cancel', [SponsorshipPaymentController::class, 'cancel'])->name('sponsorship.payment.cancel');
+// Route::post('/sponsorship/payment', [SponsorshipPaymentController::class, 'createCheckoutSession']);
+// Route::get('/sponsorship/payment/success', [SponsorshipPaymentController::class, 'handleSuccess'])->name('sponsorship.payment.success');
+// Route::get('/sponsorship/payment/cancel', [SponsorshipPaymentController::class, 'handleCancel'])->name('sponsorship.payment.cancel');
+// Route::post('/stripe/sponsorship-webhook', [SponsorshipPaymentController::class, 'handleWebhook']);
 Route::post('/auth/volunteer-booking/store', [BookingController::class, 'authStore'])->name('auth.volunteer.booking.store');
 Route::get('/volunteer-programs/{slug}/{organization_profile}', [HomeController::class, 'OrganizationProfile'])
     ->name('home.organization.profile');
@@ -66,20 +80,39 @@ Route::get('/volunteer-feed', [VolunteerFeedController::class, 'index'])
 Route::get('/dashboard', function () {
     $user = Auth::user();
 
-    if ($user->role === "Organization") {
-        return redirect()->route('organization.dashboard');
+    if (!$user) {
+        return redirect('/login');
     }
 
-    if ($user->role === "Volunteer") {
-        return redirect()->route('volunteer.dashboard');
+    // Redirect based on user role
+    switch ($user->role) {
+        case "Organization":
+            return redirect()->route('organization.dashboard');
+        case "Volunteer":
+            return redirect()->route('volunteer.dashboard');
+        case 'Sponsor':
+            return redirect()->route('sponsor.dashboard');
+        default:
+            return Inertia::render('Dashboard');
     }
-
-    if ($user->role === 'Sponsor') {
-        return redirect()->route('sponsor.dashboard');
-    }
-
-    return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
+// Route::get('/dashboard', function () {
+//     $user = Auth::user();
+
+//     if ($user->role === "Organization") {
+//         return redirect()->route('organization.dashboard');
+//     }
+
+//     if ($user->role === "Volunteer") {
+//         return redirect()->route('volunteer.dashboard');
+//     }
+
+//     if ($user->role === 'Sponsor') {
+//         return redirect()->route('sponsor.dashboard');
+//     }
+
+//     return Inertia::render('Dashboard');
+// })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
 
@@ -253,6 +286,11 @@ Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(
         ->name('volunteer.contact.requests');
     Route::get('/shared-contacts', [VolunteerController::class, 'getSharedContacts'])
         ->name('volunteer.shared.contacts');
+
+    Route::get('/sponsorships', [VolunteerController::class, 'sponsorships'])->name('volunteer.sponsorships');
+
+    Route::post('/appreciation/send', [VolunteerController::class, 'sendAppreciation'])
+        ->name('volunteer.appreciation.send');
 });
 
 Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->group(function () {
@@ -284,6 +322,19 @@ Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->
     Route::get('/featured/success', [FeaturedProjectController::class, 'success'])->name('featured.success');
     Route::get('/featured/cancel', [FeaturedProjectController::class, 'cancel'])->name('featured.cancel');
 
+    // PayPal routes for featured projects
+    Route::post('/paypal/featured/create-order', [FeaturedProjectController::class, 'createPayPalOrder'])
+        ->name('paypal.featured.create-order');
+
+    Route::post('/paypal/featured/capture-order', [FeaturedProjectController::class, 'capturePayPalOrder'])
+        ->name('paypal.featured.capture-order');
+
+    Route::get('/paypal/featured/success', [FeaturedProjectController::class, 'paypalSuccess'])
+        ->name('paypal.featured.success');
+
+    Route::get('/paypal/featured/cancel', [FeaturedProjectController::class, 'paypalCancel'])
+        ->name('paypal.featured.cancel');
+
     // Verification
     Route::get('/{organization_profile}/verification', [OrganizationController::class, 'verification'])->name('organization.verification');
     Route::post('/{organization_profile}/verification', [OrganizationController::class, 'storeVerification'])->name('organization.verification.store');
@@ -310,6 +361,13 @@ Route::middleware('volunteer')->middleware(['check.role:Volunteer', 'auth'])->gr
     Route::post('/payment/checkout', [StripePaymentController::class, 'checkout'])->name('payment.checkout');
     Route::get('/payment/success', [StripePaymentController::class, 'success'])->name('payment.success');
     Route::get('/payment/cancel', [StripePaymentController::class, 'cancel'])->name('payment.cancel');
+
+    // Add PayPal routes
+    Route::post('/paypal/create-order', [PayPalPaymentController::class, 'createOrder'])->name('paypal.create-order');
+    Route::post('/paypal/capture-order', [PayPalPaymentController::class, 'captureOrder'])->name('paypal.capture-order');
+    Route::get('/paypal/success', [PayPalPaymentController::class, 'success'])->name('paypal.success');
+    Route::get('/paypal/cancel', [PayPalPaymentController::class, 'cancel'])->name('paypal.cancel');
+    Route::post('/paypal/webhook', [PayPalPaymentController::class, 'handleWebhook'])->name('paypal.webhook');
 });
 
 Route::get('/mail-preview/user', function () {

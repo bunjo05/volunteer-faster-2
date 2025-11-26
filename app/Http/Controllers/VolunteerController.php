@@ -11,6 +11,9 @@ use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Reminder;
 use App\Events\NewMessage;
+use App\Models\Sponsorship;
+use Illuminate\Support\Str;
+use App\Models\Appreciation;
 use App\Models\ShareContact;
 use Illuminate\Http\Request;
 use App\Models\ProjectRemark;
@@ -21,6 +24,7 @@ use App\Mail\PlatformReviewMail;
 use App\Models\PointTransaction;
 use App\Models\VolunteerBooking;
 use App\Models\VolunteerProfile;
+use App\Mail\AppreciationMessage;
 use App\Mail\OrganizationReminder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -187,6 +191,7 @@ class VolunteerController extends Controller
 
         $bookings = VolunteerBooking::with(['project', 'reminders', 'payments', 'pointTransactions', 'project.user'])
             ->where('user_public_id', $user->public_id)
+            ->orderBy('created_at', 'desc') // Add this line for descending order
             ->get()
             ->map(function ($booking) use ($user) {
                 $daysPending = $booking->created_at->diffInDays(now());
@@ -1098,5 +1103,156 @@ class VolunteerController extends Controller
         ]);
 
         return back()->with('success', 'Contact access request sent successfully.');
+    }
+
+    public function sponsorships()
+    {
+        $user = Auth::user();
+
+        // Get sponsorships where the volunteer is the recipient
+        $sponsorships = Sponsorship::with([
+            'booking.project',
+            'booking.project.organizationProfile',
+            'user', // The donor
+            'appreciations' // Load appreciations to check if already sent
+        ])
+            ->whereHas('booking', function ($query) use ($user) {
+                $query->where('user_public_id', $user->public_id);
+            })
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($sponsorship) use ($user) {
+                $hasSentAppreciation = $sponsorship->appreciations
+                    ->where('volunteer_public_id', $user->public_id)
+                    ->isNotEmpty();
+
+                return [
+                    'id' => $sponsorship->public_id,
+                    'project' => $sponsorship->booking->project->title ?? 'Unknown Project',
+                    'organization' => $sponsorship->booking->project->organizationProfile->name ?? 'Unknown Organization',
+                    'donor' => $sponsorship->user ? [
+                        'name' => $sponsorship->user->name,
+                        'is_anonymous' => $sponsorship->is_anonymous,
+                    ] : null,
+                    'amount' => (float) $sponsorship->amount,
+                    'processed_amount' => (float) $sponsorship->processed_amount,
+                    'date' => $sponsorship->created_at->format('M d, Y'),
+                    'status' => $sponsorship->status,
+                    'is_anonymous' => $sponsorship->is_anonymous,
+                    'appreciation_sent' => $hasSentAppreciation, // Add this flag
+                ];
+            });
+
+        // Calculate stats with default values
+        $completedSponsorships = $sponsorships->where('status', 'completed');
+        $totalSponsored = $completedSponsorships->sum('amount');
+        $totalSponsorships = $sponsorships->count();
+        $completedCount = $completedSponsorships->count();
+
+        $stats = [
+            'total_sponsored' => $totalSponsored ?? 0,
+            'total_sponsorships' => $totalSponsorships ?? 0,
+            'completed_sponsorships' => $completedCount ?? 0,
+        ];
+
+        return inertia('Volunteers/Sponsorships', [
+            'sponsorships' => $sponsorships,
+            'stats' => $stats,
+            'auth' => [
+                'user' => $user->toArray(),
+            ],
+        ]);
+    }
+
+    public function sendAppreciation(Request $request)
+    {
+        $validated = $request->validate([
+            'sponsorship_public_id' => 'required|exists:sponsorships,public_id',
+            'message' => 'required|string|max:1000',
+        ]);
+
+        $user = Auth::user();
+
+        // Get the sponsorship with donor information
+        $sponsorship = Sponsorship::with(['user', 'booking.project'])
+            ->where('public_id', $validated['sponsorship_public_id'])
+            ->whereHas('booking', function ($query) use ($user) {
+                $query->where('user_public_id', $user->public_id);
+            })
+            ->firstOrFail();
+
+        // Check if donor is anonymous
+        if ($sponsorship->is_anonymous) {
+            return back()->with('error', 'Cannot send appreciation to anonymous donors.');
+        }
+
+        // Check if appreciation was already sent for this sponsorship
+        $existingAppreciation = Appreciation::where('sponsorship_public_id', $sponsorship->public_id)
+            ->where('volunteer_public_id', $user->public_id)
+            ->first();
+
+        if ($existingAppreciation) {
+            return back()->with('error', 'You have already sent an appreciation message for this sponsorship.');
+        }
+
+        // Filter restricted content
+        $filteredMessage = $this->filterRestrictedContent($validated['message']);
+
+        DB::beginTransaction();
+        try {
+            // Create appreciation record
+            $appreciation = Appreciation::create([
+                'public_id' => (string) Str::ulid(),
+                'volunteer_public_id' => $user->public_id,
+                'donor_public_id' => $sponsorship->user_public_id,
+                'sponsorship_public_id' => $sponsorship->public_id,
+                'message' => $filteredMessage,
+                'status' => 'sent',
+            ]);
+
+            // Send email to donor
+            Mail::to($sponsorship->user->email)
+                ->send(new AppreciationMessage(
+                    $user->name,
+                    $sponsorship->user->name,
+                    $filteredMessage,
+                    $sponsorship->booking->project->title,
+                    $sponsorship->amount
+                ));
+
+            DB::commit();
+
+            // Return to the same page with success data
+            return redirect()->route('volunteer.sponsorships')->with([
+                'success' => 'Appreciation message sent successfully!',
+                'show_success_modal' => true
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Failed to send appreciation message: ' . $e->getMessage());
+        }
+    }
+
+    // Helper method to filter restricted content
+    private function filterRestrictedContent($message)
+    {
+        $patterns = [
+            'phone' => '/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/',
+            'email' => '/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/',
+            'url' => '/(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)/',
+            'social_media' => '/(facebook|twitter|instagram|linkedin|tiktok)\.com\/[a-zA-Z0-9._-]+/i'
+        ];
+
+        $filteredMessage = $message;
+        $hasRestrictedContent = false;
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $filteredMessage)) {
+                $filteredMessage = preg_replace($pattern, '[content removed]', $filteredMessage);
+                $hasRestrictedContent = true;
+            }
+        }
+
+        return $filteredMessage;
     }
 }

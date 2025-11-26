@@ -1,5 +1,5 @@
 import VolunteerLayout from "@/Layouts/VolunteerLayout";
-import { usePage, Link, useForm } from "@inertiajs/react";
+import { usePage, Link, useForm, router } from "@inertiajs/react"; // Added router import
 import {
     CalendarDays,
     Users,
@@ -28,6 +28,8 @@ import { useState, useEffect } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Button } from "@headlessui/react";
 import Review from "@/Components/Review";
+import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+import axios from "axios"; // Added axios import
 
 const statusIcons = {
     Approved: CheckCircle2,
@@ -57,6 +59,104 @@ export default function Projects({ auth, payments, points, totalPoints }) {
 
     const [contactRequests, setContactRequests] = useState([]);
     const [sharedContacts, setSharedContacts] = useState([]);
+
+    const [paypalLoaded, setPaypalLoaded] = useState(false);
+
+    // Get PayPal client ID from environment or use a fallback
+    const paypalClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID || "test";
+
+    const createOrder = async (data, actions) => {
+        try {
+            const response = await axios.post(route("paypal.create-order"), {
+                booking_public_id: activeBooking.public_id,
+            });
+
+            return response.data.orderID;
+        } catch (error) {
+            console.error("PayPal order creation error:", error);
+            throw error;
+        }
+    };
+
+    const onApprove = async (data, actions) => {
+        try {
+            console.log("=== PAYPAL APPROVE START ===");
+            console.log("Order ID:", data.orderID);
+            console.log("Active Booking:", activeBooking);
+
+            const response = await axios.post(route("paypal.capture-order"), {
+                orderID: data.orderID,
+            });
+
+            console.log("Capture response:", response.data);
+
+            if (response.data.success) {
+                setShowSuccess(true);
+                alert("Payment completed successfully!");
+
+                // Wait a moment before reloading to show success message
+                setTimeout(() => {
+                    router.reload();
+                }, 2000);
+            } else {
+                // Handle cases where the API returns data but not success
+                throw new Error(
+                    response.data.error || "Payment capture failed"
+                );
+            }
+        } catch (error) {
+            console.error("=== PAYPAL CAPTURE ERROR ===");
+            console.error("Full error object:", error);
+            console.error("Error message:", error.message);
+            console.error("Response data:", error.response?.data);
+            console.error("Response status:", error.response?.status);
+
+            let errorMessage = "Payment processing failed. Please try again.";
+
+            if (error.response?.data?.error) {
+                errorMessage = error.response.data.error;
+
+                // Add debug ID if available
+                if (error.response.data.debug_id) {
+                    errorMessage += ` (Debug ID: ${error.response.data.debug_id})`;
+                }
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+
+            alert(`Payment Error: ${errorMessage}`);
+
+            // Restart the payment process
+            if (actions && actions.restart) {
+                console.log("Restarting PayPal payment flow...");
+                actions.restart();
+            } else {
+                console.log("Actions restart not available");
+            }
+        }
+    };
+
+    // Debug function to check why PayPal button might not show
+    const debugPaymentConditions = () => {
+        if (!activeBooking) {
+            console.log("No active booking");
+            return false;
+        }
+
+        console.log("Active Booking:", activeBooking);
+        console.log("Booking Status:", activeBooking.booking_status);
+        console.log("Project Type:", activeBooking.project?.type_of_project);
+        console.log("Has Paid Deposit:", hasPaidDeposit());
+        console.log("Remaining Balance:", calculateRemainingBalance());
+        console.log("Should Hide Pay Button:", shouldHidePayButton());
+
+        return (
+            !shouldHidePayButton() &&
+            calculateRemainingBalance() > 0 &&
+            !hasPaidDeposit() &&
+            activeBooking.project?.type_of_project === "Paid"
+        );
+    };
 
     // Add to your existing state declarations
     const [processingContactRequest, setProcessingContactRequest] =
@@ -152,6 +252,8 @@ export default function Projects({ auth, payments, points, totalPoints }) {
         if (activeBooking) {
             fetchContactRequests();
             fetchSharedContacts();
+            // Debug payment conditions
+            console.log("Payment conditions check:", debugPaymentConditions());
         }
     }, [activeBooking]);
 
@@ -262,6 +364,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
     const shouldHidePayButton = () => {
         if (!activeBooking) return true;
         if (activeBooking.booking_status !== "Approved") return true;
+        if (activeBooking.project?.type_of_project !== "Paid") return true;
         return false;
     };
 
@@ -430,6 +533,13 @@ export default function Projects({ auth, payments, points, totalPoints }) {
 
         return () => window.removeEventListener("resize", checkMobile);
     }, []);
+
+    // Add this to check if PayPal button should render
+    const shouldShowPayPalButton =
+        !shouldHidePayButton() &&
+        calculateRemainingBalance() > 0 &&
+        !hasPaidDeposit() &&
+        activeBooking?.project?.type_of_project === "Paid";
 
     return (
         <VolunteerLayout auth={auth}>
@@ -891,6 +1001,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                                                         {
                                                                                                             contact.message
                                                                                                         }
+
                                                                                                         "
                                                                                                     </p>
                                                                                                 )}
@@ -1081,7 +1192,6 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                     </div>
                                                 </div>
 
-                                                {/* Rest of the existing code remains the same */}
                                                 {/* Payment Information Card */}
                                                 {activeBooking.project
                                                     .type_of_project ===
@@ -1259,61 +1369,94 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                     </div>
                                                                 )}
 
-                                                                {!shouldHidePayButton() &&
-                                                                    calculateRemainingBalance() >
-                                                                        0 && (
-                                                                        <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                                                                            {!hasPaidDeposit() && (
-                                                                                <button
-                                                                                    onClick={() =>
-                                                                                        handlePayment(
-                                                                                            activeBooking
-                                                                                        )
+                                                                {shouldShowPayPalButton && (
+                                                                    <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                                                                        <div className="paypal-button-container">
+                                                                            //
+                                                                            Update
+                                                                            your
+                                                                            PayPalScriptProvider
+                                                                            options
+                                                                            <PayPalScriptProvider
+                                                                                options={{
+                                                                                    "client-id":
+                                                                                        paypalClientId,
+                                                                                    currency:
+                                                                                        "USD",
+                                                                                    components:
+                                                                                        "buttons",
+                                                                                    intent: "capture",
+                                                                                    // Enable guest checkout and card payments
+                                                                                    "enable-funding":
+                                                                                        "card,venmo",
+                                                                                    "disable-funding":
+                                                                                        "", // Empty means enable all available funding
+                                                                                    "data-page-type":
+                                                                                        "product", // or "checkout" depending on context
+                                                                                }}
+                                                                            >
+                                                                                <PayPalButtons
+                                                                                    style={{
+                                                                                        layout: "vertical", // Better for multiple payment options
+                                                                                        height: 45,
+                                                                                        color: "blue", // or "gold", "silver", "white"
+                                                                                        shape: "rect",
+                                                                                        label: "checkout", // Shows "Pay with" or "Checkout"
+                                                                                    }}
+                                                                                    createOrder={
+                                                                                        createOrder
                                                                                     }
-                                                                                    className="btn btn-success"
-                                                                                >
-                                                                                    Pay
-                                                                                    Deposit
-                                                                                    Fee
-                                                                                    ($
-                                                                                    {calculateDepositAmount().toLocaleString()}
-
-                                                                                    )
-                                                                                </button>
-                                                                            )}
-
-                                                                            {activeBooking
-                                                                                .project
-                                                                                .point_exchange ===
-                                                                                1 && (
-                                                                                <div>
-                                                                                    {hasPaidDeposit() &&
-                                                                                        !pointsPaymentSuccess &&
-                                                                                        !hasPointsTransaction(
-                                                                                            activeBooking
-                                                                                        ) && (
-                                                                                            <button
-                                                                                                onClick={() =>
-                                                                                                    setShowPointsPaymentModal(
-                                                                                                        true
-                                                                                                    )
-                                                                                                }
-                                                                                                className="btn btn-primary"
-                                                                                            >
-                                                                                                Pay
-                                                                                                Balance
-                                                                                                with
-                                                                                                Points
-                                                                                                ($
-                                                                                                {calculateRemainingBalance().toLocaleString()}
-
-                                                                                                )
-                                                                                            </button>
-                                                                                        )}
-                                                                                </div>
-                                                                            )}
+                                                                                    onApprove={
+                                                                                        onApprove
+                                                                                    }
+                                                                                    onError={(
+                                                                                        err
+                                                                                    ) => {
+                                                                                        console.error(
+                                                                                            "PayPal error:",
+                                                                                            err
+                                                                                        );
+                                                                                        alert(
+                                                                                            "Payment failed. Please try again."
+                                                                                        );
+                                                                                    }}
+                                                                                />
+                                                                            </PayPalScriptProvider>
                                                                         </div>
-                                                                    )}
+
+                                                                        {/* Keep points payment option */}
+                                                                        {activeBooking
+                                                                            .project
+                                                                            .point_exchange ===
+                                                                            1 && (
+                                                                            <div>
+                                                                                {hasPaidDeposit() &&
+                                                                                    !pointsPaymentSuccess &&
+                                                                                    !hasPointsTransaction(
+                                                                                        activeBooking
+                                                                                    ) && (
+                                                                                        <button
+                                                                                            onClick={() =>
+                                                                                                setShowPointsPaymentModal(
+                                                                                                    true
+                                                                                                )
+                                                                                            }
+                                                                                            className="btn btn-primary"
+                                                                                        >
+                                                                                            Pay
+                                                                                            Balance
+                                                                                            with
+                                                                                            Points
+                                                                                            ($
+                                                                                            {calculateRemainingBalance().toLocaleString()}
+
+                                                                                            )
+                                                                                        </button>
+                                                                                    )}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                )}
 
                                                                 {hasPointsTransaction(
                                                                     activeBooking

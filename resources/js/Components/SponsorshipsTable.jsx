@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-// import { Inertia } from "@inertiajs/inertia";
 
 const SponsorshipsTable = ({ sponsorships, filters }) => {
     const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -43,26 +42,82 @@ const SponsorshipsTable = ({ sponsorships, filters }) => {
     };
 
     const getOrganizationName = (sponsorship) => {
+        // Try multiple possible paths for organization name
+        if (sponsorship.booking?.project?.organizationProfile?.name) {
+            return sponsorship.booking.project.organizationProfile.name;
+        }
+        if (sponsorship.booking?.project?.organization_profile?.name) {
+            return sponsorship.booking.project.organization_profile.name;
+        }
         if (sponsorship.organizationProfile?.name) {
             return sponsorship.organizationProfile.name;
         }
         if (sponsorship.organization?.name) {
             return sponsorship.organization.name;
         }
-        if (sponsorship.booking?.project?.organization_name) {
-            return sponsorship.booking.project.organization_name;
-        }
         return "Unknown Organization";
     };
 
     const getOrganizationLogo = (sponsorship) => {
+        let logoPath = null;
+
+        // Try multiple possible paths for logo
         if (sponsorship.booking?.project?.organizationProfile?.logo) {
-            return sponsorship.booking.project.organizationProfile.logo;
+            logoPath = sponsorship.booking.project.organizationProfile.logo;
+        } else if (sponsorship.booking?.project?.organization_profile?.logo) {
+            logoPath = sponsorship.booking.project.organization_profile.logo;
+        } else if (sponsorship.organizationProfile?.logo) {
+            logoPath = sponsorship.organizationProfile.logo;
+        } else if (sponsorship.organization?.logo) {
+            logoPath = sponsorship.organization.logo;
         }
-        if (sponsorship.organization?.logo) {
-            return sponsorship.organization.logo;
+
+        if (!logoPath) return null;
+
+        // Add storage prefix if needed
+        if (logoPath.startsWith("storage/")) {
+            return `/storage/${logoPath.replace("storage/", "")}`;
         }
-        return null;
+        if (!logoPath.startsWith("/") && !logoPath.startsWith("http")) {
+            return `/storage/${logoPath}`;
+        }
+
+        return logoPath;
+    };
+
+    const LogoWithFallback = ({ src, alt, className }) => {
+        const [imageError, setImageError] = useState(false);
+
+        if (imageError || !src) {
+            return (
+                <div
+                    className={`bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 flex items-center justify-center ${className}`}
+                >
+                    <svg
+                        className="h-6 w-6 text-blue-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-2m2 0H5m2 0H3m2 0h2M7 7h10M7 11h10M7 15h10"
+                        />
+                    </svg>
+                </div>
+            );
+        }
+
+        return (
+            <img
+                src={src}
+                alt={alt}
+                className={`object-cover border border-gray-200 ${className}`}
+                onError={() => setImageError(true)}
+            />
+        );
     };
 
     const CardView = ({ sponsorship }) => {
@@ -73,29 +128,11 @@ const SponsorshipsTable = ({ sponsorships, filters }) => {
             <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all duration-300 hover:border-gray-200">
                 <div className="flex justify-between items-start mb-4">
                     <div className="flex items-start space-x-3">
-                        {orgLogo ? (
-                            <img
-                                src={orgLogo}
-                                alt={orgName}
-                                className="h-12 w-12 rounded-lg object-cover border border-gray-200"
-                            />
-                        ) : (
-                            <div className="h-12 w-12 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200 flex items-center justify-center">
-                                <svg
-                                    className="h-6 w-6 text-blue-600"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-2m2 0H5m2 0H3m2 0h2M7 7h10M7 11h10M7 15h10"
-                                    />
-                                </svg>
-                            </div>
-                        )}
+                        <LogoWithFallback
+                            src={orgLogo}
+                            alt={orgName}
+                            className="h-12 w-12 rounded-lg"
+                        />
                         <div className="flex-1 min-w-0">
                             <h4 className="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">
                                 {sponsorship.booking?.project?.title ||
@@ -158,23 +195,6 @@ const SponsorshipsTable = ({ sponsorships, filters }) => {
                         </p>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3">
-                        <button className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl text-sm font-semibold hover:from-blue-700 hover:to-blue-800 transition-all duration-300 shadow-sm hover:shadow-md flex items-center justify-center group">
-                            <svg
-                                className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                                />
-                            </svg>
-                            New Sponsorship
-                        </button>
-
                         <button
                             onClick={() => setIsFilterOpen(!isFilterOpen)}
                             className="border border-gray-300 text-gray-700 px-4 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 transition-all duration-300 flex items-center justify-center sm:hidden"
@@ -208,9 +228,9 @@ const SponsorshipsTable = ({ sponsorships, filters }) => {
                         <select
                             value={filters.perPage || 10}
                             onChange={(e) => {
-                                Inertia.get(route("sponsors.dashboard"), {
-                                    perPage: e.target.value,
-                                });
+                                // Inertia.get(route("sponsors.dashboard"), {
+                                //     perPage: e.target.value,
+                                // });
                             }}
                             className="border-gray-300 rounded-lg px-4 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:ring-offset-1 transition-colors"
                         >
@@ -274,29 +294,11 @@ const SponsorshipsTable = ({ sponsorships, filters }) => {
                                 >
                                     <td className="px-6 py-4">
                                         <div className="flex items-center space-x-4">
-                                            {orgLogo ? (
-                                                <img
-                                                    src={orgLogo}
-                                                    alt={orgName}
-                                                    className="h-12 w-12 rounded-xl object-cover border border-gray-200"
-                                                />
-                                            ) : (
-                                                <div className="h-12 w-12 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200 flex items-center justify-center">
-                                                    <svg
-                                                        className="h-6 w-6 text-blue-600"
-                                                        fill="none"
-                                                        stroke="currentColor"
-                                                        viewBox="0 0 24 24"
-                                                    >
-                                                        <path
-                                                            strokeLinecap="round"
-                                                            strokeLinejoin="round"
-                                                            strokeWidth={2}
-                                                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-2m2 0H5m2 0H3m2 0h2M7 7h10M7 11h10M7 15h10"
-                                                        />
-                                                    </svg>
-                                                </div>
-                                            )}
+                                            <LogoWithFallback
+                                                src={orgLogo}
+                                                alt={orgName}
+                                                className="h-12 w-12 rounded-xl"
+                                            />
                                             <div className="min-w-0">
                                                 <div className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
                                                     {sponsorship.booking
@@ -383,7 +385,7 @@ const SponsorshipsTable = ({ sponsorships, filters }) => {
                                     key={index}
                                     onClick={() => {
                                         if (link.url) {
-                                            Inertia.visit(link.url);
+                                            // Inertia.visit(link.url);
                                         }
                                     }}
                                     className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${

@@ -13,7 +13,9 @@ class Payment extends Model
         'booking_public_id',
         'project_public_id',
         'amount',
-        'stripe_payment_id',
+        // 'stripe_payment_id',
+        'paypal_order_id',   // Add PayPal fields
+        'paypal_capture_id',
         'status'
     ];
 
