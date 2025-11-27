@@ -24,6 +24,7 @@ class NotificationService
     // Project related notifications
     public static function notifyProjectApproved($project)
     {
+        $admin = auth('admin')->user();
         return self::createNotification(
             $project->user_public_id,
             'project_approved',
@@ -34,7 +35,7 @@ class NotificationService
                 'project_title' => $project->title,
                 'project_slug' => $project->slug
             ],
-            auth('admin')->id()
+            $admin ? $admin->public_id : null // Use public_id instead of id
         );
     }
 
@@ -45,6 +46,7 @@ class NotificationService
             $message .= " Reason: {$remark}";
         }
 
+        $admin = auth('admin')->user();
         return self::createNotification(
             $project->user_public_id,
             'project_rejected',
@@ -56,7 +58,7 @@ class NotificationService
                 'project_slug' => $project->slug,
                 'remark' => $remark
             ],
-            auth('admin')->id()
+            $admin ? $admin->public_id : null // Use public_id instead of id
         );
     }
 
@@ -146,6 +148,7 @@ class NotificationService
             ? "Your organization verification has been approved."
             : "Your organization verification has been rejected.";
 
+        $admin = auth('admin')->user();
         return self::createNotification(
             $organization->user_public_id,
             'organization_verification_' . strtolower($status),
@@ -156,7 +159,7 @@ class NotificationService
                 'organization_name' => $organization->name,
                 'status' => $status
             ],
-            auth('admin')->id()
+            $admin ? $admin->public_id : null // Use public_id instead of id
         );
     }
 
@@ -168,6 +171,7 @@ class NotificationService
             ? "Your volunteer verification has been approved."
             : "Your volunteer verification has been rejected.";
 
+        $admin = auth('admin')->user();
         return self::createNotification(
             $volunteer->user_public_id,
             'volunteer_verification_' . strtolower($status),
@@ -177,13 +181,14 @@ class NotificationService
                 'volunteer_id' => $volunteer->public_id,
                 'status' => $status
             ],
-            auth('admin')->id()
+            $admin ? $admin->public_id : null // Use public_id instead of id
         );
     }
 
     // Featured project notifications
     public static function notifyFeaturedProjectApproved($featuredProject)
     {
+        $admin = auth('admin')->user();
         return self::createNotification(
             $featuredProject->user_public_id,
             'featured_project_approved',
@@ -194,12 +199,13 @@ class NotificationService
                 'project_id' => $featuredProject->project_public_id,
                 'project_title' => $featuredProject->project->title
             ],
-            auth('admin')->id()
+            $admin ? $admin->public_id : null // Use public_id instead of id
         );
     }
 
     public static function notifyFeaturedProjectRejected($featuredProject)
     {
+        $admin = auth('admin')->user();
         return self::createNotification(
             $featuredProject->user_public_id,
             'featured_project_rejected',
@@ -211,7 +217,7 @@ class NotificationService
                 'project_title' => $featuredProject->project->title,
                 'rejection_reason' => $featuredProject->rejection_reason
             ],
-            auth('admin')->id()
+            $admin ? $admin->public_id : null // Use public_id instead of id
         );
     }
 

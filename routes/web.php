@@ -5,8 +5,9 @@ use App\Models\VolunteerBooking;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Application;
-use App\Http\Controllers\ChatController;
+use Illuminate\Support\Facades\Request;
 
+use App\Http\Controllers\ChatController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\AdminsController;
 use App\Http\Controllers\BookingController;
@@ -41,6 +42,7 @@ Route::get('/api/check-volunteer-profile', function () {
         'profile' => $hasProfile ? $user->volunteerProfile : null
     ]);
 })->middleware('auth');
+
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/about', [HomeController::class, 'about'])->name('about');

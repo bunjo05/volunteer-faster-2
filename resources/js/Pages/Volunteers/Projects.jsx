@@ -1,5 +1,5 @@
 import VolunteerLayout from "@/Layouts/VolunteerLayout";
-import { usePage, Link, useForm, router } from "@inertiajs/react"; // Added router import
+import { usePage, Link, useForm, router } from "@inertiajs/react";
 import {
     CalendarDays,
     Users,
@@ -29,7 +29,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Button } from "@headlessui/react";
 import Review from "@/Components/Review";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
-import axios from "axios"; // Added axios import
+import axios from "axios";
 
 const statusIcons = {
     Approved: CheckCircle2,
@@ -55,15 +55,35 @@ export default function Projects({ auth, payments, points, totalPoints }) {
     const [stripePromise, setStripePromise] = useState(null);
     const [showMessageModal, setShowMessageModal] = useState(false);
     const [showMobileSidebar, setShowMobileSidebar] = useState(false);
-    const [mobileView, setMobileView] = useState("list"); // 'list' or 'details'
+    const [mobileView, setMobileView] = useState("list");
 
     const [contactRequests, setContactRequests] = useState([]);
     const [sharedContacts, setSharedContacts] = useState([]);
 
     const [paypalLoaded, setPaypalLoaded] = useState(false);
 
+    // Professional Success Modal State
+    const [showProfessionalSuccess, setShowProfessionalSuccess] =
+        useState(false);
+    const [successMessage, setSuccessMessage] = useState("");
+
+    // Payment Loading State
+    const [paymentLoading, setPaymentLoading] = useState(false);
+    const [paymentSuccess, setPaymentSuccess] = useState(false);
+
     // Get PayPal client ID from environment or use a fallback
     const paypalClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID || "test";
+
+    // Professional Success Modal Handler
+    const showProfessionalSuccessModal = (message) => {
+        setSuccessMessage(message);
+        setShowProfessionalSuccess(true);
+
+        // Auto hide after 3 seconds
+        setTimeout(() => {
+            setShowProfessionalSuccess(false);
+        }, 3000);
+    };
 
     const createOrder = async (data, actions) => {
         try {
@@ -84,6 +104,9 @@ export default function Projects({ auth, payments, points, totalPoints }) {
             console.log("Order ID:", data.orderID);
             console.log("Active Booking:", activeBooking);
 
+            // Show loading spinner
+            setPaymentLoading(true);
+
             const response = await axios.post(route("paypal.capture-order"), {
                 orderID: data.orderID,
             });
@@ -91,15 +114,47 @@ export default function Projects({ auth, payments, points, totalPoints }) {
             console.log("Capture response:", response.data);
 
             if (response.data.success) {
-                setShowSuccess(true);
-                alert("Payment completed successfully!");
+                // Payment capture successful - wait for database storage
+                setPaymentSuccess(true);
 
-                // Wait a moment before reloading to show success message
+                // Refresh page to get updated payment data
                 setTimeout(() => {
-                    router.reload();
-                }, 2000);
+                    router.reload({
+                        only: ["bookings", "payments", "points", "totalPoints"],
+                        onSuccess: () => {
+                            // Hide loading spinner after reload
+                            setPaymentLoading(false);
+
+                            // Show success modal only after page refresh confirms payment
+                            const updatedBooking = bookings.find(
+                                (booking) =>
+                                    booking.public_id ===
+                                    activeBooking.public_id
+                            );
+
+                            if (
+                                updatedBooking &&
+                                hasPaidDeposit(updatedBooking)
+                            ) {
+                                showProfessionalSuccessModal(
+                                    "Payment completed successfully!"
+                                );
+                            } else {
+                                // Fallback in case payment status didn't update properly
+                                showProfessionalSuccessModal(
+                                    "Payment processing completed! Please check your payment status."
+                                );
+                            }
+                        },
+                        onError: () => {
+                            setPaymentLoading(false);
+                            alert(
+                                "Payment completed but there was an issue refreshing the page. Please refresh manually."
+                            );
+                        },
+                    });
+                }, 1000); // Small delay to ensure database is updated
             } else {
-                // Handle cases where the API returns data but not success
                 throw new Error(
                     response.data.error || "Payment capture failed"
                 );
@@ -111,12 +166,14 @@ export default function Projects({ auth, payments, points, totalPoints }) {
             console.error("Response data:", error.response?.data);
             console.error("Response status:", error.response?.status);
 
+            // Hide loading spinner on error
+            setPaymentLoading(false);
+
             let errorMessage = "Payment processing failed. Please try again.";
 
             if (error.response?.data?.error) {
                 errorMessage = error.response.data.error;
 
-                // Add debug ID if available
                 if (error.response.data.debug_id) {
                     errorMessage += ` (Debug ID: ${error.response.data.debug_id})`;
                 }
@@ -126,7 +183,6 @@ export default function Projects({ auth, payments, points, totalPoints }) {
 
             alert(`Payment Error: ${errorMessage}`);
 
-            // Restart the payment process
             if (actions && actions.restart) {
                 console.log("Restarting PayPal payment flow...");
                 actions.restart();
@@ -237,7 +293,11 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                     setActiveBooking(updatedBooking);
                 }
 
-                setShowSuccess(true);
+                const actionMessage =
+                    status === "approved"
+                        ? "Contact request approved successfully!"
+                        : "Contact request rejected successfully!";
+                showProfessionalSuccessModal(actionMessage);
             }
         } catch (error) {
             console.error("Error responding to contact request:", error);
@@ -368,10 +428,8 @@ export default function Projects({ auth, payments, points, totalPoints }) {
         return false;
     };
 
-    const hasPaidDeposit = () => {
-        return activeBooking?.payments?.some(
-            (p) => p.status === "deposit_paid"
-        );
+    const hasPaidDeposit = (booking = activeBooking) => {
+        return booking?.payments?.some((p) => p.status === "deposit_paid");
     };
 
     const handlePayment = async (booking) => {
@@ -429,7 +487,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
             onSuccess: () => {
                 setShowMessageModal(false);
                 setMessageContent("");
-                setShowSuccess(true);
+                showProfessionalSuccessModal("Message sent successfully!");
             },
             onError: (errors) => {
                 console.error("Error sending message:", errors);
@@ -440,9 +498,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
 
     useEffect(() => {
         if (flash?.success) {
-            setShowSuccess(true);
-            const timer = setTimeout(() => setShowSuccess(false), 3000);
-            return () => clearTimeout(timer);
+            showProfessionalSuccessModal(flash.success);
         }
     }, [flash]);
 
@@ -492,7 +548,17 @@ export default function Projects({ auth, payments, points, totalPoints }) {
             }
             setShowPointsPaymentModal(false);
             setPointsPaymentSuccess(true);
-            setShowSuccess(true);
+
+            // Refresh page to get updated data
+            router.reload({
+                only: ["bookings", "payments", "points", "totalPoints"],
+                onSuccess: () => {
+                    showProfessionalSuccessModal(
+                        "Points payment completed successfully!"
+                    );
+                },
+            });
+
             setPointsState((prev) => ({
                 balance: prev.balance - pointsNeeded,
                 isLoading: false,
@@ -543,7 +609,79 @@ export default function Projects({ auth, payments, points, totalPoints }) {
 
     return (
         <VolunteerLayout auth={auth}>
-            {/* Success Notification */}
+            {/* Payment Loading Modal */}
+            {paymentLoading && (
+                <div className="modal modal-open modal-middle">
+                    <div className="modal-box bg-base-100 shadow-2xl border-0 max-w-md">
+                        <div className="flex flex-col items-center text-center p-8">
+                            {/* Animated Spinner */}
+                            <div className="mb-6">
+                                <div className="loading loading-spinner loading-lg text-primary"></div>
+                            </div>
+
+                            {/* Loading Message */}
+                            <h3 className="text-xl font-bold mb-3 text-base-content">
+                                Processing Payment
+                            </h3>
+                            <p className="text-base-content/70 mb-4 leading-relaxed">
+                                Please wait while we process your payment and
+                                update your booking. This may take a few
+                                moments...
+                            </p>
+
+                            {/* Progress Indicator */}
+                            <div className="w-full bg-base-300 rounded-full h-2 mb-2">
+                                <div
+                                    className="bg-primary h-2 rounded-full transition-all duration-1000 ease-in-out animate-pulse"
+                                    style={{ width: "60%" }}
+                                ></div>
+                            </div>
+
+                            <p className="text-base-content/50 text-sm">
+                                Do not close this window
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Professional Success Modal */}
+            {showProfessionalSuccess && (
+                <div className="modal modal-open modal-middle">
+                    <div className="modal-box bg-gradient-to-br from-success to-success/90 text-success-content shadow-2xl border-0 transform transition-all duration-300 scale-100">
+                        <div className="flex flex-col items-center text-center p-6">
+                            {/* Animated Check Icon */}
+                            <div className="mb-4 transform transition-all duration-500 scale-110">
+                                <div className="rounded-full bg-white/20 p-4">
+                                    <CheckCircle2 className="h-16 w-16 text-white animate-pulse" />
+                                </div>
+                            </div>
+
+                            {/* Success Message */}
+                            <h3 className="text-2xl font-bold mb-3 text-white">
+                                Success!
+                            </h3>
+                            <p className="text-lg text-white/90 mb-6 leading-relaxed">
+                                {successMessage}
+                            </p>
+
+                            {/* Loading Bar */}
+                            <div className="w-full bg-white/30 rounded-full h-2 mb-4">
+                                <div
+                                    className="bg-white h-2 rounded-full transition-all duration-3000 ease-linear"
+                                    style={{ width: "100%" }}
+                                ></div>
+                            </div>
+
+                            <p className="text-white/70 text-sm">
+                                Modal will close automatically...
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Original Success Notification (kept for backward compatibility) */}
             {showSuccess && (
                 <div className="toast toast-top toast-end z-50">
                     <div className="alert alert-success">
@@ -1193,6 +1331,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                 </div>
 
                                                 {/* Payment Information Card */}
+                                                {/* Payment Information Card */}
                                                 {activeBooking.project
                                                     .type_of_project ===
                                                     "Paid" && (
@@ -1369,92 +1508,96 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                     </div>
                                                                 )}
 
+                                                                {/* Payment Options - Full Width Section */}
                                                                 {shouldShowPayPalButton && (
-                                                                    <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                                                                        <div className="paypal-button-container">
-                                                                            //
-                                                                            Update
-                                                                            your
-                                                                            PayPalScriptProvider
-                                                                            options
-                                                                            <PayPalScriptProvider
-                                                                                options={{
-                                                                                    "client-id":
-                                                                                        paypalClientId,
-                                                                                    currency:
-                                                                                        "USD",
-                                                                                    components:
-                                                                                        "buttons",
-                                                                                    intent: "capture",
-                                                                                    // Enable guest checkout and card payments
-                                                                                    "enable-funding":
-                                                                                        "card,venmo",
-                                                                                    "disable-funding":
-                                                                                        "", // Empty means enable all available funding
-                                                                                    "data-page-type":
-                                                                                        "product", // or "checkout" depending on context
-                                                                                }}
-                                                                            >
-                                                                                <PayPalButtons
-                                                                                    style={{
-                                                                                        layout: "vertical", // Better for multiple payment options
-                                                                                        height: 45,
-                                                                                        color: "blue", // or "gold", "silver", "white"
-                                                                                        shape: "rect",
-                                                                                        label: "checkout", // Shows "Pay with" or "Checkout"
+                                                                    <div className="border-t pt-6">
+                                                                        <h4 className="font-semibold text-lg mb-4 text-center">
+                                                                            Complete
+                                                                            Your
+                                                                            Payment
+                                                                        </h4>
+                                                                        <div className="flex flex-col gap-4">
+                                                                            {/* PayPal Button - Full Width */}
+                                                                            <div className="paypal-button-container w-full">
+                                                                                <PayPalScriptProvider
+                                                                                    options={{
+                                                                                        "client-id":
+                                                                                            paypalClientId,
+                                                                                        currency:
+                                                                                            "USD",
+                                                                                        components:
+                                                                                            "buttons",
+                                                                                        intent: "capture",
+                                                                                        "enable-funding":
+                                                                                            "card,venmo",
+                                                                                        "disable-funding":
+                                                                                            "",
+                                                                                        "data-page-type":
+                                                                                            "product",
                                                                                     }}
-                                                                                    createOrder={
-                                                                                        createOrder
-                                                                                    }
-                                                                                    onApprove={
-                                                                                        onApprove
-                                                                                    }
-                                                                                    onError={(
-                                                                                        err
-                                                                                    ) => {
-                                                                                        console.error(
-                                                                                            "PayPal error:",
+                                                                                >
+                                                                                    <PayPalButtons
+                                                                                        style={{
+                                                                                            layout: "vertical",
+                                                                                            height: 48,
+                                                                                            color: "blue",
+                                                                                            shape: "rect",
+                                                                                            label: "checkout",
+                                                                                        }}
+                                                                                        createOrder={
+                                                                                            createOrder
+                                                                                        }
+                                                                                        onApprove={
+                                                                                            onApprove
+                                                                                        }
+                                                                                        onError={(
                                                                                             err
-                                                                                        );
-                                                                                        alert(
-                                                                                            "Payment failed. Please try again."
-                                                                                        );
-                                                                                    }}
-                                                                                />
-                                                                            </PayPalScriptProvider>
-                                                                        </div>
-
-                                                                        {/* Keep points payment option */}
-                                                                        {activeBooking
-                                                                            .project
-                                                                            .point_exchange ===
-                                                                            1 && (
-                                                                            <div>
-                                                                                {hasPaidDeposit() &&
-                                                                                    !pointsPaymentSuccess &&
-                                                                                    !hasPointsTransaction(
-                                                                                        activeBooking
-                                                                                    ) && (
-                                                                                        <button
-                                                                                            onClick={() =>
-                                                                                                setShowPointsPaymentModal(
-                                                                                                    true
-                                                                                                )
-                                                                                            }
-                                                                                            className="btn btn-primary"
-                                                                                        >
-                                                                                            Pay
-                                                                                            Balance
-                                                                                            with
-                                                                                            Points
-                                                                                            ($
-                                                                                            {calculateRemainingBalance().toLocaleString()}
-
-                                                                                            )
-                                                                                        </button>
-                                                                                    )}
+                                                                                        ) => {
+                                                                                            console.error(
+                                                                                                "PayPal error:",
+                                                                                                err
+                                                                                            );
+                                                                                            alert(
+                                                                                                "Payment failed. Please try again."
+                                                                                            );
+                                                                                        }}
+                                                                                    />
+                                                                                </PayPalScriptProvider>
                                                                             </div>
-                                                                        )}
+
+                                                                            {/* Points Payment Option - Full Width */}
+                                                                            {activeBooking
+                                                                                .project
+                                                                                .point_exchange ===
+                                                                                1 && (
+                                                                                <div className="w-full">
+                                                                                    {hasPaidDeposit() &&
+                                                                                        !pointsPaymentSuccess &&
+                                                                                        !hasPointsTransaction(
+                                                                                            activeBooking
+                                                                                        ) && (
+                                                                                            <button
+                                                                                                onClick={() =>
+                                                                                                    setShowPointsPaymentModal(
+                                                                                                        true
+                                                                                                    )
+                                                                                                }
+                                                                                                className="btn btn-primary w-full h-12 text-lg"
+                                                                                            >
+                                                                                                💎
+                                                                                                Pay
+                                                                                                Balance
+                                                                                                with
+                                                                                                Points
+                                                                                                ($
+                                                                                                {calculateRemainingBalance().toLocaleString()}
+
+                                                                                                )
+                                                                                            </button>
+                                                                                        )}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
                                                                     </div>
                                                                 )}
 

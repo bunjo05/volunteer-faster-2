@@ -102,3 +102,53 @@
 .chat-messages::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
 }
+
+/* Intro.js Custom Styling */
+.tutorial-highlight {
+    border-radius: 12px !important;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5),
+        0 0 20px rgba(16, 185, 129, 0.5) !important;
+}
+
+.introjs-tooltip {
+    border-radius: 12px !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+.introjs-button {
+    border-radius: 8px !important;
+    text-shadow: none !important;
+    border: none !important;
+    font-weight: 500 !important;
+}
+
+.introjs-nextbutton {
+    background: #10b981 !important;
+    color: white !important;
+}
+
+.introjs-prevbutton {
+    background: #6b7280 !important;
+    color: white !important;
+}
+
+.introjs-skipbutton {
+    color: #6b7280 !important;
+}
+
+.introjs-bullets ul li a {
+    background: #cbd5e1 !important;
+}
+
+.introjs-bullets ul li a.active {
+    background: #10b981 !important;
+}
+
+.introjs-progress {
+    background: #e2e8f0 !important;
+}
+
+.introjs-progressbar {
+    background: #10b981 !important;
+}

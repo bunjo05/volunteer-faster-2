@@ -307,15 +307,22 @@ class AdminsController extends Controller
             'remark' => 'required|string|max:1000',
         ]);
 
+        // Get the project to access its user_public_id
+        $project = Project::findOrFail($request->project_id);
+
         ProjectRemark::create([
+            'user_public_id' => $project->user_public_id, // Add this
+            'project_public_id' => $project->public_id, // Add this
+            'admin_public_id' => auth('admin')->user()->public_id, // Add this
             'project_id' => $request->project_id,
             'admin_id' => auth('admin')->id(),
             'remark' => $request->remark,
             'status' => null,
+            'comment' => $request->remark, // Map remark to comment
+            'rating' => 0, // Provide default rating
         ]);
 
-        // Optionally update the project status
-        $project = Project::find($request->project_id);
+        // Update project status
         $project->status = 'Rejected';
         $project->save();
 

@@ -11,6 +11,7 @@ use App\Models\Category;
 use App\Events\NewMessage;
 use Illuminate\Support\Str;
 use App\Models\GalleryImage;
+use App\Models\Notification;
 use App\Models\ShareContact;
 use Illuminate\Http\Request;
 use App\Mail\BookingCompleted;
@@ -18,14 +19,15 @@ use App\Models\PointTransaction;
 use App\Models\VolunteerBooking;
 use App\Models\OrganizationProfile;
 use App\Mail\ProjectReviewRequested;
-use App\Models\Notification;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\Storage;
+use App\Mail\OrganizationProfileUpdated;
 use App\Models\OrganizationVerification;
 use App\Services\VolunteerPointsService;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Log; // Add this import
 
 class OrganizationController extends Controller
 {
@@ -261,7 +263,7 @@ class OrganizationController extends Controller
         $organization = OrganizationProfile::where('user_public_id', $user->public_id)->first();
 
         $organization_verification = $organization
-            ? OrganizationVerification::where('organization_profile_public_id', $organization->public_id)->first()
+            ? OrganizationVerification::where('organization_profile_id', $organization->id)->first()
             : null;
 
         return Inertia::render('Organizations/Profile', [
@@ -323,16 +325,53 @@ class OrganizationController extends Controller
             $data['logo'] = $request->input('current_logo');
         }
 
+        // Store the original data for comparison (if it's an update)
+        $originalData = $user->organization ? $user->organization->toArray() : null;
 
         // Update or create organization profile
         if ($user->organization) {
             $user->organization->update($data);
+            $updatedOrganization = $user->organization->fresh();
         } else {
             $data['user_public_id'] = $user->public_id;
-            OrganizationProfile::create($data);
+            $updatedOrganization = OrganizationProfile::create($data);
         }
 
+        // Send email notification to all admins
+        $this->notifyAdminsAboutProfileUpdate($user, $updatedOrganization, $originalData);
+
         return redirect()->back()->with('success', 'Profile updated successfully.');
+    }
+
+    /**
+     * Notify all admins about organization profile update
+     */
+    private function notifyAdminsAboutProfileUpdate(User $user, OrganizationProfile $organization, ?array $originalData = null)
+    {
+        try {
+            // Get all admin emails
+            $adminEmails = Admin::pluck('email')->toArray();
+
+            if (empty($adminEmails)) {
+                Log::warning('No admin emails found to send organization profile update notification');
+                return;
+            }
+
+            // Send email to each admin
+            foreach ($adminEmails as $email) {
+                Mail::to($email)->send(new OrganizationProfileUpdated($user, $organization, $originalData));
+            }
+
+            Log::info('Organization profile update notifications sent to admins', [
+                'organization' => $organization->name,
+                'admins_notified' => count($adminEmails)
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send organization profile update notifications to admins: ' . $e->getMessage(), [
+                'organization_id' => $organization->id,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 
     public function messages()
@@ -663,7 +702,14 @@ class OrganizationController extends Controller
         $data['skills'] = $request->input('skills', []);
 
         $data['user_public_id'] = Auth::user()->public_id;
-        $data['status'] = $isEdit ? $project->status : 'Pending';
+
+        // NEW LOGIC: If editing and project was rejected, change status to Pending and reset request_for_approval
+        if ($isEdit && $project->status === 'Rejected') {
+            $data['status'] = 'Pending';
+            $data['request_for_approval'] = 0; // Reset to 0
+        } else {
+            $data['status'] = $isEdit ? $project->status : 'Pending';
+        }
 
         // Handle featured image
         if ($request->hasFile('featured_image')) {
@@ -721,9 +767,8 @@ class OrganizationController extends Controller
             ]);
         }
 
-
         $message = $isEdit
-            ? 'Project updated successfully.'
+            ? 'Project updated successfully.' . ($project->status === 'Pending' ? ' Project resubmitted for approval.' : '')
             : 'Project created successfully.';
 
         return redirect()->route('organization.projects')->with('success', $message);
@@ -788,6 +833,11 @@ class OrganizationController extends Controller
             'remove_featured_image' => 'nullable|boolean',
         ]);
 
+        // NEW LOGIC: If project was rejected, change status to Pending and reset request_for_approval
+        if ($project->status === 'Rejected') {
+            $data['status'] = 'Pending';
+            $data['request_for_approval'] = 0; // Reset to 0
+        }
 
         // Handle featured image
         if ($request->hasFile('featured_image')) {
@@ -829,8 +879,10 @@ class OrganizationController extends Controller
 
         $project->update($data);
 
+        $message = 'Project updated successfully.' . ($project->status === 'Pending' ? ' Project resubmitted for approval.' : '');
+
         return redirect()->route('organization.projects')
-            ->with('success', 'Project updated successfully.');
+            ->with('success', $message);
     }
 
     public function deleteProject($slug)

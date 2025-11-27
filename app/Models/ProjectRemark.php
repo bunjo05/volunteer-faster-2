@@ -9,7 +9,7 @@ class ProjectRemark extends Model
     protected $fillable = [
         'project_public_id',
         'admin_public_id',
-        'booking_public_id',
+        // 'booking_public_id',
         'user_public_id',
         'comment',
         'status',
@@ -31,10 +31,10 @@ class ProjectRemark extends Model
         return $this->belongsTo(User::class, 'user_public_id', 'public_id');
     }
 
-    public function booking()
-    {
-        return $this->belongsTo(VolunteerBooking::class, 'booking_public_id', 'public_id');
-    }
+    // public function booking()
+    // {
+    //     return $this->belongsTo(VolunteerBooking::class, 'booking_public_id', 'public_id');
+    // }
 
     public function comments()
     {

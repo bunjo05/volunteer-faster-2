@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignUlid('user_public_id')->constrained('users', 'public_id')->onDelete('cascade');
             $table->foreignUlid('project_public_id')->constrained('projects', 'public_id')->onDelete('cascade');
             $table->foreignUlid('admin_public_id')->constrained('admins', 'public_id')->onDelete('cascade');
-            $table->foreignUlid('booking_public_id')->constrained('volunteer_bookings', 'public_id')->onDelete('cascade');
+            // $table->foreignUlid('booking_public_id')->constrained('volunteer_bookings', 'public_id')->onDelete('cascade');
 
             // $table->foreignId('user_id')->constrained()->onDelete('cascade');
             // $table->foreignId('project_id')->constrained()->onDelete('cascade');
