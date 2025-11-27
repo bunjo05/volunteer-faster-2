@@ -65,10 +65,7 @@ Route::post('/sponsorship/paypal/create-order', [SponsorshipPaymentController::c
 Route::post('/sponsorship/paypal/capture-order', [SponsorshipPaymentController::class, 'captureOrder']);
 Route::get('/sponsorship/payment/success', [SponsorshipPaymentController::class, 'success'])->name('sponsorship.payment.success');
 Route::get('/sponsorship/payment/cancel', [SponsorshipPaymentController::class, 'cancel'])->name('sponsorship.payment.cancel');
-// Route::post('/sponsorship/payment', [SponsorshipPaymentController::class, 'createCheckoutSession']);
-// Route::get('/sponsorship/payment/success', [SponsorshipPaymentController::class, 'handleSuccess'])->name('sponsorship.payment.success');
-// Route::get('/sponsorship/payment/cancel', [SponsorshipPaymentController::class, 'handleCancel'])->name('sponsorship.payment.cancel');
-// Route::post('/stripe/sponsorship-webhook', [SponsorshipPaymentController::class, 'handleWebhook']);
+
 Route::post('/auth/volunteer-booking/store', [BookingController::class, 'authStore'])->name('auth.volunteer.booking.store');
 Route::get('/volunteer-programs/{slug}/{organization_profile}', [HomeController::class, 'OrganizationProfile'])
     ->name('home.organization.profile');

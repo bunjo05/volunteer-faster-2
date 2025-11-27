@@ -27,7 +27,7 @@ class ChatController extends Controller
             ->first();
 
         if (!$chat) {
-            // Create a new chat without an admin initially
+            // Create a new chat without an admin initially - status will be pending
             $chat = Chat::create(['status' => 'pending']);
             $chat->participants()->create(['user_id' => $user->id]);
 
@@ -97,52 +97,6 @@ class ChatController extends Controller
         ]);
     }
 
-    // public function store(Request $request)
-    // {
-    //     $request->validate([
-    //         'content' => 'required|string',
-    //         'chat_id' => 'required|exists:chats,id',
-    //         'temp_id' => 'nullable'
-    //     ]);
-
-    //     $user = Auth::user();
-    //     $chat = Chat::find($request->chat_id);
-
-    //     // Verify user is part of this chat
-    //     if (!$chat->participants()->where('user_id', $user->id)->exists()) {
-    //         return response()->json(['error' => 'Unauthorized'], 403);
-    //     }
-
-    //     $message = $chat->messages()->create([
-    //         'content' => $request->content,
-    //         'sender_id' => Auth::id(),
-    //         'sender_type' => get_class(Auth::user()),
-    //         'temp_id' => $request->temp_id
-    //     ]);
-
-    //     $message->load('sender');
-
-    //     $formattedMessage = [
-    //         'id' => $message->id,
-    //         'content' => $message->content,
-    //         'sender_id' => $message->sender_id,
-    //         'sender_type' => $message->sender_type,
-    //         'created_at' => $message->created_at->toISOString(),
-    //         'status' => 'Sent',
-    //         'sender' => $message->sender,
-    //         'is_admin' => $message->sender_type === 'App\Models\Admin',
-    //         'temp_id' => $message->temp_id
-    //     ];
-
-    //     // broadcast(new NewChatMessage($formattedMessage, $chat->id))->toOthers();
-
-    //     return response()->json([
-    //         'success' => true,
-    //         'message_id' => $message->id,
-    //         'temp_id' => $message->temp_id
-    //     ]);
-    // }
-
     public function acceptChat(Request $request, Chat $chat)
     {
         $admin = auth('admin')->user();
@@ -150,6 +104,12 @@ class ChatController extends Controller
         // Verify chat is pending and not already assigned
         if ($chat->status !== 'pending') {
             abort(400, 'Chat already assigned');
+        }
+
+        // Check if chat already has an admin assigned
+        $hasAdmin = $chat->participants()->whereNotNull('admin_id')->exists();
+        if ($hasAdmin) {
+            abort(400, 'Chat already assigned to an admin');
         }
 
         // Assign admin to chat
@@ -169,7 +129,6 @@ class ChatController extends Controller
         ], $chat->id));
 
         return back();
-        // return response()->json(['success' => true]);
     }
 
     public function endChat(Request $request, Chat $chat)
@@ -244,14 +203,14 @@ class ChatController extends Controller
                 ];
             });
 
-        // Get unassigned chats (where no participant has an admin_id)
+        // Get unassigned chats (where no participant has an admin_id) with pending status
         $unassignedChats = Chat::whereHas('participants', function ($query) {
             $query->whereNull('admin_id');
         })
             ->whereDoesntHave('participants', function ($query) {
                 $query->whereNotNull('admin_id');
             })
-            ->where('status', 'pending')
+            ->where('status', 'pending') // Ensure only pending chats are shown
             ->with(['participants.user', 'messages' => function ($query) {
                 $query->orderBy('created_at', 'asc');
             }])
@@ -357,23 +316,8 @@ class ChatController extends Controller
         $message->load('sender');
 
         return back()->with('success', 'Message sent successfully');
-
-        // return response()->json([
-        //     'success' => true,
-        //     'message_id' => $message->id,
-        //     'message' => [
-        //         'id' => $message->id,
-        //         'message' => $message->content,
-        //         'sender_id' => $message->sender_id,
-        //         'sender_type' => $message->sender_type,
-        //         'created_at' => $message->created_at->toISOString(),
-        //         'status' => 'Sent',
-        //         'sender' => $message->sender,
-        //     ]
-        // ]);
-
-
     }
+
     public function AdminMarkAsRead(Chat $chat)
     {
         $admin = auth('admin')->user();
@@ -403,6 +347,14 @@ class ChatController extends Controller
             // Reload the chat with participants to avoid stale data
             $chat->load('participants');
 
+            // Check if chat status is pending
+            if ($chat->status !== 'pending') {
+                DB::rollBack();
+                return redirect()->route('chat.index')->with([
+                    'error' => 'Chat is no longer available for assignment'
+                ]);
+            }
+
             // Check for existing admin assignments (atomic with transaction)
             $existingAdminParticipant = $chat->participants
                 ->firstWhere('admin_id', '!=', null);
@@ -410,8 +362,6 @@ class ChatController extends Controller
             if ($existingAdminParticipant) {
                 if ($existingAdminParticipant->admin_id === $admin->id) {
                     DB::commit();
-
-                    // Return Inertia redirect for page reload
                     return redirect()->route('chat.index')->with([
                         'success' => 'You are already assigned to this chat'
                     ]);
@@ -423,7 +373,7 @@ class ChatController extends Controller
                 ]);
             }
 
-            // FIX: Correct the participant creation - removed the extra array
+            // Assign admin to chat and update status
             $chat->participants()->create(['admin_id' => $admin->id]);
             $chat->update(['status' => 'active']);
 
@@ -437,7 +387,6 @@ class ChatController extends Controller
 
             DB::commit();
 
-            // Return Inertia redirect to reload the page with updated data
             return redirect()->route('chat.index')->with([
                 'success' => 'Chat accepted successfully'
             ]);
@@ -484,13 +433,19 @@ class ChatController extends Controller
             ->get()
             ->map(function ($chat) use ($user) {
                 $adminParticipant = $chat->participants->firstWhere('admin_id', '!=', null);
+
+                // Ensure status is pending if no admin is assigned
+                if (!$adminParticipant && $chat->status !== 'pending') {
+                    $chat->update(['status' => 'pending']);
+                }
+
                 return [
                     'id' => $chat->id,
                     'status' => $chat->status,
                     'updated_at' => $chat->updated_at,
                     'unread_count' => $chat->messages()
                         ->where('sender_type', 'App\\Models\\Admin')
-                        ->whereNull('read_at') // Use read_at instead of status
+                        ->whereNull('read_at')
                         ->count(),
                     'latest_message' => $chat->latestMessage?->content,
                     'admin' => $adminParticipant?->admin ? [
@@ -531,13 +486,13 @@ class ChatController extends Controller
             $query->where('user_id', $user->id);
         })->where('status', 'active')->count();
 
-        if ($activeChatCount >= 1) { // Adjust this number as needed
+        if ($activeChatCount >= 1) {
             return response()->json([
                 'error' => 'You already have an active chat'
             ], 400);
         }
 
-        // Create the chat
+        // Create the chat with pending status
         $chat = Chat::create([
             'status' => 'pending',
         ]);
@@ -626,8 +581,9 @@ class ChatController extends Controller
             'content' => $request->content,
         ]);
 
-        // Update chat status if it was pending
-        if ($chat->status === 'pending') {
+        // Only update chat status to active if it's pending AND an admin is assigned
+        $hasAdmin = $chat->participants()->whereNotNull('admin_id')->exists();
+        if ($chat->status === 'pending' && $hasAdmin) {
             $chat->update(['status' => 'active']);
         }
 

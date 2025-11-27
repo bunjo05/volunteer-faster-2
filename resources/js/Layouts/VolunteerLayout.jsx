@@ -6,6 +6,7 @@ import PlatformReview from "@/Components/PlatformReview";
 import NotificationBell from "@/Components/NotificationBell";
 import axios from "axios";
 import "../../css/animations.css";
+import FloatingChat from "@/Components/FloatingChat";
 
 import {
     Home,
@@ -295,6 +296,8 @@ export default function VolunteerLayout({ children, auth, points }) {
                     isOpen={isMessageSidebarOpen}
                     onClose={() => setIsMessageSidebarOpen(false)}
                 />
+
+                <FloatingChat auth={auth} />
 
                 {/* Conditionally render PlatformReview component */}
                 {hasVolunteerProfile && <PlatformReview />}
