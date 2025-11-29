@@ -1,12 +1,15 @@
 <?php
 
 use Inertia\Inertia;
+use App\Models\Payment;
 use App\Models\VolunteerBooking;
+use App\Mail\PaymentSuccessfulUser;
+use App\Mail\PaymentSuccessfulOwner;
 use Illuminate\Support\Facades\Auth;
+
 use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Request;
-
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\AdminsController;
@@ -29,6 +32,7 @@ use App\Http\Controllers\SponsorshipPaymentController;
 use App\Http\Controllers\Auth\OtpVerificationController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 
+// API Routes
 Route::get('/api/check-volunteer-profile', function () {
     $user = Auth::user();
 
@@ -43,39 +47,75 @@ Route::get('/api/check-volunteer-profile', function () {
     ]);
 })->middleware('auth');
 
-
+// Static Routes - Most Specific First
 Route::get('/', [HomeController::class, 'index'])->name('home');
+
+// Legal and informational pages
 Route::get('/about', [HomeController::class, 'about'])->name('about');
+Route::get('/about-us', function () {
+    return inertia('About');
+})->name('about');
 Route::get('/contact', [HomeController::class, 'contact'])->name('contact');
+Route::get('/contact-us', [HomeController::class, 'contactUs'])->name('contact');
+Route::post('/contact-us', [HomeController::class, 'storeContactMessage'])->name('contact.store');
 Route::get('/privacy-policy', [HomeController::class, 'privacyPolicy'])->name('privacy.policy');
 Route::get('/terms-and-conditions', [HomeController::class, 'termsAndConditions'])->name('terms.conditions');
 Route::get('/faq', [HomeController::class, 'faq'])->name('faq');
+Route::get('/volunteer-guide', function () {
+    return inertia('Guide');
+})->name('guide');
+Route::get('/gdpr', function () {
+    return inertia('GDPR');
+})->name('gdpr');
+Route::get('/cookies', function () {
+    return inertia('Cookies');
+})->name('cookies');
+
+// Main section routes
 Route::get('/volunteer', [HomeController::class, 'volunteer'])->name('volunteer');
 Route::get('/organization', [HomeController::class, 'organization'])->name('organization');
+Route::get('/volunteer-feed', [VolunteerFeedController::class, 'index'])->name('volunteer.feed.index');
+Route::get('/corporate-impact-sponsorship', [HomeController::class, 'sponsorshipPage'])->name('guest.sponsorship.page');
+
+// Volunteer programs routes
 Route::get('/volunteer-programs', [HomeController::class, 'projects'])->name('projects');
 Route::get('/volunteer-programs/{slug}', [HomeController::class, 'viewProject'])->name('projects.home.view');
 Route::get('/volunteer-programs/{slug}/volunteer', [BookingController::class, 'index'])->name('project.volunteer.booking');
-Route::post('/volunteer-programs/report', [VolunteerController::class, 'storeProjectReport'])->name('project.report.store');
+// Route::get('/volunteer-programs/{slug}/{organization_profile}', [HomeController::class, 'OrganizationProfile'])
+//     ->name('home.organization.profile');
+// Route::get('/projects/{project_slug}/organization/{organization_slug}', [HomeController::class, 'OrganizationProfile'])
+//     ->name('home.organization.profile');
+
+// Booking and verification routes
 Route::post('/send-verification-code', [BookingController::class, 'volunteerEmailSend'])->name('volunteer.email.send');
 Route::post('/check-email-exists', [BookingController::class, 'checkEmailExists'])->name('volunteer.email.exists');
 Route::post('/volunteer/email/verify', [BookingController::class, 'verify'])->name('volunteer.email.verify');
 Route::post('/volunteer-booking/store', [BookingController::class, 'store'])->name('volunteer.booking.store');
-Route::get('/corporate-impact-sponsorship', [HomeController::class, 'sponsorshipPage'])->name('guest.sponsorship.page');
-Route::get('/corporate-impact-sponsorship/{sponsorship_public_id}', [HomeController::class, 'sponsorshipPageIndividual'])->name('volunteer.guest.sponsorship.page.with.volunteer');
+Route::post('/auth/volunteer-booking/store', [BookingController::class, 'authStore'])->name('auth.volunteer.booking.store');
 
+// Sponsorship routes
+Route::get('/corporate-impact-sponsorship/{sponsorship_public_id}', [HomeController::class, 'sponsorshipPageIndividual'])->name('volunteer.guest.sponsorship.page.with.volunteer');
 Route::post('/sponsorship/paypal/create-order', [SponsorshipPaymentController::class, 'createOrder']);
 Route::post('/sponsorship/paypal/capture-order', [SponsorshipPaymentController::class, 'captureOrder']);
 Route::get('/sponsorship/payment/success', [SponsorshipPaymentController::class, 'success'])->name('sponsorship.payment.success');
 Route::get('/sponsorship/payment/cancel', [SponsorshipPaymentController::class, 'cancel'])->name('sponsorship.payment.cancel');
 
-Route::post('/auth/volunteer-booking/store', [BookingController::class, 'authStore'])->name('auth.volunteer.booking.store');
-Route::get('/volunteer-programs/{slug}/{organization_profile}', [HomeController::class, 'OrganizationProfile'])
-    ->name('home.organization.profile');
+// Project reporting
+Route::post('/volunteer-programs/report', [VolunteerController::class, 'storeProjectReport'])->name('project.report.store');
 
-// Vounteer Feed
-Route::get('/volunteer-feed', [VolunteerFeedController::class, 'index'])
-    ->name('volunteer.feed.index');
+// Certificate verification
+Route::get('/certificate/verify/{public_id}/{hash}', [HomeController::class, 'verifyCertificate'])
+    ->name('certificate.verify');
 
+// Authentication routes
+Route::get('/auth/google', [SocialAuthController::class, 'redirectToGoogle'])->name('google.login');
+Route::get('/auth/google/callback', [SocialAuthController::class, 'handleGoogleCallback']);
+
+Route::get('/verify-otp', [OtpVerificationController::class, 'show'])->name('otp.verify');
+Route::post('/verify-otp', [OtpVerificationController::class, 'store'])->name('otp.verify.store');
+Route::post('/otp/resend', [AuthenticatedSessionController::class, 'resend'])->name('otp.resend');
+
+// Dashboard route
 Route::get('/dashboard', function () {
     $user = Auth::user();
 
@@ -95,28 +135,10 @@ Route::get('/dashboard', function () {
             return Inertia::render('Dashboard');
     }
 })->middleware(['auth', 'verified'])->name('dashboard');
-// Route::get('/dashboard', function () {
-//     $user = Auth::user();
 
-//     if ($user->role === "Organization") {
-//         return redirect()->route('organization.dashboard');
-//     }
-
-//     if ($user->role === "Volunteer") {
-//         return redirect()->route('volunteer.dashboard');
-//     }
-
-//     if ($user->role === 'Sponsor') {
-//         return redirect()->route('sponsor.dashboard');
-//     }
-
-//     return Inertia::render('Dashboard');
-// })->middleware(['auth', 'verified'])->name('dashboard');
-
+// Authenticated user routes
 Route::middleware('auth')->group(function () {
-
     Route::post('/project-remark-comments', [HomeController::class, 'storeReviews'])
-        // ->middleware(['auth'])
         ->name('project.remark.comments.store');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -124,18 +146,9 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-Route::get('/auth/google', [SocialAuthController::class, 'redirectToGoogle'])->name('google.login');
-Route::get('/auth/google/callback', [SocialAuthController::class, 'handleGoogleCallback']);
-
-Route::get('/verify-otp', [OtpVerificationController::class, 'show'])->name('otp.verify');
-Route::post('/verify-otp', [OtpVerificationController::class, 'store'])->name('otp.verify.store');
-
-Route::post('/otp/resend', [AuthenticatedSessionController::class, 'resend'])->name('otp.resend');
-
 // Sponsor Routes
 Route::prefix('sponsor')->middleware(['check.role:Sponsor', 'auth'])->group(function () {
     Route::get('/dashboard', [SponsorController::class, 'dashboard'])->name('sponsor.dashboard');
-    // Route::get('/')
 });
 
 // Admin Routes
@@ -166,7 +179,6 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     Route::get('/projects', [AdminsController::class, 'projects'])->name('admin.projects');
     Route::get('/projects/{slug}', [AdminsController::class, 'viewProject'])->name('admin.projects.view');
     Route::get('/messages', [AdminsController::class, 'messages'])->name('admin.messages');
-
 
     Route::get('/categories', [AdminsController::class, 'categories'])->name('admin.categories');
     Route::post('/categories', [AdminsController::class, 'storeCategory'])->name('admin.categories.store');
@@ -227,9 +239,6 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
 
     Route::put('/contacts/{contact}/status', [AdminsController::class, 'updateContactStatus']);
 
-    // Route::post('/contacts/{contact}/toggle-suspension', [AdminsController::class, 'toggleContactSuspension'])
-    //     ->name('admin.contacts.toggle-suspension');
-
     // Referral
     Route::get('/referrals', [AdminsController::class, 'userReferral'])->name('admin.referrals.index');
     Route::post('/referrals/{referral}/approve', [AdminsController::class, 'approve'])->name('admin.referrals.approve');
@@ -248,6 +257,7 @@ Route::prefix('admin')->middleware('auth:admin')->group(function () {
     Route::delete('/sponsors/{id}', [AdminsController::class, 'destroySponsor'])->name('admin.sponsors.destroy');
 });
 
+// Volunteer Routes
 Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
     Route::get('/dashboard', [VolunteerController::class, 'index'])->name('volunteer.dashboard');
     Route::get('/messages', [VolunteerController::class, 'messages'])->name('volunteer.messages');
@@ -290,8 +300,14 @@ Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(
 
     Route::post('/appreciation/send', [VolunteerController::class, 'sendAppreciation'])
         ->name('volunteer.appreciation.send');
+
+    Route::post('/sponsorship-applications/{application}/submit', [VolunteerController::class, 'submitSponsorshipApplication'])
+        ->name('volunteer.sponsorship-applications.submit');
+
+    Route::post('/sponsorship-applications/update', [VolunteerController::class, 'updateSponsorshipApplication'])->name('volunteer.sponsorship-applications.update');
 });
 
+// Organization Routes
 Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->group(function () {
     // All specific routes first
     Route::get('/dashboard', [OrganizationController::class, 'index'])->name('organization.dashboard');
@@ -342,6 +358,7 @@ Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->
     Route::get('/{volunteer_profile}', [OrganizationController::class, 'volunteerProfile'])->name('organization.volunteer.profile');
 });
 
+// Chat Routes
 Route::middleware(['auth'])->prefix('chats')->group(function () {
     Route::get('/list', [ChatController::class, 'listChats'])->name('volunteer.chat.list');
     Route::post('/new', [ChatController::class, 'startNewChat'])->name('volunteer.chat.new');
@@ -350,7 +367,7 @@ Route::middleware(['auth'])->prefix('chats')->group(function () {
     Route::post('/{chat}/read', [ChatController::class, 'markAsRead'])->name('volunteer.chat.read');
 });
 
-// routes/web.php
+// Payment Routes
 Route::middleware('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(function () {
     Route::post('/organizations/{organization}/follow', [VolunteerFollowOrganization::class, 'follow'])
         ->name('organizations.follow');
@@ -369,80 +386,32 @@ Route::middleware('volunteer')->middleware(['check.role:Volunteer', 'auth'])->gr
     Route::post('/paypal/webhook', [PayPalPaymentController::class, 'handleWebhook'])->name('paypal.webhook');
 });
 
-Route::get('/mail-preview/user', function () {
-    $booking = \App\Models\VolunteerBooking::with(['user', 'project.user'])->first();
-    $payment = \App\Models\Payment::first();
-    return new \App\Mail\PaymentSuccessfulUser($booking, $payment);
-});
-
-Route::get('/mail-preview/owner', function () {
-    $booking = \App\Models\VolunteerBooking::with(['user', 'project.user'])->first();
-    $payment = \App\Models\Payment::first();
-    return new \App\Mail\PaymentSuccessfulOwner($booking, $payment);
-});
-
-// Route::get('/mail-preview/admin', function () {
-//     $booking = \App\Models\VolunteerBooking::with(['user', 'project.user'])->first();
-//     $payment = \App\Models\Payment::first();
-//     return new \App\Mail\PaymentSuccessfulAdmin($booking, $payment);
-// });
-
-// Stripe webhook
-Route::post('/stripe/webhook', [FeaturedProjectController::class, 'handleWebhook']);
-
-Route::get('/certificate/verify/{public_id}/{hash}', [HomeController::class, 'verifyCertificate'])
-    ->name('certificate.verify');
-
-Route::get('/terms-and-conditions', function () {
-    return inertia('Terms');
-})->name('terms');
-
-Route::get('/privacy-policy', function () {
-    return inertia('Privacy');
-})->name('privacy.policy');
-
-Route::get('/gdpr', function () {
-    return inertia('GDPR');
-})->name('gdpr');
-
-Route::get('/cookies', function () {
-    return inertia('Cookies');
-})->name('cookies');
-
-Route::get('/about-us', function () {
-    return inertia('About');
-})->name('about');
-
-Route::get('/volunteer-guide', function () {
-    return inertia('Guide');
-})->name('guide');
-
-Route::get(
-    '/contact-us',
-    [HomeController::class, 'contactUs']
-)->name('contact');
-
-Route::post('/contact-us', [HomeController::class, 'storeContactMessage'])->name('contact.store');
-
-// routes/web.php
-// Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
-//     Route::get('/referrals', [ReferralController::class, 'index'])->name('admin.referrals.index');
-//     Route::post('/referrals/{referral}/approve', [ReferralController::class, 'approve'])->name('admin.referrals.approve');
-//     Route::post('/referrals/{referral}/reject', [ReferralController::class, 'reject'])->name('admin.referrals.reject');
-// });
-
-// Route::middleware(['auth'])->group(function () {
-//     Route::get('/profile/referrals', [ProfileController::class, 'referrals'])->name('profile.referrals');
-// });
-
-
-
-// routes/web.php
+// Notification Routes
 Route::middleware(['auth'])->group(function () {
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-read');
     Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
     Route::get('/api/notifications/unread-count', [NotificationController::class, 'getUnreadCount']);
     Route::get('/api/notifications/recent', [NotificationController::class, 'getRecentNotifications']);
 });
+
+// Mail preview routes (development)
+Route::get('/mail-preview/user', function () {
+    $booking = VolunteerBooking::with(['user', 'project.user'])->first();
+    $payment = Payment::first();
+    return new PaymentSuccessfulUser($booking, $payment);
+});
+
+Route::get('/mail-preview/owner', function () {
+    $booking = VolunteerBooking::with(['user', 'project.user'])->first();
+    $payment = Payment::first();
+    return new PaymentSuccessfulOwner($booking, $payment);
+});
+
+// Webhook routes
+Route::post('/stripe/webhook', [FeaturedProjectController::class, 'handleWebhook']);
+
+// DYNAMIC ROUTES - MUST BE LAST
+Route::get('/organizations/{organization_slug}', [HomeController::class, 'OrganizationProfile'])
+    ->name('public.organization.profile');
 
 require __DIR__ . '/auth.php';

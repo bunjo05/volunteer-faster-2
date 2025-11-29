@@ -1,101 +1,106 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Status Update</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f7fc;
-            margin: 0;
-            padding: 0;
-        }
-        .email-container {
-            max-width: 600px;
-            margin: 20px auto;
-            background-color: #ffffff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-        }
-        .email-header {
-            text-align: center;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #f0f0f0;
-        }
-        .email-header img {
-            width: 100px;
-        }
-        .email-body {
-            margin-top: 20px;
-        }
-        .email-body p {
-            color: #555555;
-            font-size: 16px;
-            line-height: 1.6;
-        }
-        .status {
-            font-weight: bold;
-            color: #ff6600;
-        }
-        .cta {
-            margin-top: 30px;
-            text-align: center;
-        }
-        .cta a {
-            background-color: #007bff;
-            color: #ffffff;
-            text-decoration: none;
-            padding: 12px 30px;
-            font-size: 16px;
-            border-radius: 5px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-        }
-        .email-footer {
-            text-align: center;
-            margin-top: 40px;
-            font-size: 14px;
-            color: #888888;
-        }
-        .email-footer a {
-            color: #007bff;
-            text-decoration: none;
-        }
-    </style>
-</head>
-<body>
-    <div class="email-container">
-        <div class="email-header">
-            <img src="https://via.placeholder.com/100x50?text=Logo" alt="Company Logo">
-            <h2 style="color: #333333;">Account Status Update</h2>
-        </div>
+@component('mail::message')
+# Account Status Update
 
-        <div class="email-body">
-            <p>Hello {{ $user->name }},</p>
+Hello {{ $user->name }},
 
-            <p>Your account status has been updated to <span class="status" style="
-                    color: {{
-                        $status === 'Suspended' ? '#FF0000' :
-                        ($status === 'Active' ? '#008000' : '#ff6600')
-                    }};
-                ">
-                    {{ $status }}
-                </span>.
-           </p>
+@if($status === 'Active')
+🎉 **Congratulations!** Your account has been **approved** and is now **active** on our platform.
 
-            <p>If you have any questions or need assistance, feel free to <a href="mailto:support@example.com">contact our support team</a>.</p>
+@if($user->role === 'Organization')
+You can now create projects and enjoy the full capabilities of the platform. Start making an impact by creating your first project and connecting with volunteers who share your mission.
 
-            <div class="cta">
-                <a href="{{ route('dashboard') }}">Go to Dashboard</a>
-            </div>
-        </div>
+@component('mail::button', ['url' => route('organization.projects.create')])
+Create Your First Project
+@endcomponent
 
-        <div class="email-footer">
-            <p>Regards,</p>
-            <p><strong>Admin Team</strong></p>
-            <p><a href="https://example.com">Visit our website</a></p>
-        </div>
-    </div>
-</body>
-</html>
+**Want to enhance credibility?** You can continue to verify your organization by following the link below:
+
+@component('mail::button', ['url' => route('organization.profile')])
+Verify Your Organization
+@endcomponent
+
+@elseif($user->role === 'Volunteer')
+You can now apply for volunteering opportunities at any project that matches your interests and skills. Start your journey by exploring available projects and making a difference in communities around the world.
+
+@component('mail::button', ['url' => route('projects')])
+Browse Available Projects
+@endcomponent
+
+@elseif($user->role === 'Sponsor')
+You can now support volunteers and projects that align with your values. Help fund meaningful initiatives and make a lasting impact by sponsoring dedicated volunteers and their projects.
+
+@component('mail::button', ['url' => route('guest.sponsorship.page')])
+Explore Sponsorship Opportunities
+@endcomponent
+
+@endif
+
+We're excited to have you on board and can't wait to see the positive impact you'll make!
+
+@elseif($status === 'Suspended')
+🚫 **Account Suspended**
+
+We're sorry to inform you that your account has been **suspended**. This action was taken due to a violation of our platform policies or terms of service.
+
+**What this means:**
+- You cannot access most platform features
+- Your projects/volunteering activities are temporarily paused
+- You cannot receive or send messages
+
+If you believe this is a mistake or would like to appeal this decision, please contact our support team immediately.
+
+@component('mail::button', ['url' => 'mailto:support@example.com'])
+Contact Support Team
+@endcomponent
+
+@elseif($status === 'Pending')
+⏳ **Account Pending Approval**
+
+Your account is currently **pending approval**. Our team is reviewing your registration details and will update your status shortly.
+
+**What to expect:**
+- We typically process approvals within 24-48 hours
+- You'll receive an email notification once approved
+- Some platform features may be limited until approval
+
+Thank you for your patience during this process.
+
+@endif
+
+@if($status === 'Active')
+## Next Steps:
+1. Complete your profile to increase visibility
+2. Explore the platform features
+3. Connect with other members
+4. Start creating or joining projects
+
+@component('mail::button', ['url' => route('dashboard')])
+Go to Dashboard
+@endcomponent
+
+@else
+If you have any questions or need assistance, please don't hesitate to contact our support team.
+
+@component('mail::button', ['url' => route('dashboard')])
+Go to Dashboard
+@endcomponent
+@endif
+
+Thanks,<br>
+{{ config('app.name') }}
+
+@component('mail::subcopy')
+If you're having trouble clicking the buttons, copy and paste the URLs below into your web browser:
+
+@if($status === 'Active' && $user->role === 'Organization')
+- Create Project: {{ route('organization.projects.create') }}
+- Verify Organization: {{ route('organization.profile') }}
+@elseif($status === 'Active' && $user->role === 'Volunteer')
+- Browse Projects: {{ route('projects') }}
+@elseif($status === 'Active' && $user->role === 'Sponsor')
+- Sponsorship Opportunities: {{ route('guest.sponsorship.page') }}
+@endif
+- Dashboard: {{ route('dashboard') }}
+@endcomponent
+
+@endcomponent

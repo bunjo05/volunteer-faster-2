@@ -416,11 +416,11 @@ export default function ViewProject({
                 {/* Right Column - Sidebar */}
                 <div className="space-y-6">
                     {/* Organization Card */}
+                    {/* Organization Card */}
                     <div className="card bg-white shadow-sm border border-gray-100 overflow-hidden">
                         <Link
-                            href={route("home.organization.profile", {
-                                slug: project.slug,
-                                organization_profile:
+                            href={route("public.organization.profile", {
+                                organization_slug:
                                     project.organization_profile.slug,
                             })}
                             className="card-body p-6 hover:bg-gray-50 transition-colors"
@@ -512,11 +512,11 @@ export default function ViewProject({
                                                     <DollarSign className="h-5 w-5 text-primary" />
                                                 </div>
                                             </div>
-                                            {project.includes && (
+                                            {/* {project.includes && (
                                                 <p className="text-xs text-gray-500 mt-2">
                                                     {project.includes}
                                                 </p>
-                                            )}
+                                            )} */}
                                         </div>
                                     )}
                                 </>

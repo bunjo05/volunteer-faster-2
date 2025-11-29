@@ -27,6 +27,7 @@ use App\Mail\OrganizationProfileUpdated;
 use App\Models\OrganizationVerification;
 use App\Services\VolunteerPointsService;
 use Illuminate\Validation\ValidationException;
+use App\Mail\UserVerificationRequestNotification;
 use Illuminate\Support\Facades\Log; // Add this import
 
 class OrganizationController extends Controller
@@ -1029,11 +1030,72 @@ class OrganizationController extends Controller
         // Add the organization profile ID to the data
         $data['organization_profile_id'] = $organizationProfile->id;
 
-        // Create the verification record
-        OrganizationVerification::create($data);
+        // Check if there's an existing verification with "Rejected" status
+        $existingVerification = OrganizationVerification::where('organization_profile_id', $organizationProfile->id)
+            ->where('status', 'Rejected')
+            ->latest()
+            ->first();
+
+        if ($existingVerification) {
+            // Update the existing rejected verification
+            $existingVerification->update([
+                'type_of_document' => $data['type_of_document'],
+                'certificate' => $data['certificate'],
+                'type_of_document_2' => $data['type_of_document_2'] ?? null,
+                'another_document' => $data['another_document'] ?? null,
+                'status' => 'Pending', // Reset status to Pending
+                'submitted_at' => now(), // Update submission timestamp
+                // Preserve admin_id and comment from previous rejection
+                'admin_id' => $existingVerification->admin_id,
+                'comment' => $existingVerification->comment,
+            ]);
+
+            $verification = $existingVerification;
+        } else {
+            // Create new verification record
+            $verification = OrganizationVerification::create([
+                ...$data,
+                'status' => 'Pending'
+            ]);
+        }
+
+        // Send notification to all admins
+        $this->notifyAdminsAboutVerificationRequest(Auth::user(), $data);
 
         // Redirect to profile page with success message
         return redirect()->route('organization.profile')->with('success', 'Verification documents submitted successfully!');
+    }
+
+    /**
+     * Notify all admins about verification request
+     */
+    private function notifyAdminsAboutVerificationRequest(User $user, array $data = [])
+    {
+        try {
+            // Get all admin emails
+            $adminEmails = Admin::pluck('email')->toArray();
+
+            if (empty($adminEmails)) {
+                Log::warning('No admin emails found to send verification request notification');
+                return;
+            }
+
+            // Send email to each admin
+            foreach ($adminEmails as $email) {
+                Mail::to($email)->send(new UserVerificationRequestNotification($user,  $data));
+            }
+
+            Log::info('Verification request notifications sent to admins', [
+                'user_id' => $user->id,
+                'user_role' => $user->role,
+                'admins_notified' => count($adminEmails)
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send verification request notifications to admins: ' . $e->getMessage(), [
+                'user_id' => $user->id,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 
     public function requestContactAccess(Request $request)

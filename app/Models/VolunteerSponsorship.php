@@ -26,8 +26,10 @@ class VolunteerSponsorship extends Model
         'commitment',
         'agreement',
         'aspect_needs_funding',
+        'rejection_reason',
         'skills',
-        'privacy'
+        'privacy',
+        'status'
     ];
 
     protected $casts = [

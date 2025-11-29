@@ -33,6 +33,7 @@ return new class extends Migration
             $table->boolean('privacy')->default(false);
             $table->enum('status', ['Pending', 'Approved', 'Rejected'])->default('Pending');
             $table->boolean('agreement')->default(false);
+            $table->text('rejection_reason')->nullable();
             $table->timestamps();
         });
     }

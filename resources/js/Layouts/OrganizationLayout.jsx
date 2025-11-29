@@ -580,15 +580,7 @@ export default function OrganizationLayout({ children, auth }) {
                                             Profile & Settings
                                         </Link>
                                     </li>
-                                    <li>
-                                        <Link
-                                            href="#"
-                                            className="hover:bg-slate-50 rounded-xl"
-                                        >
-                                            <HelpCircle className="w-4 h-4" />
-                                            Help & Support
-                                        </Link>
-                                    </li>
+
                                     <div className="divider my-2"></div>
                                     <li>
                                         <Link

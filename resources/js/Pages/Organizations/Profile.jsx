@@ -2,7 +2,16 @@ import OrganizationLayout from "@/Layouts/OrganizationLayout";
 import { useState, useEffect } from "react";
 import { usePage, useForm, Head, router } from "@inertiajs/react";
 import LocationDropdown from "@/Components/LocationDropdown";
-import { CheckCircle, Users, Copy, User, Check } from "lucide-react";
+import {
+    CheckCircle,
+    Users,
+    Copy,
+    User,
+    Check,
+    Clock,
+    AlertCircle,
+    FileText,
+} from "lucide-react";
 import VerifiedBadge from "@/Components/VerifiedBadge";
 
 // Reusable form components (copied from the first example)
@@ -205,9 +214,9 @@ export default function Profile({
         address: org.address || "",
         postal: org.postal || "",
 
-        logo: null, // Initialize as null
-        current_logo: org.logo || null, // Store the current logo path separately
-        remove_logo: false, // Flag to track if logo should be removed
+        logo: null,
+        current_logo: org.logo || null,
+        remove_logo: false,
     });
 
     const MAX_MISSION_VISION_VALUES = 200;
@@ -277,6 +286,164 @@ export default function Profile({
         );
     };
 
+    // FIXED: Move getVerificationStatusDisplay after handleVerifyClick and use inline SVGs
+    const getVerificationStatusDisplay = () => {
+        if (!organization_verification) return null;
+
+        const status = organization_verification.status;
+        const comments = organization_verification.comments;
+        const updatedAt = organization_verification.updated_at;
+
+        // Use inline SVG icons to avoid import issues
+        const statusConfig = {
+            Pending: {
+                icon: (
+                    <svg
+                        className="h-5 w-5 mt-0.5 mr-3 flex-shrink-0 text-yellow-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                    </svg>
+                ),
+                color: "text-yellow-600",
+                bgColor: "bg-yellow-50",
+                borderColor: "border-yellow-200",
+                title: "Verification Pending",
+                message:
+                    "Your verification request is under review. We'll notify you once it's processed.",
+            },
+            Approved: {
+                icon: (
+                    <svg
+                        className="h-5 w-5 mt-0.5 mr-3 flex-shrink-0 text-green-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                        />
+                    </svg>
+                ),
+                color: "text-green-600",
+                bgColor: "bg-green-50",
+                borderColor: "border-green-200",
+                title: "Verification Approved",
+                message: "Your organization has been successfully verified!",
+            },
+            Rejected: {
+                icon: (
+                    <svg
+                        className="h-5 w-5 mt-0.5 mr-3 flex-shrink-0 text-red-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                    </svg>
+                ),
+                color: "text-red-600",
+                bgColor: "bg-red-50",
+                borderColor: "border-red-200",
+                title: "Verification Rejected",
+                message: "Your verification request requires attention.",
+            },
+        };
+
+        const config = statusConfig[status];
+        if (!config) return null;
+
+        return (
+            <div
+                className={`rounded-lg p-4 border ${config.bgColor} ${config.borderColor} mb-6`}
+            >
+                <div className="flex items-start">
+                    {config.icon}
+                    <div className="flex-1">
+                        <h3 className={`text-sm font-semibold ${config.color}`}>
+                            {config.title}
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                            {config.message}
+                        </p>
+
+                        {/* Show admin comment if rejected - ENHANCED SECTION */}
+                        {status === "Rejected" && (
+                            <div className="mt-3">
+                                {comments ? (
+                                    <div className="p-3 bg-white rounded-md border border-gray-200">
+                                        <div className="flex items-center mb-2">
+                                            <svg
+                                                className="h-4 w-4 text-gray-500 mr-2"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    strokeWidth={2}
+                                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                                />
+                                            </svg>
+                                            <span className="text-sm font-medium text-gray-700">
+                                                Admin Feedback
+                                            </span>
+                                        </div>
+                                        <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                                            <p className="text-sm text-red-700 whitespace-pre-line">
+                                                {comments}
+                                            </p>
+                                        </div>
+                                        {updatedAt && (
+                                            <p className="text-xs text-gray-500 mt-2">
+                                                Last updated:{" "}
+                                                {new Date(
+                                                    updatedAt
+                                                ).toLocaleDateString()}
+                                            </p>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                                        <p className="text-sm text-yellow-700">
+                                            No specific feedback provided.
+                                            Please review your submission and
+                                            try again.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Show timestamp for all statuses except Rejected (already shown above) */}
+                        {updatedAt && status !== "Rejected" && (
+                            <p className="text-xs text-gray-500 mt-2">
+                                Last updated:{" "}
+                                {new Date(updatedAt).toLocaleDateString()}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     const handleSaveSubmit = async (e) => {
         e.preventDefault();
 
@@ -294,13 +461,10 @@ export default function Profile({
         });
         // Handle logo separately
         if (data.remove_logo) {
-            // If logo is marked for removal, send null
             formData.append("logo", "");
         } else if (newLogo && data.logo instanceof File) {
-            // If new logo was uploaded
             formData.append("logo", data.logo);
         } else if (data.current_logo) {
-            // If no new logo but current logo exists, keep it
             formData.append("current_logo", data.current_logo);
         }
 
@@ -354,7 +518,7 @@ export default function Profile({
     const handleCopy = () => {
         navigator.clipboard.writeText(auth.user.referral_code).then(() => {
             setCopied(true);
-            setTimeout(() => setCopied(false), 2000); // hide after 2s
+            setTimeout(() => setCopied(false), 2000);
         });
     };
 
@@ -518,6 +682,10 @@ export default function Profile({
                             </div>
                         </div>
                     )}
+
+                    {/* Enhanced Verification Status Display */}
+                    {organization_verification &&
+                        getVerificationStatusDisplay()}
 
                     {isEditing ? (
                         <div className="max-w-5xl mx-auto bg-white p-8 rounded-xl shadow">
@@ -1102,12 +1270,13 @@ export default function Profile({
                                                 Profile URL
                                             </p>
                                             <a
-                                                href={`${window.location.origin}/${org.slug}`}
+                                                href={`${window.location.origin}/organizations/${org.slug}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="text-indigo-600 hover:text-indigo-800 hover:underline inline-flex items-center"
                                             >
-                                                {window.location.host}/
+                                                {window.location.host}
+                                                /organizations/
                                                 {org.slug}
                                                 <svg
                                                     className="w-4 h-4 ml-1"

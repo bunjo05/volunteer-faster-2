@@ -1053,7 +1053,7 @@ export default function ViewIndividual({
                                                     "volunteer.guest.sponsorship.page.with.volunteer",
                                                     related.public_id
                                                 )}
-                                                className="block flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border border-gray-200 rounded-lg sm:rounded-xl hover:border-blue-300 hover:shadow-md transition-all"
+                                                className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border border-gray-200 rounded-lg sm:rounded-xl hover:border-blue-300 hover:shadow-md transition-all"
                                             >
                                                 {related.volunteer_profile
                                                     ?.profile_picture ? (

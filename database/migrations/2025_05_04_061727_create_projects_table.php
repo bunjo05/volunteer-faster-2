@@ -43,6 +43,8 @@ return new class extends Migration
             // $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignUlid('user_public_id')->constrained('users', 'public_id')->onDelete('cascade')->onDelete('cascade');
 
+            $table->text('reason_for_rejection')->nullable();
+
             $table->boolean('request_for_approval')->default(false);
             $table->boolean('point_exchange')->default(false); // Added point exchange column
             $table->timestamps();

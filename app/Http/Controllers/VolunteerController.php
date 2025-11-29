@@ -27,10 +27,15 @@ use App\Models\VolunteerProfile;
 use App\Mail\AppreciationMessage;
 use App\Mail\OrganizationReminder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use App\Mail\ProjectReviewRequested;
+use App\Models\VolunteerSponsorship;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
+use App\Mail\VolunteerProfileUpdated;
 use App\Models\VolunteerVerification;
 use Illuminate\Support\Facades\Storage;
+use App\Mail\UserVerificationRequestNotification;
 use App\Mail\PlatformReview as MailPlatformReview;
 
 class VolunteerController extends Controller
@@ -628,8 +633,43 @@ class VolunteerController extends Controller
             VolunteerVerification::create($data);
         }
 
+        // Send notification to all admins
+        $this->notifyAdminsAboutVerificationRequest(Auth::user(), $data);
+
         // Redirect to profile page with success message
         return redirect()->route('volunteer.profile')->with('success', 'Verification documents submitted successfully!');
+    }
+
+    /**
+     * Notify all admins about verification request
+     */
+    private function notifyAdminsAboutVerificationRequest(User $user, array $verificationData = [])
+    {
+        try {
+            // Get all admin emails
+            $adminEmails = Admin::pluck('email')->toArray();
+
+            if (empty($adminEmails)) {
+                Log::warning('No admin emails found to send verification request notification');
+                return;
+            }
+
+            // Send email to each admin
+            foreach ($adminEmails as $email) {
+                Mail::to($email)->send(new UserVerificationRequestNotification($user, $verificationData));
+            }
+
+            Log::info('Verification request notifications sent to admins', [
+                'user_id' => $user->id,
+                'user_role' => $user->role,
+                'admins_notified' => count($adminEmails)
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send verification request notifications to admins: ' . $e->getMessage(), [
+                'user_id' => $user->id,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 
     public function updateProfile(Request $request)
@@ -664,6 +704,10 @@ class VolunteerController extends Controller
         // Find or create the volunteer profile
         $volunteer = VolunteerProfile::firstOrNew(['user_public_id' => $user->public_id]);
 
+        // Track changes for email notification
+        $changes = [];
+        $oldData = $volunteer->exists ? $volunteer->toArray() : [];
+
         // Handle profile picture upload/removal
         if ($request->hasFile('profile_picture')) {
             // Delete old picture if exists
@@ -671,12 +715,20 @@ class VolunteerController extends Controller
                 Storage::disk('public')->delete($volunteer->profile_picture);
             }
             $data['profile_picture'] = $request->file('profile_picture')->store('volunteer/profile_pictures', 'public');
+            $changes['profile_picture'] = [
+                'old' => $volunteer->profile_picture ? 'Previous image' : 'No image',
+                'new' => 'New image uploaded'
+            ];
         } elseif ($request->input('remove_profile_picture', false)) {
             // Remove picture if requested
             if ($volunteer->profile_picture) {
                 Storage::disk('public')->delete($volunteer->profile_picture);
             }
             $data['profile_picture'] = null;
+            $changes['profile_picture'] = [
+                'old' => 'Had profile picture',
+                'new' => 'Profile picture removed'
+            ];
         } elseif ($request->filled('current_profile_picture')) {
             // Keep existing picture if no changes
             $data['profile_picture'] = $request->input('current_profile_picture');
@@ -685,11 +737,72 @@ class VolunteerController extends Controller
         // Set user_public_id if creating new profile
         if (!$volunteer->exists) {
             $data['user_public_id'] = $user->public_id;
+            $changes['profile_status'] = [
+                'old' => 'No profile',
+                'new' => 'Profile created'
+            ];
+        }
+
+        // Track field changes
+        $trackedFields = [
+            'gender',
+            'dob',
+            'country',
+            'state',
+            'city',
+            'postal',
+            'phone',
+            'facebook',
+            'twitter',
+            'instagram',
+            'linkedin',
+            'education_status',
+            'nok',
+            'nok_phone',
+            'nok_relation'
+        ];
+
+        foreach ($trackedFields as $field) {
+            if (isset($data[$field]) && isset($oldData[$field]) && $data[$field] != $oldData[$field]) {
+                $changes[$field] = [
+                    'old' => $oldData[$field] ?? 'Not set',
+                    'new' => $data[$field]
+                ];
+            } elseif (!isset($oldData[$field]) && isset($data[$field])) {
+                $changes[$field] = [
+                    'old' => 'Not set',
+                    'new' => $data[$field]
+                ];
+            }
+        }
+
+        // Track array field changes (hobbies, skills)
+        if (isset($data['hobbies']) && json_encode($data['hobbies']) !== json_encode($oldData['hobbies'] ?? [])) {
+            $changes['hobbies'] = [
+                'old' => !empty($oldData['hobbies']) ? implode(', ', $oldData['hobbies']) : 'None',
+                'new' => !empty($data['hobbies']) ? implode(', ', $data['hobbies']) : 'None'
+            ];
+        }
+
+        if (isset($data['skills']) && json_encode($data['skills']) !== json_encode($oldData['skills'] ?? [])) {
+            $changes['skills'] = [
+                'old' => !empty($oldData['skills']) ? implode(', ', $oldData['skills']) : 'None',
+                'new' => !empty($data['skills']) ? implode(', ', $data['skills']) : 'None'
+            ];
         }
 
         // Update or create the volunteer profile
         $volunteer->fill($data);
         $volunteer->save();
+
+        // Send email notification to all admins if there are changes
+        if (!empty($changes)) {
+            $admins = Admin::all();
+            foreach ($admins as $admin) {
+                Mail::to($admin->email)
+                    ->send(new VolunteerProfileUpdated($volunteer, $user, $changes));
+            }
+        }
 
         return redirect()->back()->with('success', 'Profile saved successfully.');
     }
@@ -1143,6 +1256,39 @@ class VolunteerController extends Controller
                 ];
             });
 
+        // Get volunteer sponsorship applications
+        $volunteer_sponsorships = VolunteerSponsorship::with([
+            'booking.project',
+            'sponsorships'
+        ])
+            ->where('user_public_id', $user->public_id)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($application) {
+                return [
+                    'public_id' => $application->public_id,
+                    'total_amount' => (float) $application->total_amount,
+                    'travel' => (float) $application->travel,
+                    'accommodation' => (float) $application->accommodation,
+                    'meals' => (float) $application->meals,
+                    'living_expenses' => (float) $application->living_expenses,
+                    'visa_fees' => (float) $application->visa_fees,
+                    'project_fees_amount' => (float) $application->project_fees_amount,
+                    'self_introduction' => $application->self_introduction,
+                    'impact' => $application->impact,
+                    'aspect_needs_funding' => $application->aspect_needs_funding ?? [],
+                    'skills' => $application->skills ?? [],
+                    'status' => $application->status ?? 'submitted',
+                    'created_at' => $application->created_at,
+                    'booking' => $application->booking ? [
+                        'project' => $application->booking->project ? [
+                            'title' => $application->booking->project->title,
+                        ] : null,
+                    ] : null,
+                    'funded_amount' => (float) $application->funded_amount,
+                ];
+            });
+
         // Calculate stats with default values
         $completedSponsorships = $sponsorships->where('status', 'completed');
         $totalSponsored = $completedSponsorships->sum('amount');
@@ -1157,12 +1303,89 @@ class VolunteerController extends Controller
 
         return inertia('Volunteers/Sponsorships', [
             'sponsorships' => $sponsorships,
+            'volunteer_sponsorships' => $volunteer_sponsorships,
             'stats' => $stats,
             'auth' => [
                 'user' => $user->toArray(),
             ],
         ]);
     }
+
+    public function updateSponsorshipApplication(Request $request)
+    {
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'public_id' => 'required|exists:volunteer_sponsorships,public_id',
+            'travel' => 'required|numeric|min:0',
+            'accommodation' => 'required|numeric|min:0',
+            'meals' => 'required|numeric|min:0',
+            'living_expenses' => 'required|numeric|min:0',
+            'visa_fees' => 'required|numeric|min:0',
+            'project_fees_amount' => 'required|numeric|min:0',
+            'self_introduction' => 'required|string|max:2000',
+            'impact' => 'required|string|max:2000',
+            'aspect_needs_funding' => 'nullable|array',
+            'skills' => 'nullable|array',
+            'commitment' => 'required|boolean',
+            'agreement' => 'required|boolean',
+            'has_changes' => 'sometimes|boolean',
+            'original_status' => 'sometimes|string',
+        ]);
+
+        // Verify the application belongs to the user
+        $application = VolunteerSponsorship::where('public_id', $validated['public_id'])
+            ->where('user_public_id', $user->public_id)
+            ->firstOrFail()
+            ->update(['status' => 'Pending']);
+
+        // Calculate total amount
+        $validated['total_amount'] = $validated['travel'] +
+            $validated['accommodation'] +
+            $validated['meals'] +
+            $validated['living_expenses'] +
+            $validated['visa_fees'] +
+            $validated['project_fees_amount'];
+
+        // Track changes and update status if there are changes
+        $updateData = $validated;
+
+        // If changes were detected, set status to Pending
+        if ($request->has_changes) {
+            $updateData['status'] = 'Pending';
+            $updateData['submitted_at'] = now();
+            $updateData['last_updated_at'] = now();
+
+            // You might want to track what was changed
+            $updateData['changes_made'] = true;
+        }
+
+        // Update the application
+        $application->update($updateData);
+
+        return back()->with('success', 'Application updated successfully!' .
+            ($request->has_changes ? ' Application has been resubmitted for review.' : ''));
+    }
+
+    public function submitSponsorshipApplication($applicationId)
+    {
+        $user = Auth::user();
+
+        // Verify the application belongs to the user and has Rejected status
+        $application = VolunteerSponsorship::where('public_id', $applicationId)
+            ->where('user_public_id', $user->public_id)
+            ->where('status', 'Rejected')
+            ->firstOrFail();
+
+        // Update status to Pending
+        $application->update([
+            'status' => 'Pending',
+            'submitted_at' => now(),
+        ]);
+
+        return back()->with('success', 'Application submitted for review successfully!');
+    }
+
 
     public function sendAppreciation(Request $request)
     {

@@ -40,10 +40,12 @@ class Project extends Model
         'availability_months',
         'start_date',
         'status',
-        // 'user_id',
         'request_for_approval',
         'point_exchange', // Added point exchange column
         'skills',
+
+        'reason_for_rejection',
+
         // 'user_public_id'
     ];
 

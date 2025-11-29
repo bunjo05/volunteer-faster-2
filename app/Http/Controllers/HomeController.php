@@ -49,6 +49,68 @@ class HomeController extends Controller
         ]);
     }
 
+    public function OrganizationProfile($organization_slug)
+    {
+        // Find organization by slug
+        $organization = OrganizationProfile::where('slug', $organization_slug)
+            ->with(['user', 'verification'])
+            ->firstOrFail();
+
+        // Get all active projects for this organization (for sidebar)
+        $activeProjects = Project::where('user_public_id', $organization->user_public_id)
+            ->where('status', 'Active')
+            ->with(['category', 'subcategory'])
+            ->latest()
+            ->get();
+
+        // Get featured projects for this organization (for main section)
+        $featuredProjects = Project::whereHas('featuredProjects', function ($query) {
+            $query->where('status', 'approved')
+                ->where('is_active', true)
+                ->where('end_date', '>', now());
+        })
+            ->where('user_public_id', $organization->user_public_id)
+            ->where('status', 'Active')
+            ->with(['category', 'subcategory', 'featuredProjects' => function ($query) {
+                $query->where('status', 'approved')
+                    ->where('is_active', true)
+                    ->where('end_date', '>', now());
+            }])
+            ->latest()
+            ->get();
+
+        // Check if user is following the organization
+        $isFollowing = false;
+        $followersCount = 0;
+
+        if (Auth::check()) {
+            $isFollowing = Auth::user()->followingOrganizations()
+                ->where('organization_profiles.public_id', $organization->public_id)
+                ->exists();
+        }
+
+        // Get followers count
+        $followersCount = $organization->followers()->count();
+
+        // Get total projects count
+        $totalProjects = Project::where('user_public_id', $organization->user_public_id)
+            ->where('status', 'Active')
+            ->count();
+
+        return inertia('Projects/OrganizationProfile', [
+            'organization' => $organization,
+            'activeProjects' => $activeProjects,
+            'featuredProjects' => $featuredProjects,
+            'isVerified' => $organization->verification?->status === 'Approved',
+            'isFollowing' => $isFollowing,
+            'followersCount' => $followersCount,
+            'totalProjects' => $totalProjects,
+            'auth' => Auth::user() ? [
+                'user' => Auth::user()->only('id', 'name', 'email')
+            ] : null,
+        ]);
+    }
+
     public function projects()
     {
         $projects = Project::where('status', 'Active')
@@ -231,41 +293,68 @@ class HomeController extends Controller
         return redirect()->back()->with('success', 'Your message has been sent successfully!');
     }
 
-    public function OrganizationProfile($slug, $organization_profile)
-    {
-        $project = Project::where('slug', $slug)
-            ->with(['user.organizationProfile', 'user.organizationProfile.verification'])
-            ->firstOrFail();
+    // public function OrganizationProfile($organization_slug, $organization_profile)
+    // {
+    //     // Find organization by slug
+    //     $organization = OrganizationProfile::where('slug', $organization_slug)
+    //         ->with(['user', 'verification'])
+    //         ->firstOrFail();
 
-        // Check if user exists and has organization profile
-        if (!$project->user || !$project->user->organizationProfile) {
-            abort(404);
-        }
+    //     // Get all active projects for this organization (for sidebar)
+    //     $activeProjects = Project::where('user_public_id', $organization->user_public_id)
+    //         ->where('status', 'Active')
+    //         ->with(['category', 'subcategory'])
+    //         ->latest()
+    //         ->get();
 
-        // Check if the organization profile slug matches
-        if ($project->user->organizationProfile->slug !== $organization_profile) {
-            abort(404);
-        }
+    //     // Get featured projects for this organization (for main section)
+    //     $featuredProjects = Project::whereHas('featuredProjects', function ($query) {
+    //         $query->where('status', 'approved')
+    //             ->where('is_active', true)
+    //             ->where('end_date', '>', now());
+    //     })
+    //         ->where('user_public_id', $organization->user_public_id)
+    //         ->where('status', 'Active')
+    //         ->with(['category', 'subcategory', 'featuredProjects' => function ($query) {
+    //             $query->where('status', 'approved')
+    //                 ->where('is_active', true)
+    //                 ->where('end_date', '>', now());
+    //         }])
+    //         ->latest()
+    //         ->get();
 
-        // Add follow status check
-        $isFollowing = false;
-        if (Auth::check()) {
-            $isFollowing = Auth::user()->followingOrganizations()
-                ->where('organization_profiles.public_id', $project->organizationProfile->public_id)
-                ->exists();
-        }
+    //     // Check if user is following the organization
+    //     $isFollowing = false;
+    //     $followersCount = 0;
 
-        // Get followers count
-        $followersCount = $project->user->organizationProfile->followers()->count();
+    //     if (Auth::check()) {
+    //         $isFollowing = Auth::user()->followingOrganizations()
+    //             ->where('organization_profiles.public_id', $organization->public_id)
+    //             ->exists();
+    //     }
 
-        return inertia('Projects/OrganizationProfile', [
-            'organization' => $project->user->organizationProfile,
-            'project' => $project,
-            'isVerified' => $project->user->organizationProfile->verification?->status === 'Approved',
-            'isFollowing' => $isFollowing,
-            'followersCount' => $followersCount, // Add this line
-        ]);
-    }
+    //     // Get followers count
+    //     $followersCount = $organization->followers()->count();
+
+    //     // Get total projects count
+    //     $totalProjects = Project::where('user_public_id', $organization->user_public_id)
+    //         ->where('status', 'Active')
+    //         ->count();
+
+
+    //     return inertia('Projects/OrganizationProfile', [
+    //         'organization' => $organization,
+    //         'activeProjects' => $activeProjects,
+    //         'featuredProjects' => $featuredProjects,
+    //         'isVerified' => $organization->verification?->status === 'Approved',
+    //         'isFollowing' => $isFollowing,
+    //         'followersCount' => $followersCount,
+    //         'totalProjects' => $totalProjects,
+    //         'auth' => Auth::user() ? [
+    //             'user' => Auth::user()->only('id', 'name', 'email')
+    //         ] : null,
+    //     ]);
+    // }
 
     public function storeReviews(Request $request)
     {

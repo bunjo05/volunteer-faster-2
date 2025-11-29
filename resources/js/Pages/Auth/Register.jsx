@@ -192,7 +192,7 @@ export default function Register({ referralCode }) {
                 <p className="mt-4 text-sm text-gray-600">
                     By registering, you agree to our{" "}
                     <Link
-                        href={route("terms")}
+                        href={route("terms.conditions")}
                         className="text-gray-900 underline hover:text-gray-700"
                     >
                         Terms of Service

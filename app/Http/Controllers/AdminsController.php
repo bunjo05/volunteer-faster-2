@@ -12,6 +12,7 @@ use App\Models\Category;
 use App\Models\Referral;
 use App\Mail\ContactReply;
 use App\Models\Subcategory;
+use App\Mail\ProjectUpdated;
 use Illuminate\Http\Request;
 use App\Models\ProjectRemark;
 use App\Models\ReportProject;
@@ -24,6 +25,7 @@ use App\Models\ReportSubcategory;
 use App\Services\ReferralService;
 use App\Models\OrganizationProfile;
 use App\Models\VolunteerSponsorship;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\FeaturedProjectApproved;
 use App\Mail\FeaturedProjectRejected;
@@ -33,7 +35,6 @@ use App\Mail\VolunteerVerificationMail;
 use App\Models\OrganizationVerification;
 use Illuminate\Support\Facades\Validator;
 use App\Mail\OrganizationVerificationMail;
-use Illuminate\Support\Facades\Auth;
 use SebastianBergmann\CodeCoverage\Report\Xml\Report;
 
 class AdminsController extends Controller
@@ -100,7 +101,7 @@ class AdminsController extends Controller
 
     public function viewOrganization($slug)
     {
-        $organization = OrganizationProfile::where('slug', $slug)->firstOrFail();
+        $organization = OrganizationProfile::where('slug', $slug)->with('user')->firstOrFail();
         $organization_verification = OrganizationVerification::where('organization_profile_id', $organization->id)->first();
 
         return inertia('Admins/Organizations/View', [
@@ -153,10 +154,10 @@ class AdminsController extends Controller
     // Volunteer Verification
 
 
-    public function volunteerVerifications($id)
+    public function volunteerVerifications($public_id)
     {
-        $volunteer = VolunteerProfile::where('id', $id)->with('user')->firstOrFail();
-        $verification = VolunteerVerification::where('volunteer_id', $volunteer->id)->first();
+        $volunteer = VolunteerProfile::where('public_id', $public_id)->with('user')->firstOrFail();
+        $verification = VolunteerVerification::where('volunteer_public_id', $volunteer->public_id)->first();
 
         return inertia('Admins/Volunteers/Verify', [
             'volunteer' => $volunteer,  // Changed from 'organization' to 'volunteer' to match what you're actually returning
@@ -203,13 +204,16 @@ class AdminsController extends Controller
             'status' => ['required', 'in:Active,Pending,Suspended'],
         ])->validate();
 
+        $oldStatus = $user->status; // Store old status for comparison
         $user->status = $validated['status'];
         $user->save();
 
-        // Send email to the user
-        Mail::to($user->email)->send(new UserStatusChanged($user, $validated['status']));
+        // Send email to the user only if status actually changed
+        if ($oldStatus !== $validated['status']) {
+            Mail::to($user->email)->send(new UserStatusChanged($user, $validated['status']));
+        }
 
-        return redirect()->route('admin.dashboard')->with('Status updated and email sent successfully.');
+        return redirect()->route('admin.dashboard')->with('success', 'User status updated and email sent successfully.');
     }
 
     public function categories()
@@ -300,6 +304,28 @@ class AdminsController extends Controller
         ]);
     }
 
+    public function updateProjectStatus(Request $request, $id)
+    {
+        $project = Project::findOrFail($id);
+        $oldStatus = $project->status; // Store old status for comparison
+        $project->status = $request->status;
+        $project->save();
+
+        // Send email notification to project owner if status changed
+        if ($oldStatus !== $request->status && $project->user) {
+            Mail::to($project->user->email)
+                ->send(new ProjectUpdated($project, $request->status, $oldStatus));
+        }
+
+        // Add notification
+        if ($request->status === 'Active') {
+            NotificationService::notifyProjectApproved($project);
+        }
+
+        return redirect()->back()->with('success', 'Project status updated successfully.');
+    }
+
+
     public function storeRemark(Request $request)
     {
         $request->validate([
@@ -309,49 +335,57 @@ class AdminsController extends Controller
 
         // Get the project to access its user_public_id
         $project = Project::findOrFail($request->project_id);
+        $oldStatus = $project->status; // Store old status
 
         ProjectRemark::create([
-            'user_public_id' => $project->user_public_id, // Add this
-            'project_public_id' => $project->public_id, // Add this
-            'admin_public_id' => auth('admin')->user()->public_id, // Add this
+            'user_public_id' => $project->user_public_id,
+            'project_public_id' => $project->public_id,
+            'admin_public_id' => auth('admin')->user()->public_id,
             'project_id' => $request->project_id,
             'admin_id' => auth('admin')->id(),
             'remark' => $request->remark,
             'status' => null,
-            'comment' => $request->remark, // Map remark to comment
-            'rating' => 0, // Provide default rating
+            'comment' => $request->remark,
+            'rating' => 0,
         ]);
 
         // Update project status
         $project->status = 'Rejected';
         $project->save();
 
+        // Send email notification to project owner if status changed
+        if ($oldStatus !== 'Rejected' && $project->user) {
+            Mail::to($project->user->email)
+                ->send(new ProjectUpdated($project, 'Rejected', $oldStatus, $request->remark));
+        }
+
         return redirect()->back()->with('success', 'Project rejected with remark.');
     }
+
 
     public function updateRemark(Request $request, $id)
     {
         $remark = ProjectRemark::findOrFail($id);
+        $oldStatus = $remark->status;
         $remark->status = $request->status;
         $remark->save();
 
-        return back()->with('success', 'Remark status updated.');
-    }
+        // Send email notification if remark status changes to something significant
+        if ($oldStatus !== $request->status && in_array($request->status, ['Resolved', 'Rejected'])) {
+            $project = $remark->project;
+            if ($project && $project->user) {
+                $emailRemark = "Admin remark status has been updated to: {$request->status}";
+                if ($remark->remark) {
+                    $emailRemark .= "\n\nOriginal Remark: {$remark->remark}";
+                }
 
-    public function updateProjectStatus(Request $request, $id)
-    {
-        $project = Project::findOrFail($id);
-        $project->status = $request->status;
-        $project->save();
-
-        // Add notification
-        if ($request->status === 'Approved') {
-            NotificationService::notifyProjectApproved($project);
+                Mail::to($project->user->email)
+                    ->send(new ProjectUpdated($project, $project->status, $project->status, $emailRemark));
+            }
         }
 
-        return redirect()->back()->with('success', 'Project approved successfully.');
+        return back()->with('success', 'Remark status updated.');
     }
-
 
     public function messages()
     {
@@ -826,6 +860,7 @@ class AdminsController extends Controller
                     'aspect_needs_funding' => $sponsorship->aspect_needs_funding,
                     'self_introduction' => $sponsorship->self_introduction,
                     'skills' => $sponsorship->skills,
+                    'rejection_reason' => $sponsorship->rejection_reason,
                     'impact' => $sponsorship->impact,
                     'commitment' => $sponsorship->commitment,
                     'status' => $sponsorship->status,

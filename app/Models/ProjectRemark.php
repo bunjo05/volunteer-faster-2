@@ -8,8 +8,7 @@ class ProjectRemark extends Model
 {
     protected $fillable = [
         'project_public_id',
-        'admin_public_id',
-        // 'booking_public_id',
+        'booking_public_id',
         'user_public_id',
         'comment',
         'status',

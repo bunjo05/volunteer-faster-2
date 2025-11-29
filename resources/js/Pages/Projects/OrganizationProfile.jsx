@@ -5,11 +5,13 @@ import { router } from "@inertiajs/react";
 
 export default function OrganizationProfile({
     organization,
-    project,
+    activeProjects,
+    featuredProjects,
     auth,
     isVerified,
     isFollowing,
     followersCount,
+    totalProjects,
 }) {
     return (
         <GeneralPages auth={auth || null}>
@@ -78,37 +80,6 @@ export default function OrganizationProfile({
                                 </span>
                             )}
                         </div>
-
-                        {/* {organization.website && (
-                            <a
-                                href={
-                                    organization.website.startsWith("http")
-                                        ? organization.website
-                                        : `https://${organization.website}`
-                                }
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors"
-                            >
-                                <svg
-                                    className="w-5 h-5 mr-1"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="1.5"
-                                        d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                                    />
-                                </svg>
-                                {organization.website.replace(
-                                    /^https?:\/\//,
-                                    ""
-                                )}
-                            </a>
-                        )} */}
                     </div>
                 </div>
 
@@ -191,66 +162,90 @@ export default function OrganizationProfile({
                             )}
                         </section>
 
-                        {/* Projects Section */}
-                        {project && (
+                        {/* Featured Projects Section */}
+                        {featuredProjects.length > 0 && (
                             <section className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
                                 <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
                                     <h2 className="text-2xl font-bold text-gray-900 font-serif">
-                                        Featured Project
+                                        Featured Projects
                                     </h2>
                                     <div className="w-10 h-1 bg-gradient-to-r from-green-500 to-teal-500 rounded-full"></div>
                                 </div>
-                                <div className="border border-gray-200 rounded-xl overflow-hidden transition-all hover:shadow-lg group">
-                                    <div className="h-60 overflow-hidden relative">
-                                        <img
-                                            src={
-                                                project.featured_image
-                                                    ? `/storage/${project.featured_image}`
-                                                    : "/images/placeholder.jpg"
-                                            }
-                                            alt={project.title}
-                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                        />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                                    </div>
-                                    <div className="p-6">
-                                        <h3 className="text-xl font-bold text-gray-900 mb-3">
-                                            <Link
-                                                href={route(
-                                                    "projects.home.view",
-                                                    project.slug
-                                                )}
-                                                className="hover:text-blue-600 hover:underline transition-colors"
-                                            >
-                                                {project.title}
-                                            </Link>
-                                        </h3>
-                                        <p className="text-gray-600 mb-4 line-clamp-2">
-                                            {project.short_description}
-                                        </p>
-                                        <Link
-                                            href={route(
-                                                "projects.home.view",
-                                                project.slug
-                                            )}
-                                            className="inline-flex items-center text-blue-600 font-medium hover:text-blue-800 group transition-colors"
+                                <div className="space-y-6">
+                                    {featuredProjects.map((project) => (
+                                        <div
+                                            key={project.id}
+                                            className="border border-gray-200 rounded-xl overflow-hidden transition-all hover:shadow-lg group"
                                         >
-                                            View Project
-                                            <svg
-                                                className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth="2"
-                                                    d="M9 5l7 7-7 7"
+                                            <div className="h-60 overflow-hidden relative">
+                                                <img
+                                                    src={
+                                                        project.featured_image
+                                                            ? `/storage/${project.featured_image}`
+                                                            : "/images/placeholder.jpg"
+                                                    }
+                                                    alt={project.title}
+                                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                                                 />
-                                            </svg>
-                                        </Link>
-                                    </div>
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                                                <div className="absolute top-4 right-4">
+                                                    <span className="bg-yellow-500 text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg">
+                                                        Featured
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="p-6">
+                                                <h3 className="text-xl font-bold text-gray-900 mb-3">
+                                                    <Link
+                                                        href={route(
+                                                            "projects.home.view",
+                                                            project.slug
+                                                        )}
+                                                        className="hover:text-blue-600 hover:underline transition-colors"
+                                                    >
+                                                        {project.title}
+                                                    </Link>
+                                                </h3>
+                                                <p className="text-gray-600 mb-4 line-clamp-2">
+                                                    {project.short_description}
+                                                </p>
+                                                <div className="flex items-center justify-between">
+                                                    <Link
+                                                        href={route(
+                                                            "projects.home.view",
+                                                            project.slug
+                                                        )}
+                                                        className="inline-flex items-center text-blue-600 font-medium hover:text-blue-800 group transition-colors"
+                                                    >
+                                                        View Project
+                                                        <svg
+                                                            className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            viewBox="0 0 24 24"
+                                                        >
+                                                            <path
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                                strokeWidth="2"
+                                                                d="M9 5l7 7-7 7"
+                                                            />
+                                                        </svg>
+                                                    </Link>
+                                                    {project.featuredProjects &&
+                                                        project
+                                                            .featuredProjects[0] && (
+                                                            <div className="text-sm text-gray-500">
+                                                                Featured until:{" "}
+                                                                {new Date(
+                                                                    project.featuredProjects[0].end_date
+                                                                ).toLocaleDateString()}
+                                                            </div>
+                                                        )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </section>
                         )}
@@ -260,7 +255,7 @@ export default function OrganizationProfile({
                     <div className="space-y-8">
                         {/* Follow Button */}
                         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                            {auth.user ? (
+                            {auth && auth.user ? (
                                 isFollowing ? (
                                     <button
                                         onClick={() => {
@@ -358,7 +353,7 @@ export default function OrganizationProfile({
                                 </div>
                                 <div className="bg-purple-50 p-4 rounded-lg text-center">
                                     <div className="text-2xl font-bold text-purple-600">
-                                        1
+                                        {totalProjects || 0}
                                     </div>
                                     <div className="text-sm text-gray-600 mt-1">
                                         Projects
@@ -367,117 +362,88 @@ export default function OrganizationProfile({
                             </div>
                         </div>
 
-                        {/* Contact Info */}
-                        <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                            <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
-                                <h2 className="text-xl font-bold text-gray-900 font-serif">
-                                    Contact
-                                </h2>
-                                <div className="w-8 h-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"></div>
-                            </div>
-                            <div className="space-y-4">
-                                {organization.email && (
-                                    <div className="flex items-start">
-                                        <div className="bg-blue-50 p-2 rounded-lg mr-4 flex-shrink-0">
-                                            <svg
-                                                className="w-5 h-5 text-blue-600"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth="1.5"
-                                                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                                                />
-                                            </svg>
+                        {/* Active Projects Section */}
+                        {activeProjects.length > 0 && (
+                            <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                                <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
+                                    <h2 className="text-xl font-bold text-gray-900 font-serif">
+                                        Active Projects ({activeProjects.length}
+                                        )
+                                    </h2>
+                                    <div className="w-8 h-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"></div>
+                                </div>
+                                <div className="space-y-4 max-h-96 overflow-y-auto">
+                                    {activeProjects.map((project) => (
+                                        <div
+                                            key={project.id}
+                                            className="border border-gray-100 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                                        >
+                                            <div className="flex items-start space-x-3">
+                                                <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden">
+                                                    <img
+                                                        src={
+                                                            project.featured_image
+                                                                ? `/storage/${project.featured_image}`
+                                                                : "/images/placeholder.jpg"
+                                                        }
+                                                        alt={project.title}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className="text-sm font-medium text-gray-900 truncate">
+                                                        <Link
+                                                            href={route(
+                                                                "projects.home.view",
+                                                                project.slug
+                                                            )}
+                                                            className="hover:text-blue-600 hover:underline"
+                                                        >
+                                                            {project.title}
+                                                        </Link>
+                                                    </h3>
+                                                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                                                        {
+                                                            project.short_description
+                                                        }
+                                                    </p>
+                                                    <div className="mt-2 flex items-center text-xs text-gray-500">
+                                                        <svg
+                                                            className="w-3 h-3 mr-1"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            viewBox="0 0 24 24"
+                                                        >
+                                                            <path
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                                strokeWidth="2"
+                                                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                                            />
+                                                        </svg>
+                                                        {project.min_duration}-
+                                                        {project.max_duration}{" "}
+                                                        {project.duration_type?.toLowerCase()}
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-sm text-gray-500">
-                                                Email
-                                            </p>
-                                            <a
-                                                href={`mailto:${organization.email}`}
-                                                className="text-gray-700 hover:text-blue-600 transition-colors"
-                                            >
-                                                {organization.email}
-                                            </a>
-                                        </div>
-                                    </div>
+                                    ))}
+                                </div>
+                                {activeProjects.length === 0 && (
+                                    <p className="text-gray-500 text-sm text-center py-4">
+                                        No active projects found
+                                    </p>
                                 )}
-
-                                {organization.phone && (
-                                    <div className="flex items-start">
-                                        <div className="bg-green-50 p-2 rounded-lg mr-4 flex-shrink-0">
-                                            <svg
-                                                className="w-5 h-5 text-green-600"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth="1.5"
-                                                    d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                                                />
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm text-gray-500">
-                                                Phone
-                                            </p>
-                                            <a
-                                                href={`tel:${organization.phone}`}
-                                                className="text-gray-700 hover:text-green-600 transition-colors"
-                                            >
-                                                {organization.phone}
-                                            </a>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {organization.address && (
-                                    <div className="flex items-start">
-                                        <div className="bg-indigo-50 p-2 rounded-lg mr-4 flex-shrink-0">
-                                            <svg
-                                                className="w-5 h-5 text-indigo-600"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth="1.5"
-                                                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                                                />
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth="1.5"
-                                                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                                                />
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm text-gray-500">
-                                                Address
-                                            </p>
-                                            <p className="text-gray-700">
-                                                {organization.address}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </section>
+                            </section>
+                        )}
 
                         {/* Social Media */}
                         {(organization.facebook ||
                             organization.twitter ||
                             organization.instagram ||
+                            organization.youtube ||
+                            organization.website ||
                             organization.linkedin) && (
                             <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                                 <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
@@ -487,6 +453,30 @@ export default function OrganizationProfile({
                                     <div className="w-8 h-1 bg-gradient-to-r from-pink-500 to-red-500 rounded-full"></div>
                                 </div>
                                 <div className="flex flex-wrap gap-3">
+                                    {organization.website && (
+                                        <a
+                                            href={organization.website}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="w-10 h-10 bg-blue-600 text-white rounded-lg flex items-center justify-center hover:bg-blue-700 transition-all shadow-sm hover:shadow-md"
+                                            aria-label="Website"
+                                        >
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                stroke-width="1.5"
+                                                stroke="currentColor"
+                                                class="size-6"
+                                            >
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"
+                                                />
+                                            </svg>
+                                        </a>
+                                    )}
                                     {organization.facebook && (
                                         <a
                                             href={organization.facebook}
@@ -552,6 +542,25 @@ export default function OrganizationProfile({
                                                 viewBox="0 0 24 24"
                                             >
                                                 <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
+                                            </svg>
+                                        </a>
+                                    )}
+                                    {organization.youtube && (
+                                        <a
+                                            href={organization.youtube}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="w-10 h-10  text-white rounded-lg flex items-center justify-center hover:bg-blue-700 transition-all shadow-sm hover:shadow-md"
+                                            aria-label="Youtube"
+                                        >
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 640 640"
+                                            >
+                                                <path
+                                                    fill="#ff0000"
+                                                    d="M581.7 188.1C575.5 164.4 556.9 145.8 533.4 139.5C490.9 128 320.1 128 320.1 128C320.1 128 149.3 128 106.7 139.5C83.2 145.8 64.7 164.4 58.4 188.1C47 231 47 320.4 47 320.4C47 320.4 47 409.8 58.4 452.7C64.7 476.3 83.2 494.2 106.7 500.5C149.3 512 320.1 512 320.1 512C320.1 512 490.9 512 533.5 500.5C557 494.2 575.5 476.3 581.8 452.7C593.2 409.8 593.2 320.4 593.2 320.4C593.2 320.4 593.2 231 581.8 188.1zM264.2 401.6L264.2 239.2L406.9 320.4L264.2 401.6z"
+                                                />
                                             </svg>
                                         </a>
                                     )}

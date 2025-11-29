@@ -201,7 +201,7 @@ export default function Volunteers({ volunteers, verifications }) {
                                                 <Link
                                                     href={route(
                                                         "admin.volunteers.verifications",
-                                                        volunteer.id
+                                                        volunteer.public_id
                                                     )}
                                                     className="inline-flex items-center justify-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
                                                 >
@@ -366,7 +366,7 @@ export default function Volunteers({ volunteers, verifications }) {
                                                         <Link
                                                             href={route(
                                                                 "admin.volunteers.verifications",
-                                                                volunteer.id
+                                                                volunteer.public_id
                                                             )}
                                                             className="text-blue-600 hover:text-blue-900"
                                                         >
@@ -713,7 +713,7 @@ export default function Volunteers({ volunteers, verifications }) {
                                 <Link
                                     href={route(
                                         "admin.volunteers.verifications",
-                                        selectedVolunteer.id
+                                        selectedVolunteer.public_id
                                     )}
                                     className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
                                 >

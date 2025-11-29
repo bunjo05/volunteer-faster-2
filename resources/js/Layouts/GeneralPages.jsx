@@ -264,7 +264,10 @@ export default function GeneralPages({ children, auth }) {
                         </h4>
                         <ul className="space-y-2">
                             {[
-                                { route: "terms", label: "Terms & Conditions" },
+                                {
+                                    route: "terms.conditions",
+                                    label: "Terms & Conditions",
+                                },
                                 {
                                     route: "privacy.policy",
                                     label: "Privacy Policy",

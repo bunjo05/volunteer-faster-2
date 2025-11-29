@@ -249,10 +249,10 @@ export default function View({ organization, organization_verification }) {
                                                 Email
                                             </h3>
                                             <a
-                                                href={`mailto:${organization.email}`}
+                                                href={`mailto:${organization.user?.email}`}
                                                 className="text-blue-600 hover:underline"
                                             >
-                                                {organization.email}
+                                                {organization.user?.email}
                                             </a>
                                         </div>
                                     </div>
