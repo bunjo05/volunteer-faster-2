@@ -339,6 +339,27 @@ export default function Projects({ auth, payments, points, totalPoints }) {
         }
     };
 
+    const fetchContactData = async () => {
+        try {
+            const response = await axios.get(
+                route("volunteer.contact.requests")
+            );
+            setContactRequests(response.data.requests);
+            setSharedContacts(response.data.shared_contacts || []);
+        } catch (error) {
+            console.error("Error fetching contact data:", error);
+        }
+    };
+
+    // Replace both fetch functions with this single call
+    useEffect(() => {
+        if (activeBooking) {
+            fetchContactData();
+            // Debug payment conditions
+            console.log("Payment conditions check:", debugPaymentConditions());
+        }
+    }, [activeBooking]);
+
     // Function to handle project selection (will show details on mobile)
     const handleProjectSelect = (booking) => {
         setActiveBooking(booking);

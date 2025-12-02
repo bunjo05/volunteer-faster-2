@@ -269,6 +269,9 @@ Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(
     Route::post('/send-reminder/{bookingId}', [VolunteerController::class, 'sendReminder'])
         ->name('volunteer.send-reminder');
 
+    Route::get('/messages/unread-count', [VolunteerController::class, 'getUnreadMessageCount'])
+        ->name('volunteer.messages.unread-count');
+
     Route::get('/points', [VolunteerController::class, 'points'])->name('volunteer.points');
     Route::post('/bookings/{booking}/pay-with-points', [VolunteerController::class, 'payWithPoints'])
         ->name('volunteer.pay-with-points');

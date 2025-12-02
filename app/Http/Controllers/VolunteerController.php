@@ -303,6 +303,11 @@ class VolunteerController extends Controller
                 ? $messages->first()->receiver
                 : $messages->first()->sender;
 
+            // Count actual unread messages for this conversation
+            $unreadCount = $messages->where('receiver_id', $user->id)
+                ->where('status', 'Unread')
+                ->count();
+
             // Add replied message data to each message
             $enhancedMessages = $messages->map(function ($message) {
                 return [
@@ -333,18 +338,37 @@ class VolunteerController extends Controller
                     'email' => $otherUser->email,
                 ],
                 'messages' => $enhancedMessages,
-                'unreadCount' => $messages->where('receiver_id', $user->id)
-                    ->where('status', 'Unread')
-                    ->count(),
-                'latestMessage' => $messages->sortByDesc('created_at')->first()
+                'unreadCount' => $unreadCount,
+                'latestMessage' => $messages->sortByDesc('created_at')->first(),
+                'actualUnreadMessages' => $unreadCount, // Add this for clarity
             ];
         })->sortByDesc(function ($conversation) {
             return $conversation['latestMessage']['created_at'];
         });
 
+        // Calculate total unread messages across all conversations
+        $totalUnreadMessages = $conversations->sum('unreadCount');
+
         return inertia('Volunteers/Messages', [
-            'messages' => $conversations->values()->all(),
+            'messages' => [  // Change this to an object
+                'conversations' => $conversations->values()->all(),
+                'totalUnreadMessages' => $totalUnreadMessages,
+            ],
             'points' => $this->getTotalPoints(),
+        ]);
+    }
+
+    public function getUnreadMessageCount()
+    {
+        $user = Auth::user();
+
+        // Use 'status' field instead of 'read_at'
+        $totalUnread = Message::where('receiver_id', $user->id)
+            ->where('status', 'Unread') // Changed from whereNull('read_at')
+            ->count();
+
+        return response()->json([
+            'totalUnread' => $totalUnread
         ]);
     }
 
@@ -352,9 +376,9 @@ class VolunteerController extends Controller
     {
         $user = Auth::user();
 
-        // Verify the sender exists and has messages with the current user
+        // FIXED: Use user->id instead of user->public_id
         $messages = Message::where('sender_id', $senderId)
-            ->where('receiver_id', $user->public_id)
+            ->where('receiver_id', $user->id)  // Changed from $user->public_id to $user->id
             ->where('status', 'Unread')
             ->get();
 
@@ -364,7 +388,7 @@ class VolunteerController extends Controller
 
         // Mark all unread messages as read
         Message::where('sender_id', $senderId)
-            ->where('receiver_id', $user->public_id)
+            ->where('receiver_id', $user->id)  // Changed from $user->public_id to $user->id
             ->where('status', 'Unread')
             ->update(['status' => 'Read']);
 
@@ -1177,16 +1201,21 @@ class VolunteerController extends Controller
     {
         $user = Auth::user();
 
-        $requests = ShareContact::with(['organization.organizationProfile'])
-            ->where('volunteer_public_id', $user->public_id)
-            ->orderBy('created_at', 'desc')
+        $contactRequests = $user->contactRequests()
+            ->with('organization')
+            ->where('status', 'pending')
+            ->get();
+
+        $sharedContacts = $user->sharedContacts()
+            ->with('organization')
+            ->where('status', 'approved')
             ->get();
 
         return response()->json([
-            'requests' => $requests
+            'requests' => $contactRequests,
+            'shared_contacts' => $sharedContacts
         ]);
     }
-
 
     public function requestContactAccess(Request $request)
     {

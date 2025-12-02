@@ -28,6 +28,11 @@ export default function Booking({
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // NEW STATES FOR LOADER AND SUCCESS MODAL
+    const [showLoader, setShowLoader] = useState(false);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [successMessage, setSuccessMessage] = useState("");
+
     const { url } = usePage();
 
     const [seekingSponsorship, setSeekingSponsorship] = useState(false);
@@ -45,7 +50,7 @@ export default function Booking({
     ];
 
     const { data, setData, post, processing, errors, reset } = useForm({
-        project_public_id: project.public_id, // Add this line
+        project_public_id: project.public_id,
         email: "",
         password: "",
         confirmPassword: "",
@@ -112,7 +117,6 @@ export default function Booking({
                     setShowOtpModal(true);
                 } else {
                     setShowLoginModal(false);
-                    // Reload to get updated auth state
                     router.reload();
                 }
             },
@@ -289,9 +293,35 @@ export default function Booking({
         setData("total_amount", newTotal);
     };
 
+    // NEW: Handle successful booking submission
+    const handleBookingSuccess = () => {
+        // Show success modal with message
+        setSuccessMessage(
+            "Your booking has been successfully submitted! Please login to your account to view your booking details. An email confirmation has been sent to you."
+        );
+        setShowSuccessModal(true);
+
+        // Clear session storage
+        sessionStorage.removeItem("bookingFormData");
+
+        // Hide loader
+        setShowLoader(false);
+        setIsSubmitting(false);
+    };
+
+    // NEW: Handle page refresh after success modal
+    const handleSuccessModalClose = () => {
+        setShowSuccessModal(false);
+        // Refresh the page after a short delay
+        setTimeout(() => {
+            window.location.reload();
+        }, 300);
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
         setIsSubmitting(true);
+        setShowLoader(true); // Show loader
 
         if (auth?.user) {
             const payload = {
@@ -299,7 +329,7 @@ export default function Booking({
                 end_date: data.end_date,
                 number_of_travellers: data.number_of_travellers || 1,
                 message: data.message,
-                project_public_id: data.project_public_id, // Make sure this is included
+                project_public_id: data.project_public_id,
                 booking_status: "Pending",
                 seeking_sponsorship: seekingSponsorship,
                 aspect_needs_funding: data.aspect_needs_funding,
@@ -322,12 +352,11 @@ export default function Booking({
                 data: payload,
                 preserveScroll: true,
                 onSuccess: () => {
-                    setIsSubmitting(false);
-                    sessionStorage.removeItem("bookingFormData");
-                    // Show success message or redirect
+                    handleBookingSuccess();
                 },
                 onError: (errors) => {
                     setIsSubmitting(false);
+                    setShowLoader(false);
                     console.log("Booking errors:", errors);
                 },
             });
@@ -336,12 +365,11 @@ export default function Booking({
                 data: data,
                 preserveScroll: true,
                 onSuccess: () => {
-                    setIsSubmitting(false);
-                    sessionStorage.removeItem("bookingFormData");
-                    // Show success message or redirect
+                    handleBookingSuccess();
                 },
                 onError: (errors) => {
                     setIsSubmitting(false);
+                    setShowLoader(false);
                     console.log("Registration errors:", errors);
                 },
             });
@@ -361,6 +389,63 @@ export default function Booking({
 
     return (
         <GeneralPages auth={auth}>
+            {/* NEW: Loader Overlay */}
+            {showLoader && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-xl text-center">
+                        <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600 mb-4"></div>
+                        <p className="text-lg font-semibold text-gray-700">
+                            Processing your booking...
+                        </p>
+                        <p className="text-gray-500 mt-2">
+                            Please wait while we save your information.
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {/* NEW: Success Modal */}
+            <Modal
+                show={showSuccessModal}
+                onClose={handleSuccessModalClose}
+                maxWidth="md"
+            >
+                <div className="p-6 text-center">
+                    <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                        <svg
+                            className="h-6 w-6 text-green-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M5 13l4 4L19 7"
+                            ></path>
+                        </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        Booking Successful!
+                    </h3>
+                    <div className="mt-2">
+                        <p className="text-sm text-gray-600">
+                            {successMessage}
+                        </p>
+                    </div>
+                    <div className="mt-6">
+                        <button
+                            onClick={handleSuccessModalClose}
+                            className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        >
+                            Continue
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
             <div className="max-w-4xl mx-auto mt-10">
                 <div className="bg-white shadow-lg rounded-2xl p-8">
                     <h2 className="text-3xl font-bold text-center mb-6">
@@ -529,7 +614,7 @@ export default function Booking({
                                                                                             .id
                                                                                     ] ||
                                                                                     ""
-                                                                                } // Changed from data[`${aspect.id}_amount`]
+                                                                                }
                                                                                 onChange={(
                                                                                     e
                                                                                 ) =>
@@ -764,7 +849,6 @@ export default function Booking({
                                         )}
                                     </section>
                                 )}
-                                {/* {!seekingSponsorship && ( */}
                                 <div className="mt-4">
                                     <label className="block text-sm font-medium mb-1">
                                         Number of Travellers
@@ -786,7 +870,6 @@ export default function Booking({
                                         </p>
                                     )}
                                 </div>
-                                {/* // )} */}
                                 <div className="mt-4">
                                     <label className="block text-sm font-medium mb-1">
                                         Message to Organization
@@ -811,12 +894,17 @@ export default function Booking({
                             <div className="flex justify-end">
                                 <button
                                     type="submit"
-                                    className="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow hover:bg-indigo-700 disabled:opacity-50"
-                                    disabled={processing}
+                                    className="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+                                    disabled={processing || isSubmitting}
                                 >
-                                    {processing
-                                        ? "Submitting..."
-                                        : "Submit Application"}
+                                    {processing || isSubmitting ? (
+                                        <>
+                                            <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent"></div>
+                                            Submitting...
+                                        </>
+                                    ) : (
+                                        "Submit Application"
+                                    )}
                                 </button>
                             </div>
                         </form>
@@ -1556,11 +1644,16 @@ export default function Booking({
                                         <button
                                             type="submit"
                                             disabled={isSubmitting}
-                                            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 ml-auto"
+                                            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 ml-auto flex items-center gap-2"
                                         >
-                                            {isSubmitting
-                                                ? "Submitting..."
-                                                : "Complete Booking"}
+                                            {isSubmitting ? (
+                                                <>
+                                                    <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent"></div>
+                                                    Processing...
+                                                </>
+                                            ) : (
+                                                "Complete Booking"
+                                            )}
                                         </button>
                                     )}
                                 </div>

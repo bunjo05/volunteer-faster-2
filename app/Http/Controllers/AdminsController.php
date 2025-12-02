@@ -24,6 +24,7 @@ use App\Models\VolunteerProfile;
 use App\Models\ReportSubcategory;
 use App\Services\ReferralService;
 use App\Models\OrganizationProfile;
+use Illuminate\Support\Facades\Log;
 use App\Models\VolunteerSponsorship;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
@@ -31,6 +32,7 @@ use App\Mail\FeaturedProjectApproved;
 use App\Mail\FeaturedProjectRejected;
 use App\Models\VolunteerVerification;
 use App\Services\NotificationService;
+use App\Mail\SponsorshipStatusChanged;
 use App\Mail\VolunteerVerificationMail;
 use App\Models\OrganizationVerification;
 use Illuminate\Support\Facades\Validator;
@@ -882,11 +884,38 @@ class AdminsController extends Controller
             'status' => 'required|in:Pending,Approved,Rejected'
         ]);
 
-        $sponsorship = VolunteerSponsorship::findOrFail($id);
+        $sponsorship = VolunteerSponsorship::with(['user', 'booking.project'])->findOrFail($id);
+
+        // Store the old status before updating
+        $oldStatus = $sponsorship->status;
+
+        // Update the sponsorship status
         $sponsorship->status = $request->status;
+
+        // If rejected, store rejection reason if provided
+        if ($request->status === 'Rejected' && $request->has('rejection_reason')) {
+            $request->validate([
+                'rejection_reason' => 'nullable|string|max:500'
+            ]);
+            $sponsorship->rejection_reason = $request->rejection_reason;
+        } else {
+            $sponsorship->rejection_reason = null;
+        }
+
         $sponsorship->save();
 
-        return redirect()->back()->with('success', 'Sponsorship status updated successfully.');
+        // Send email notification to the volunteer
+        if ($sponsorship->user) {
+            try {
+                Mail::to($sponsorship->user->email)
+                    ->send(new SponsorshipStatusChanged($sponsorship, $request->status, $oldStatus));
+            } catch (\Exception $e) {
+                // Log the error but don't stop the process
+                Log::error('Failed to send sponsorship status email: ' . $e->getMessage());
+            }
+        }
+
+        return redirect()->back()->with('success', 'Sponsorship status updated and notification sent to volunteer.');
     }
 
     public function destroySponsor($id)

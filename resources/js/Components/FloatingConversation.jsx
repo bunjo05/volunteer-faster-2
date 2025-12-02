@@ -30,10 +30,13 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
     const { processing } = useForm();
 
     const { props } = usePage();
+
     const { messages = {} } = props;
     const { conversations: initialConversations = [] } = messages;
 
     const [chatInputs, setChatInputs] = useState({});
+
+    const [loadingChats, setLoadingChats] = useState({});
 
     // Create a ref for the sidebar
     const sidebarRef = useRef(null);
@@ -43,6 +46,9 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
         width: typeof window !== "undefined" ? window.innerWidth : 0,
         height: typeof window !== "undefined" ? window.innerHeight : 0,
     });
+
+    // Get user role safely
+    const userRole = auth?.user?.role || "Volunteer"; // Default to Volunteer if not available
 
     // Detect window size changes
     useEffect(() => {
@@ -166,7 +172,7 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
 
             const response = await axios.get(
                 route(
-                    auth.user.role === "Organization"
+                    userRole === "Organization"
                         ? "organization.messages"
                         : "volunteer.messages"
                 ),
@@ -247,6 +253,7 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                         const updatedChat = {
                             ...openChat,
                             messages: combinedMessages,
+                            // FIX: Always update unreadCount from server
                             unreadCount: updatedConversation.unreadCount || 0,
                             latestMessage: updatedConversation.latestMessage
                                 ? {
@@ -268,35 +275,20 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                 });
             });
 
-            if (activeChat) {
-                const updatedActiveChatData = updatedConversations.find(
-                    (conv) => conv.sender.id === activeChat.sender.id
-                );
-                if (updatedActiveChatData) {
-                    setActiveChat((prev) => {
-                        if (!prev) return prev;
-                        const currentOpenChat = openChats.find(
-                            (chat) => chat.sender.id === activeChat.sender.id
-                        );
-                        return (
-                            currentOpenChat || {
-                                ...prev,
-                                unreadCount:
-                                    updatedActiveChatData.unreadCount || 0,
-                                latestMessage:
-                                    updatedActiveChatData.latestMessage,
-                            }
-                        );
-                    });
-                }
-            }
-
+            // Also update allConversations with latest unread counts
             setAllConversations((prevAllConversations) => {
                 return prevAllConversations.map((conv) => {
                     const updatedConv = updatedConversations.find(
                         (updated) => updated.sender.id === conv.sender.id
                     );
-                    return updatedConv || conv;
+                    if (updatedConv) {
+                        return {
+                            ...conv,
+                            unreadCount: updatedConv.unreadCount || 0,
+                            latestMessage: updatedConv.latestMessage,
+                        };
+                    }
+                    return conv;
                 });
             });
 
@@ -410,6 +402,11 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                 );
             }
 
+            // FIX: Mark messages as read when opening existing chat if there are unread messages
+            if (existingChat.unreadCount > 0) {
+                markMessagesAsRead(conversation.sender.id);
+            }
+
             triggerImmediatePoll(conversation.sender.id);
             return;
         }
@@ -431,15 +428,15 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
         const projectPublicId = latestMessage?.project_public_id;
         const bookingPublicId = latestMessage?.booking_public_id;
 
-        const sanitizedMessages = (conversation.messages || []).map(
-            (msg, index) => ({
-                ...msg,
-                created_at: isValidDate(msg.created_at)
-                    ? msg.created_at
-                    : new Date().toISOString(),
-                _key: generateMessageKey(msg, index),
-            })
-        );
+        // FIX 1: Ensure messages are properly formatted even if they don't exist yet
+        const initialMessages = conversation.messages || [];
+        const sanitizedMessages = initialMessages.map((msg, index) => ({
+            ...msg,
+            created_at: isValidDate(msg.created_at)
+                ? msg.created_at
+                : new Date().toISOString(),
+            _key: generateMessageKey(msg, index),
+        }));
 
         const newChat = {
             ...conversation,
@@ -448,6 +445,8 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
             project_public_id: projectPublicId,
             booking_public_id: bookingPublicId,
             _instanceId: `${conversation.sender.id}-${Date.now()}`,
+            // FIX 2: Ensure unreadCount is preserved
+            unreadCount: conversation.unreadCount || 0,
         };
 
         const updatedChats = [...newOpenChats, newChat];
@@ -459,28 +458,44 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
             [conversation.sender.id]: "",
         }));
 
+        // FIX 3: Mark messages as read immediately when opening new chat if there are unreads
         if (conversation.unreadCount > 0) {
             markMessagesAsRead(conversation.sender.id);
         }
 
+        // FIX 4: Set loading state for the chat
+        setLoadingChats((prev) => ({
+            ...prev,
+            [conversation.sender.id]: true,
+        }));
+
         setTimeout(() => {
             triggerImmediatePoll(conversation.sender.id);
+            // Clear loading state after polling
+            setTimeout(() => {
+                setLoadingChats((prev) => ({
+                    ...prev,
+                    [conversation.sender.id]: false,
+                }));
+            }, 1000);
         }, 100);
     };
 
     const markMessagesAsRead = async (senderId) => {
         try {
+            // For volunteers, use the volunteer route
+            const routeName =
+                userRole === "Organization"
+                    ? "organization.messages.mark-all-read"
+                    : "volunteer.messages.mark-all-read";
+
             await router.patch(
-                route(
-                    auth.user.role === "Organization"
-                        ? "organization.messages.mark-all-read"
-                        : "volunteer.messages.mark-all-read",
-                    { senderId }
-                ),
+                route(routeName, { senderId }),
                 {},
                 {
                     preserveScroll: true,
                     onSuccess: () => {
+                        // Update local state
                         setAllConversations((prev) =>
                             prev.map((conv) =>
                                 conv.sender.id === senderId
@@ -496,6 +511,9 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                                     : chat
                             )
                         );
+                    },
+                    onError: (error) => {
+                        console.error("Error marking messages as read:", error);
                     },
                 }
             );
@@ -569,15 +587,15 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
         const optimisticMessage = {
             id: tempId,
             message: message,
-            sender_id: auth.user.id,
+            sender_id: auth?.user?.id || 0, // Use auth.user.id safely
             receiver_id: receiverId,
             created_at: new Date().toISOString(),
             status: "Sending",
             temp_id: tempId,
             sender: {
-                id: auth.user.id,
-                name: auth.user.name,
-                email: auth.user.email,
+                id: auth?.user?.id || 0,
+                name: auth?.user?.name || "User",
+                email: auth?.user?.email || "",
             },
             _key: generateMessageKey({ temp_id: tempId }),
         };
@@ -637,7 +655,7 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
 
             const response = await fetch(
                 route(
-                    auth.user.role === "Organization"
+                    userRole === "Organization"
                         ? "organization.messages.store"
                         : "volunteer.messages.store"
                 ),
@@ -799,6 +817,11 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
         }
     };
 
+    // Don't render anything if auth is not available
+    if (!auth) {
+        return null;
+    }
+
     return (
         <>
             {/* Chat Sidebar Toggle Button */}
@@ -809,7 +832,7 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                     } z-30`}
                 >
                     <button
-                        onClick={() => setIsOpen(!isOpen)}
+                        onClick={onClose} // Changed from setIsOpen(!isOpen)
                         className="chat-toggle-button bg-primary hover:bg-primary-focus text-white rounded-full p-4 shadow-lg transition-all duration-300 hover:scale-110 relative"
                     >
                         <MessageCircle className="w-6 h-6" />
@@ -1071,15 +1094,33 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                                         onClick={() => setActiveChat(chat)}
                                     >
                                         {chat.messages?.length === 0 ? (
-                                            <div className="text-center text-gray-500 text-sm py-10">
-                                                No messages yet. Start a
-                                                conversation!
+                                            <div className="flex-1 flex flex-col items-center justify-center p-6 bg-gray-50">
+                                                <div className="text-center">
+                                                    <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                                                    <p className="text-gray-500 text-sm font-medium mb-1">
+                                                        No messages yet
+                                                    </p>
+                                                    <p className="text-gray-400 text-xs">
+                                                        Start the conversation!
+                                                    </p>
+                                                    {loadingChats[
+                                                        chat.sender.id
+                                                    ] && (
+                                                        <div className="mt-4">
+                                                            <div className="inline-block w-6 h-6 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                                                            <p className="text-xs text-gray-400 mt-2">
+                                                                Loading
+                                                                messages...
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         ) : (
                                             chat.messages.map((message) => {
                                                 const isMine =
                                                     message.sender_id ===
-                                                    auth.user.id;
+                                                    auth?.user?.id;
                                                 return (
                                                     <div
                                                         key={message._key}

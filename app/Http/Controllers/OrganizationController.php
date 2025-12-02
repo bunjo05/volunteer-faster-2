@@ -406,6 +406,11 @@ class OrganizationController extends Controller
                 ? $messages->first()->receiver
                 : $messages->first()->sender;
 
+            // Count actual unread messages for this conversation
+            $unreadCount = $messages->where('receiver_id', $user->id)
+                ->where('status', 'Unread')
+                ->count();
+
             // Add replied message data to each message
             $enhancedMessages = $messages->map(function ($message) {
                 return [
@@ -436,19 +441,26 @@ class OrganizationController extends Controller
                     'email' => $otherUser->email,
                 ],
                 'messages' => $enhancedMessages,
-                'unreadCount' => $messages->where('receiver_id', $user->id)
-                    ->where('status', 'Unread')
-                    ->count(),
-                'latestMessage' => $messages->sortByDesc('created_at')->first()
+                'unreadCount' => $unreadCount,
+                'latestMessage' => $messages->sortByDesc('created_at')->first(),
+                'actualUnreadMessages' => $unreadCount, // Add this for clarity
             ];
         })->sortByDesc(function ($conversation) {
             return $conversation['latestMessage']['created_at'];
         });
 
+        // Calculate total unread messages across all conversations
+        $totalUnreadMessages = $conversations->sum('unreadCount');
+
         return inertia('Organizations/Messages', [
-            'messages' => $conversations->values()->all(),
+            'messages' => [  // Already returns object
+                'conversations' => $conversations->values()->all(),
+                'totalUnreadMessages' => $totalUnreadMessages,
+            ],
         ]);
     }
+
+
     public function markAllRead($senderId)
     {
         $user = Auth::user();

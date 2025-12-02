@@ -387,7 +387,7 @@ class HomeController extends Controller
         $sponsorships = VolunteerSponsorship::with(['user', 'booking.project', 'volunteer_profile', 'sponsorships'])
             ->where('status', 'Approved')
             ->whereHas('booking', function ($query) use ($currentDate) {
-                $query->whereDate('start_date', '<=', $currentDate);
+                $query->whereDate('start_date', '>=', $currentDate);
             })
             ->get()
             ->filter(function ($s) {
@@ -405,7 +405,7 @@ class HomeController extends Controller
         $successfulSponsorships = VolunteerSponsorship::with(['user', 'booking.project', 'volunteer_profile', 'sponsorships'])
             ->where('status', 'Approved')
             ->whereHas('booking', function ($query) use ($currentDate) {
-                $query->whereDate('start_date', '<=', $currentDate);
+                $query->whereDate('start_date', '>=', $currentDate);
             })
             ->get()
             ->filter(function ($s) {
