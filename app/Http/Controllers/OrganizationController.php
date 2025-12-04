@@ -384,9 +384,83 @@ class OrganizationController extends Controller
         }
     }
 
-    public function messages()
+    public function messages(Request $request)
     {
         $user = Auth::user();
+
+        // Check if this is a polling request
+        if ($request->has('polling') && $request->polling) {
+            $senderId = $request->get('sender_id');
+            $lastMessageId = $request->get('last_message_id');
+
+            // Get messages for specific conversation since last message ID
+            $messages = Message::with(['sender', 'receiver', 'originalMessage.sender', 'booking', 'project'])
+                ->where(function ($query) use ($user, $senderId) {
+                    $query->where(function ($q) use ($user, $senderId) {
+                        $q->where('receiver_id', $user->id)
+                            ->where('sender_id', $senderId);
+                    })->orWhere(function ($q) use ($user, $senderId) {
+                        $q->where('sender_id', $user->id)
+                            ->where('receiver_id', $senderId);
+                    });
+                })
+                ->when($lastMessageId, function ($query) use ($lastMessageId) {
+                    // If we have a numeric ID, use greater than comparison
+                    if (is_numeric($lastMessageId)) {
+                        return $query->where('id', '>', $lastMessageId);
+                    }
+                    // Otherwise, get messages after a certain timestamp
+                    return $query->where('created_at', '>', now()->subMinutes(5));
+                })
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+            // Group messages by sender for the response format
+            $conversations = [];
+            if ($messages->count() > 0) {
+                $otherUser = $messages->first()->sender_id === $user->id
+                    ? $messages->first()->receiver
+                    : $messages->first()->sender;
+
+                $conversations[] = [
+                    'sender' => [
+                        'id' => $otherUser->id,
+                        'name' => $otherUser->name,
+                        'email' => $otherUser->email,
+                    ],
+                    'messages' => $messages->map(function ($message) {
+                        return [
+                            'id' => $message->id,
+                            'message' => $message->message,
+                            'sender_id' => $message->sender_id,
+                            'receiver_id' => $message->receiver_id,
+                            'status' => $message->status,
+                            'created_at' => $message->created_at,
+                            'reply_to' => $message->reply_to,
+                            'temp_id' => $message->temp_id,
+                            'original_message' => $message->originalMessage ? [
+                                'id' => $message->originalMessage->id,
+                                'message' => $message->originalMessage->message,
+                                'sender_id' => $message->originalMessage->sender_id,
+                                'sender' => $message->originalMessage->sender ? [
+                                    'id' => $message->originalMessage->sender->id,
+                                    'name' => $message->originalMessage->sender->name,
+                                    'email' => $message->originalMessage->sender->email,
+                                ] : null,
+                            ] : null,
+                        ];
+                    }),
+                    'unreadCount' => $messages->where('receiver_id', $user->id)
+                        ->where('status', 'Unread')
+                        ->count(),
+                    'latestMessage' => $messages->sortByDesc('created_at')->first()
+                ];
+            }
+
+            return response()->json([
+                'messages' => $conversations
+            ]);
+        }
 
         // Get all messages where user is either sender or receiver
         $messages = Message::with(['sender', 'receiver', 'originalMessage.sender', 'booking', 'project'])

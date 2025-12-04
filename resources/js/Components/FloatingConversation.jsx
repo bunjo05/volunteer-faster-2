@@ -22,25 +22,16 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
     const [allConversations, setAllConversations] = useState([]);
     const [pollingError, setPollingError] = useState(null);
     const messagesEndRef = useRef(null);
-    const pollingInterval = useRef(null);
-    const continuousPollingInterval = useRef(null);
-    const silentPollingInterval = useRef(null); // New: For silent background polling
-    const messageCounter = useRef(0);
-    const lastMessageTimeRef = useRef({});
-    const lastPollTimeRef = useRef(Date.now());
-    const { processing } = useForm();
 
-    const { props } = usePage();
-
-    const { messages = {} } = props;
-    const { conversations: initialConversations = [] } = messages;
-
-    const [chatInputs, setChatInputs] = useState({});
-    const [loadingChats, setLoadingChats] = useState({});
+    // Chat message polling refs
+    const chatPollingIntervals = useRef({}); // Separate intervals for each chat
+    const [isChatPollingActive, setIsChatPollingActive] = useState({});
+    const [lastMessageIds, setLastMessageIds] = useState({});
 
     // State for tracking real-time message updates
-    const [newMessageIndicator, setNewMessageIndicator] = useState({});
-    const [lastMessageCheck, setLastMessageCheck] = useState({});
+    const [messageUpdateIndicator, setMessageUpdateIndicator] = useState({});
+    const [optimisticMessages, setOptimisticMessages] = useState({});
+    const [sendingMessages, setSendingMessages] = useState({});
 
     // Create a ref for the sidebar
     const sidebarRef = useRef(null);
@@ -107,9 +98,26 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
         };
     }, [isOpen, onClose]);
 
+    const { props } = usePage();
+    const { messages = {} } = props;
+    const { conversations: initialConversations = [] } = messages;
+
+    const [chatInputs, setChatInputs] = useState({});
+    const [loadingChats, setLoadingChats] = useState({});
+
     // Initialize with initial conversations
     useEffect(() => {
         setAllConversations(initialConversations);
+        // Initialize last message IDs
+        const initialLastMessageIds = {};
+        initialConversations.forEach((conv) => {
+            if (conv.messages && conv.messages.length > 0) {
+                const lastMsg = conv.messages[conv.messages.length - 1];
+                initialLastMessageIds[conv.sender.id] =
+                    lastMsg.id || lastMsg.temp_id;
+            }
+        });
+        setLastMessageIds(initialLastMessageIds);
     }, [initialConversations]);
 
     const isValidDate = (dateString) => {
@@ -155,20 +163,22 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
         if (message.id) {
             return `msg-${message.id}`;
         }
-        if (message.temp_id) {
-            return `temp-${message.temp_id}`;
-        }
-        messageCounter.current += 1;
-        return `msg-${Date.now()}-${messageCounter.current}-${index}`;
+        // For optimistic messages without ID, use a combination of timestamp and index
+        return `opt-${Date.now()}-${index}`;
     };
 
-    // New: Silent background polling function
-    const silentBackgroundPoll = async () => {
+    // ==============================
+    // CHAT-SPECIFIC POLLING FUNCTIONS
+    // ==============================
+
+    // Poll for new messages in a specific chat
+    // Poll for new messages in a specific chat
+    const pollChatMessages = async (chatId, senderId) => {
+        if (!chatId || !senderId || isChatPollingActive[chatId]) return;
+
+        setIsChatPollingActive((prev) => ({ ...prev, [chatId]: true }));
+
         try {
-            if (!activeChat?.sender?.id || openChats.length === 0) return;
-
-            const chatIdsToPoll = [activeChat.sender.id];
-
             const response = await axios.get(
                 route(
                     userRole === "Organization"
@@ -178,429 +188,353 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                 {
                     params: {
                         polling: true,
-                        open_chats: chatIdsToPoll.join(","),
+                        chat_id: chatId,
+                        sender_id: senderId,
+                        last_message_id: lastMessageIds[senderId] || null,
                         timestamp: Date.now(),
-                        silent_poll: true, // Add flag for silent polling
                     },
                 }
             );
 
             const updatedConversations = response.data.messages || [];
-
-            if (updatedConversations.length === 0) return;
-
             const updatedConversation = updatedConversations.find(
-                (conv) => conv.sender.id === activeChat.sender.id
+                (conv) => conv.sender.id === senderId
             );
 
-            if (!updatedConversation) return;
+            if (updatedConversation && updatedConversation.messages) {
+                const serverMessages = updatedConversation.messages;
 
-            // Check for new messages
-            const currentMessageIds = new Set(
-                activeChat.messages.map((msg) => msg.id).filter(Boolean)
-            );
+                // Find the latest message ID (skip null IDs)
+                if (serverMessages.length > 0) {
+                    // Find the latest message with a non-null ID
+                    const validServerMessages = serverMessages.filter(
+                        (msg) => msg.id !== null
+                    );
+                    if (validServerMessages.length > 0) {
+                        const lastServerMsg =
+                            validServerMessages[validServerMessages.length - 1];
+                        const newLastMessageId = lastServerMsg.id;
 
-            const newMessages = (updatedConversation.messages || []).filter(
-                (serverMsg) =>
-                    serverMsg.id && !currentMessageIds.has(serverMsg.id)
-            );
+                        // Check if we have new messages
+                        const hadNewMessages =
+                            newLastMessageId !== lastMessageIds[senderId];
 
-            if (newMessages.length > 0) {
-                // Update the active chat silently
-                setActiveChat((prev) => {
-                    if (!prev) return prev;
+                        if (hadNewMessages) {
+                            setLastMessageIds((prev) => ({
+                                ...prev,
+                                [senderId]: newLastMessageId,
+                            }));
 
-                    const existingOptimisticMessages = prev.messages.filter(
-                        (msg) =>
-                            msg.temp_id ||
-                            msg.status === "Sending" ||
-                            msg.status === "Failed"
+                            // Show notification for new messages if chat is minimized or not active
+                            const isChatActive =
+                                activeChat?.sender?.id === senderId;
+                            const chatWindow = openChats.find(
+                                (c) => c.sender.id === senderId
+                            );
+                            if (
+                                !isChatActive ||
+                                (chatWindow && chatWindow.isMinimized)
+                            ) {
+                                setMessageUpdateIndicator((prev) => ({
+                                    ...prev,
+                                    [senderId]: (prev[senderId] || 0) + 1,
+                                }));
+                            }
+
+                            // Update messages in the chat
+                            updateChatMessages(
+                                chatId,
+                                senderId,
+                                serverMessages
+                            );
+
+                            // ALWAYS scroll to bottom when new messages arrive from polling
+                            // This is the key change - remove the condition
+                            setTimeout(scrollToBottom, 100);
+                        }
+                    }
+                }
+            }
+
+            setPollingError(null);
+        } catch (error) {
+            console.error(`Polling error for chat ${chatId}:`, error);
+            if (
+                error.response?.status !== 401 &&
+                error.response?.status !== 403
+            ) {
+                setPollingError("Connection issue - retrying...");
+            }
+        } finally {
+            setIsChatPollingActive((prev) => ({ ...prev, [chatId]: false }));
+        }
+    };
+
+    // Start polling for a specific chat
+    const startChatPolling = (chatId, senderId) => {
+        if (!chatId || !senderId) return;
+
+        // Clear existing interval for this chat
+        if (chatPollingIntervals.current[chatId]) {
+            clearInterval(chatPollingIntervals.current[chatId]);
+        }
+
+        // Poll immediately
+        pollChatMessages(chatId, senderId);
+
+        // Set up interval for polling (every 2 seconds for active chat, 5 seconds for others)
+        const isActiveChat = activeChat?.sender?.id === senderId;
+        const pollInterval = isActiveChat ? 2000 : 5000;
+
+        chatPollingIntervals.current[chatId] = setInterval(() => {
+            pollChatMessages(chatId, senderId);
+        }, pollInterval);
+    };
+
+    // Stop polling for a specific chat
+    const stopChatPolling = (chatId) => {
+        if (chatPollingIntervals.current[chatId]) {
+            clearInterval(chatPollingIntervals.current[chatId]);
+            delete chatPollingIntervals.current[chatId];
+        }
+        setIsChatPollingActive((prev) => ({ ...prev, [chatId]: false }));
+    };
+
+    // Update chat messages with server data - FIXED VERSION
+    // Update the updateChatMessages function to properly replace temp messages:
+
+    // Update the updateChatMessages function to ensure temp messages are properly replaced:
+
+    const updateChatMessages = (chatId, senderId, serverMessages) => {
+        setOpenChats((prevOpenChats) => {
+            return prevOpenChats.map((openChat) => {
+                if (openChat.sender.id === senderId) {
+                    const currentMessages = openChat.messages || [];
+
+                    // Create a map of server message IDs for quick lookup
+                    const serverMessageMap = new Map();
+                    serverMessages.forEach((msg) => {
+                        if (msg.id) serverMessageMap.set(msg.id, msg);
+                    });
+
+                    // Update existing messages: replace null ID messages with database messages
+                    const updatedMessages = currentMessages.map((msg) => {
+                        // If this is an optimistic message (null ID) and we received a server message
+                        // that matches the content and sender
+                        if (msg.id === null) {
+                            // Look for a server message with similar content and same sender
+                            const matchingServerMsg = serverMessages.find(
+                                (serverMsg) =>
+                                    serverMsg.message === msg.message &&
+                                    serverMsg.sender_id === msg.sender_id &&
+                                    // Check if timestamps are close (within 10 seconds)
+                                    Math.abs(
+                                        new Date(serverMsg.created_at) -
+                                            new Date(msg.created_at)
+                                    ) < 10000
+                            );
+
+                            if (matchingServerMsg) {
+                                // Replace the optimistic message with the database message
+                                return {
+                                    ...matchingServerMsg,
+                                    _key: generateMessageKey(matchingServerMsg), // Update key with real ID
+                                };
+                            }
+                        }
+                        return msg;
+                    });
+
+                    // Remove duplicates (messages with same ID)
+                    const uniqueMessages = [];
+                    const seenIds = new Set();
+
+                    updatedMessages.forEach((msg) => {
+                        const id = msg.id;
+                        if (!id || !seenIds.has(id)) {
+                            if (id) seenIds.add(id);
+                            uniqueMessages.push(msg);
+                        }
+                    });
+
+                    // Add any new server messages that aren't already in our list
+                    serverMessages.forEach((serverMsg) => {
+                        if (serverMsg.id && !seenIds.has(serverMsg.id)) {
+                            seenIds.add(serverMsg.id);
+                            uniqueMessages.push(serverMsg);
+                        }
+                    });
+
+                    // Sort chronologically
+                    const sortedMessages = uniqueMessages.sort(
+                        (a, b) =>
+                            new Date(a.created_at) - new Date(b.created_at)
                     );
 
-                    const sanitizedMessages = (
-                        updatedConversation.messages || []
-                    )
-                        .filter(
-                            (serverMsg) =>
-                                !existingOptimisticMessages.some(
-                                    (optMsg) =>
-                                        optMsg.temp_id &&
-                                        serverMsg.id === optMsg.id
-                                )
-                        )
-                        .map((msg, index) => ({
-                            ...msg,
-                            created_at: isValidDate(msg.created_at)
-                                ? msg.created_at
-                                : new Date().toISOString(),
-                            _key: generateMessageKey(msg, index),
-                        }));
+                    return {
+                        ...openChat,
+                        messages: sortedMessages,
+                        latestMessage:
+                            sortedMessages[sortedMessages.length - 1] ||
+                            openChat.latestMessage,
+                    };
+                }
+                return openChat;
+            });
+        });
 
-                    const combinedMessages = [
-                        ...existingOptimisticMessages,
-                        ...sanitizedMessages,
-                    ].sort(
+        // Update active chat with similar logic
+        if (activeChat?.sender?.id === senderId) {
+            setActiveChat((prev) => {
+                if (prev && prev.sender.id === senderId) {
+                    const currentMessages = prev.messages || [];
+
+                    const updatedMessages = currentMessages.map((msg) => {
+                        if (msg.id === null) {
+                            const matchingServerMsg = serverMessages.find(
+                                (serverMsg) =>
+                                    serverMsg.message === msg.message &&
+                                    serverMsg.sender_id === msg.sender_id &&
+                                    Math.abs(
+                                        new Date(serverMsg.created_at) -
+                                            new Date(msg.created_at)
+                                    ) < 10000
+                            );
+
+                            if (matchingServerMsg) {
+                                return {
+                                    ...matchingServerMsg,
+                                    _key: generateMessageKey(matchingServerMsg),
+                                };
+                            }
+                        }
+                        return msg;
+                    });
+
+                    const uniqueMessages = [];
+                    const seenIds = new Set();
+
+                    updatedMessages.forEach((msg) => {
+                        const id = msg.id;
+                        if (!id || !seenIds.has(id)) {
+                            if (id) seenIds.add(id);
+                            uniqueMessages.push(msg);
+                        }
+                    });
+
+                    serverMessages.forEach((serverMsg) => {
+                        if (serverMsg.id && !seenIds.has(serverMsg.id)) {
+                            seenIds.add(serverMsg.id);
+                            uniqueMessages.push(serverMsg);
+                        }
+                    });
+
+                    const sortedMessages = uniqueMessages.sort(
                         (a, b) =>
                             new Date(a.created_at) - new Date(b.created_at)
                     );
 
                     return {
                         ...prev,
-                        messages: combinedMessages,
-                        unreadCount: updatedConversation.unreadCount || 0,
-                        latestMessage: updatedConversation.latestMessage
-                            ? {
-                                  ...updatedConversation.latestMessage,
-                                  created_at: isValidDate(
-                                      updatedConversation.latestMessage
-                                          .created_at
-                                  )
-                                      ? updatedConversation.latestMessage
-                                            .created_at
-                                      : new Date().toISOString(),
-                              }
-                            : null,
+                        messages: sortedMessages,
+                        latestMessage:
+                            sortedMessages[sortedMessages.length - 1] ||
+                            prev.latestMessage,
                     };
-                });
-
-                // Also update openChats
-                setOpenChats((prevOpenChats) => {
-                    return prevOpenChats.map((openChat) => {
-                        if (openChat.sender.id === activeChat.sender.id) {
-                            const existingOptimisticMessages =
-                                openChat.messages.filter(
-                                    (msg) =>
-                                        msg.temp_id ||
-                                        msg.status === "Sending" ||
-                                        msg.status === "Failed"
-                                );
-
-                            const sanitizedMessages = (
-                                updatedConversation.messages || []
-                            )
-                                .filter(
-                                    (serverMsg) =>
-                                        !existingOptimisticMessages.some(
-                                            (optMsg) =>
-                                                optMsg.temp_id &&
-                                                serverMsg.id === optMsg.id
-                                        )
-                                )
-                                .map((msg, index) => ({
-                                    ...msg,
-                                    created_at: isValidDate(msg.created_at)
-                                        ? msg.created_at
-                                        : new Date().toISOString(),
-                                    _key: generateMessageKey(msg, index),
-                                }));
-
-                            const combinedMessages = [
-                                ...existingOptimisticMessages,
-                                ...sanitizedMessages,
-                            ].sort(
-                                (a, b) =>
-                                    new Date(a.created_at) -
-                                    new Date(b.created_at)
-                            );
-
-                            return {
-                                ...openChat,
-                                messages: combinedMessages,
-                                unreadCount:
-                                    updatedConversation.unreadCount || 0,
-                                latestMessage: updatedConversation.latestMessage
-                                    ? {
-                                          ...updatedConversation.latestMessage,
-                                          created_at: isValidDate(
-                                              updatedConversation.latestMessage
-                                                  .created_at
-                                          )
-                                              ? updatedConversation
-                                                    .latestMessage.created_at
-                                              : new Date().toISOString(),
-                                      }
-                                    : null,
-                            };
-                        }
-                        return openChat;
-                    });
-                });
-
-                // Update all conversations
-                setAllConversations((prevAllConversations) => {
-                    return prevAllConversations.map((conv) => {
-                        if (conv.sender.id === activeChat.sender.id) {
-                            return {
-                                ...conv,
-                                unreadCount:
-                                    updatedConversation.unreadCount || 0,
-                                latestMessage:
-                                    updatedConversation.latestMessage,
-                            };
-                        }
-                        return conv;
-                    });
-                });
-
-                // Smoothly scroll to bottom for new messages
-                setTimeout(scrollToBottom, 50);
-            }
-        } catch (error) {
-            // Silent fail - don't show errors for background polling
-            console.debug("Silent background poll failed:", error);
-        }
-    };
-
-    // Enhanced polling function
-    const pollForChatWindows = async (targetChatIds = null) => {
-        try {
-            let chatIdsToPoll;
-            if (targetChatIds) {
-                chatIdsToPoll = targetChatIds;
-            } else if (openChats.length > 0) {
-                chatIdsToPoll = openChats.map((chat) => chat.sender.id);
-            } else {
-                return;
-            }
-
-            if (chatIdsToPoll.length === 0) return;
-
-            const response = await axios.get(
-                route(
-                    userRole === "Organization"
-                        ? "organization.messages"
-                        : "volunteer.messages"
-                ),
-                {
-                    params: {
-                        polling: true,
-                        open_chats: chatIdsToPoll.join(","),
-                        timestamp: Date.now(),
-                        focus_chat_windows: true,
-                    },
                 }
-            );
-
-            const updatedConversations = response.data.messages || [];
-            lastPollTimeRef.current = Date.now();
-
-            let hasNewMessages = false;
-
-            setOpenChats((prevOpenChats) => {
-                return prevOpenChats.map((openChat) => {
-                    const updatedConversation = updatedConversations.find(
-                        (conv) => conv.sender.id === openChat.sender.id
-                    );
-
-                    if (updatedConversation) {
-                        const currentMessageIds = new Set(
-                            openChat.messages
-                                .map((msg) => msg.id)
-                                .filter(Boolean)
-                        );
-                        const newMessages = (
-                            updatedConversation.messages || []
-                        ).filter(
-                            (serverMsg) =>
-                                serverMsg.id &&
-                                !currentMessageIds.has(serverMsg.id)
-                        );
-
-                        if (newMessages.length > 0) {
-                            hasNewMessages = true;
-                        }
-
-                        const existingOptimisticMessages =
-                            openChat.messages.filter(
-                                (msg) =>
-                                    msg.temp_id ||
-                                    msg.status === "Sending" ||
-                                    msg.status === "Failed"
-                            );
-
-                        const sanitizedMessages = (
-                            updatedConversation.messages || []
-                        )
-                            .filter(
-                                (serverMsg) =>
-                                    !existingOptimisticMessages.some(
-                                        (optMsg) =>
-                                            optMsg.temp_id &&
-                                            serverMsg.id === optMsg.id
-                                    )
-                            )
-                            .map((msg, index) => ({
-                                ...msg,
-                                created_at: isValidDate(msg.created_at)
-                                    ? msg.created_at
-                                    : new Date().toISOString(),
-                                _key: generateMessageKey(msg, index),
-                            }));
-
-                        const combinedMessages = [
-                            ...existingOptimisticMessages,
-                            ...sanitizedMessages,
-                        ].sort(
-                            (a, b) =>
-                                new Date(a.created_at) - new Date(b.created_at)
-                        );
-
-                        const updatedChat = {
-                            ...openChat,
-                            messages: combinedMessages,
-                            unreadCount: updatedConversation.unreadCount || 0,
-                            latestMessage: updatedConversation.latestMessage
-                                ? {
-                                      ...updatedConversation.latestMessage,
-                                      created_at: isValidDate(
-                                          updatedConversation.latestMessage
-                                              .created_at
-                                      )
-                                          ? updatedConversation.latestMessage
-                                                .created_at
-                                          : new Date().toISOString(),
-                                  }
-                                : null,
-                        };
-
-                        return updatedChat;
-                    }
-                    return openChat;
-                });
+                return prev;
             });
-
-            // Also update allConversations with latest unread counts
-            setAllConversations((prevAllConversations) => {
-                return prevAllConversations.map((conv) => {
-                    const updatedConv = updatedConversations.find(
-                        (updated) => updated.sender.id === conv.sender.id
-                    );
-                    if (updatedConv) {
-                        return {
-                            ...conv,
-                            unreadCount: updatedConv.unreadCount || 0,
-                            latestMessage: updatedConv.latestMessage,
-                        };
-                    }
-                    return conv;
-                });
-            });
-
-            if (hasNewMessages) {
-                setTimeout(scrollToBottom, 150);
-            }
-
-            setPollingError(null);
-        } catch (error) {
-            console.error("Chat window polling error:", error);
-            setPollingError("Connection issue - retrying...");
         }
     };
 
-    const startChatWindowPolling = () => {
-        if (continuousPollingInterval.current) {
-            clearInterval(continuousPollingInterval.current);
-        }
-
-        continuousPollingInterval.current = setInterval(() => {
-            if (openChats.length > 0) {
-                pollForChatWindows().catch((error) => {
-                    console.error("Polling error:", error);
-                });
-            }
-        }, 2000);
-    };
-
-    const startSilentBackgroundPolling = () => {
-        if (silentPollingInterval.current) {
-            clearInterval(silentPollingInterval.current);
-        }
-
-        // Start silent polling at a faster rate (every 1 second) for active chat
-        silentPollingInterval.current = setInterval(() => {
-            if (activeChat?.sender?.id) {
-                // Check if active chat is not minimized
-                const isMinimized = openChats.find(
-                    (chat) => chat.sender.id === activeChat.sender.id
-                )?.isMinimized;
-
-                if (!isMinimized) {
-                    silentBackgroundPoll().catch(console.debug);
-                }
-            }
-        }, 1000);
-    };
-
-    const stopChatWindowPolling = () => {
-        if (continuousPollingInterval.current) {
-            clearInterval(continuousPollingInterval.current);
-            continuousPollingInterval.current = null;
-        }
-        if (silentPollingInterval.current) {
-            clearInterval(silentPollingInterval.current);
-            silentPollingInterval.current = null;
-        }
-    };
-
-    const triggerImmediatePoll = (chatId) => {
-        lastMessageTimeRef.current[chatId] = Date.now();
-        Promise.resolve()
-            .then(() => pollForChatWindows([chatId]))
-            .catch(console.error);
-    };
-
-    // Restart polling when openChats changes
-    useEffect(() => {
-        startChatWindowPolling();
-        startSilentBackgroundPolling();
-
-        return () => {
-            stopChatWindowPolling();
-            if (pollingInterval.current) {
-                clearInterval(pollingInterval.current);
-            }
-        };
-    }, []);
-
-    // Update silent polling when active chat changes
-    useEffect(() => {
-        startSilentBackgroundPolling();
-    }, [activeChat?.sender?.id]);
-
-    useEffect(() => {
-        if (openChats.length > 0) {
-            startChatWindowPolling();
-            pollForChatWindows().catch(console.error);
-        }
-    }, [
-        openChats.length,
-        JSON.stringify(openChats.map((chat) => chat.sender.id)),
-    ]);
-
-    useEffect(() => {
-        if (openChats.length > 0 && activeChat) {
-            triggerImmediatePoll(activeChat.sender.id);
-        }
-    }, [activeChat?.sender?.id]);
+    // ==============================
+    // CHAT MANAGEMENT FUNCTIONS
+    // ==============================
 
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (messagesEndRef.current) {
+            try {
+                // Try multiple methods to ensure we scroll to bottom
+                const container = messagesEndRef.current.parentElement;
+                if (container) {
+                    // Method 1: Scroll to the element
+                    messagesEndRef.current.scrollIntoView({
+                        behavior: "smooth",
+                        block: "end",
+                    });
+
+                    // Method 2: Also set scrollTop directly as backup
+                    setTimeout(() => {
+                        if (container.scrollHeight > container.clientHeight) {
+                            container.scrollTop = container.scrollHeight;
+                        }
+                    }, 100);
+                }
+            } catch (error) {
+                console.error("Error scrolling to bottom:", error);
+            }
+        }
     };
 
     useEffect(() => {
-        scrollToBottom();
+        // Scroll to bottom whenever activeChat messages change
+        if (activeChat?.messages) {
+            setTimeout(scrollToBottom, 50);
+        }
     }, [activeChat?.messages]);
 
-    // Initialize chat input when a new chat is opened
     useEffect(() => {
-        const newChatInputs = { ...chatInputs };
+        if (activeChat) {
+            // Scroll to bottom after a short delay to ensure DOM is updated
+            setTimeout(scrollToBottom, 300);
+        }
+    }, [activeChat?._instanceId]);
+
+    // Start/stop polling when active chat changes
+    useEffect(() => {
+        if (activeChat) {
+            const chatId = activeChat._instanceId || activeChat.sender.id;
+            const senderId = activeChat.sender.id;
+
+            // Start polling for active chat
+            startChatPolling(chatId, senderId);
+
+            // Clear message indicator for this chat
+            setMessageUpdateIndicator((prev) => ({
+                ...prev,
+                [senderId]: 0,
+            }));
+        }
+
+        return () => {
+            // Cleanup function - stop polling when component unmounts
+            Object.keys(chatPollingIntervals.current).forEach((chatId) => {
+                stopChatPolling(chatId);
+            });
+        };
+    }, [activeChat?.sender?.id]);
+
+    // Start polling for all open chats
+    useEffect(() => {
         openChats.forEach((chat) => {
-            if (!newChatInputs[chat.sender.id]) {
-                newChatInputs[chat.sender.id] = "";
+            const chatId = chat._instanceId || chat.sender.id;
+            const senderId = chat.sender.id;
+
+            if (!chatPollingIntervals.current[chatId]) {
+                startChatPolling(chatId, senderId);
             }
         });
-        setChatInputs(newChatInputs);
-    }, [openChats]);
+
+        // Stop polling for chats that are no longer open
+        Object.keys(chatPollingIntervals.current).forEach((chatId) => {
+            const isStillOpen = openChats.some(
+                (chat) => (chat._instanceId || chat.sender.id) === chatId
+            );
+            if (!isStillOpen) {
+                stopChatPolling(chatId);
+            }
+        });
+    }, [openChats.map((chat) => chat.sender.id).join(",")]);
 
     const filteredConversations = allConversations.filter((conversation) =>
         conversation.sender?.name
@@ -610,7 +544,6 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
 
     const showMaxLimitMessage = () => {
         setShowMaxLimitNotification(true);
-        // Auto-hide after 3 seconds
         setTimeout(() => {
             setShowMaxLimitNotification(false);
         }, 3000);
@@ -639,22 +572,21 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                 markMessagesAsRead(conversation.sender.id);
             }
 
-            triggerImmediatePoll(conversation.sender.id);
+            // Trigger immediate poll for this chat
+            const chatId = existingChat._instanceId || existingChat.sender.id;
+            pollChatMessages(chatId, conversation.sender.id);
+
             return;
         }
 
         let newOpenChats = [...openChats];
 
         if (newOpenChats.length >= maxChatWindows) {
-            // Show notification when user tries to exceed the limit
             showMaxLimitMessage();
 
             if (isMobile) {
-                // On mobile, replace the current chat
                 newOpenChats = [];
             } else {
-                // On tablet/desktop, don't allow opening new chat
-                // User needs to close one first
                 return;
             }
         }
@@ -700,8 +632,18 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
             [conversation.sender.id]: true,
         }));
 
+        // Initialize last message ID for this chat
+        if (sanitizedMessages.length > 0) {
+            const lastMsg = sanitizedMessages[sanitizedMessages.length - 1];
+            setLastMessageIds((prev) => ({
+                ...prev,
+                [conversation.sender.id]: lastMsg.id || lastMsg.temp_id,
+            }));
+        }
+
+        // Start polling for this new chat
         setTimeout(() => {
-            triggerImmediatePoll(conversation.sender.id);
+            startChatPolling(newChat._instanceId, conversation.sender.id);
             setTimeout(() => {
                 setLoadingChats((prev) => ({
                     ...prev,
@@ -753,6 +695,13 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
     const closeChat = (conversationId, e) => {
         e?.stopPropagation();
 
+        const chatToClose = openChats.find(
+            (chat) => chat.sender.id === conversationId
+        );
+        if (chatToClose) {
+            stopChatPolling(chatToClose._instanceId || conversationId);
+        }
+
         const updatedChats = openChats.filter(
             (chat) => chat.sender.id !== conversationId
         );
@@ -762,6 +711,19 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
             const newInputs = { ...prev };
             delete newInputs[conversationId];
             return newInputs;
+        });
+
+        // Clear optimistic messages for this chat
+        setOptimisticMessages((prev) => {
+            const newOptimistic = { ...prev };
+            delete newOptimistic[conversationId];
+            return newOptimistic;
+        });
+
+        setSendingMessages((prev) => {
+            const newSending = { ...prev };
+            delete newSending[conversationId];
+            return newSending;
         });
 
         if (activeChat?.sender.id === conversationId) {
@@ -798,6 +760,7 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
         if (!message || !chat) return;
 
         const receiverId = chat.sender.id;
+        const chatId = chat._instanceId || chat.sender.id;
 
         setChatInputs((prev) => ({
             ...prev,
@@ -809,25 +772,29 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
             [chat.sender.id]: true,
         }));
 
-        const tempId = `temp-${Date.now()}-${Math.random()
-            .toString(36)
-            .substr(2, 9)}`;
+        // Create optimistic message WITHOUT temp_id, with null ID
         const optimisticMessage = {
-            id: tempId,
+            id: null, // Start with null ID
             message: message,
             sender_id: auth?.user?.id || 0,
             receiver_id: receiverId,
             created_at: new Date().toISOString(),
-            status: "Sending",
-            temp_id: tempId,
+            status: "Sending", // Initial status
             sender: {
                 id: auth?.user?.id || 0,
                 name: auth?.user?.name || "User",
                 email: auth?.user?.email || "",
             },
-            _key: generateMessageKey({ temp_id: tempId }),
+            _key: generateMessageKey({ id: null }), // Generate key without ID
         };
 
+        // Add to sending messages state (but we'll track it differently)
+        setSendingMessages((prev) => ({
+            ...prev,
+            [chatId]: [...(prev[chatId] || []), optimisticMessage],
+        }));
+
+        // Update chat with optimistic message - Append to existing messages
         setOpenChats((prevOpenChats) => {
             return prevOpenChats.map((openChat) => {
                 if (openChat.sender.id === chat.sender.id) {
@@ -859,6 +826,7 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
             });
         }
 
+        // Also update allConversations to show the new message in the sidebar
         setAllConversations((prev) =>
             prev.map((conv) =>
                 conv.sender.id === chat.sender.id
@@ -907,14 +875,29 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
             const result = await response.json();
 
             if (result.success) {
+                // When server responds successfully, update the message status to "Sent"
+                // We'll find the message with null ID and same content and update its status
                 setOpenChats((prevOpenChats) => {
                     return prevOpenChats.map((openChat) => {
                         if (openChat.sender.id === chat.sender.id) {
                             const updatedMessages = openChat.messages.map(
-                                (msg) =>
-                                    msg.temp_id === tempId
-                                        ? { ...msg, status: "Sent" }
-                                        : msg
+                                (msg, index) => {
+                                    // Find the optimistic message (null ID, "Sending" status, same content)
+                                    if (
+                                        msg.id === null &&
+                                        msg.status === "Sending" &&
+                                        msg.message === message &&
+                                        // Make sure we're updating the most recent matching message
+                                        index === openChat.messages.length - 1
+                                    ) {
+                                        return {
+                                            ...msg,
+                                            status: "Sent", // Update status to "Sent"
+                                            // We'll keep id as null for now, polling will update it
+                                        };
+                                    }
+                                    return msg;
+                                }
                             );
 
                             return {
@@ -929,10 +912,21 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                 if (activeChat?.sender.id === chat.sender.id) {
                     setActiveChat((prev) => {
                         if (prev && prev.sender.id === chat.sender.id) {
-                            const updatedMessages = prev.messages.map((msg) =>
-                                msg.temp_id === tempId
-                                    ? { ...msg, status: "Sent" }
-                                    : msg
+                            const updatedMessages = prev.messages.map(
+                                (msg, index) => {
+                                    if (
+                                        msg.id === null &&
+                                        msg.status === "Sending" &&
+                                        msg.message === message &&
+                                        index === prev.messages.length - 1
+                                    ) {
+                                        return {
+                                            ...msg,
+                                            status: "Sent",
+                                        };
+                                    }
+                                    return msg;
+                                }
                             );
 
                             return {
@@ -944,22 +938,33 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                     });
                 }
 
+                // Trigger immediate poll for this chat to get the actual message from server
                 setTimeout(() => {
-                    triggerImmediatePoll(chat.sender.id);
-                }, 500);
-            } else {
-                throw new Error(result.message || "Failed to send message");
+                    pollChatMessages(chatId, chat.sender.id);
+                }, 100);
             }
         } catch (error) {
             console.error("Error sending message:", error);
 
+            // Update message status to failed
             setOpenChats((prevOpenChats) => {
                 return prevOpenChats.map((openChat) => {
                     if (openChat.sender.id === chat.sender.id) {
-                        const updatedMessages = openChat.messages.map((msg) =>
-                            msg.temp_id === tempId
-                                ? { ...msg, status: "Failed" }
-                                : msg
+                        const updatedMessages = openChat.messages.map(
+                            (msg, index) => {
+                                if (
+                                    msg.id === null &&
+                                    msg.status === "Sending" &&
+                                    msg.message === message &&
+                                    index === openChat.messages.length - 1
+                                ) {
+                                    return {
+                                        ...msg,
+                                        status: "Failed",
+                                    };
+                                }
+                                return msg;
+                            }
                         );
 
                         return {
@@ -974,10 +979,21 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
             if (activeChat?.sender.id === chat.sender.id) {
                 setActiveChat((prev) => {
                     if (prev && prev.sender.id === chat.sender.id) {
-                        const updatedMessages = prev.messages.map((msg) =>
-                            msg.temp_id === tempId
-                                ? { ...msg, status: "Failed" }
-                                : msg
+                        const updatedMessages = prev.messages.map(
+                            (msg, index) => {
+                                if (
+                                    msg.id === null &&
+                                    msg.status === "Sending" &&
+                                    msg.message === message &&
+                                    index === prev.messages.length - 1
+                                ) {
+                                    return {
+                                        ...msg,
+                                        status: "Failed",
+                                    };
+                                }
+                                return msg;
+                            }
                         );
 
                         return {
@@ -989,12 +1005,16 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                 });
             }
 
+            // Update the conversation in sidebar to show failed status
             setAllConversations((prev) =>
                 prev.map((conv) =>
                     conv.sender.id === chat.sender.id
                         ? {
                               ...conv,
-                              latestMessage: chat.latestMessage,
+                              latestMessage: {
+                                  ...optimisticMessage,
+                                  status: "Failed",
+                              },
                           }
                         : conv
                 )
@@ -1175,6 +1195,20 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                                                 </span>
                                             </div>
                                         )}
+                                        {messageUpdateIndicator[
+                                            conversation.sender.id
+                                        ] > 0 && (
+                                            <div className="flex-shrink-0">
+                                                <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-5 text-center animate-pulse">
+                                                    {
+                                                        messageUpdateIndicator[
+                                                            conversation.sender
+                                                                .id
+                                                        ]
+                                                    }
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                 </button>
                             ))
@@ -1192,8 +1226,10 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                 }`}
             >
                 {openChats.map((chat, index) => {
-                    // FIXED: Pass chat and index as parameters
                     const styles = getChatWindowStyles(chat, index);
+                    const newMessageCount =
+                        messageUpdateIndicator[chat.sender.id] || 0;
+
                     return (
                         <div
                             key={`chat-${chat.sender.id}-${
@@ -1226,9 +1262,13 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                                     <button
                                         onClick={() => {
                                             setActiveChat(chat);
-                                            toggleMinimizeChat(chat.sender.id);
+                                            if (chat.isMinimized) {
+                                                toggleMinimizeChat(
+                                                    chat.sender.id
+                                                );
+                                            }
                                         }}
-                                        className="min-w-0 group"
+                                        className="min-w-0 group relative"
                                     >
                                         <span
                                             className={`font-semibold text-sm truncate transition-all duration-200 ${
@@ -1245,6 +1285,12 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                                         >
                                             {chat.sender.name}
                                         </span>
+                                        {newMessageCount > 0 &&
+                                            chat.isMinimized && (
+                                                <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center animate-pulse">
+                                                    {newMessageCount}
+                                                </span>
+                                            )}
                                     </button>
                                 </div>
 
@@ -1366,6 +1412,7 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                                                                     message.message
                                                                 }
                                                             </p>
+
                                                             <p
                                                                 className={`text-[10px] mt-1 text-right ${
                                                                     isMine
@@ -1384,6 +1431,9 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                                                                 {message.status ===
                                                                     "Sending" &&
                                                                     " • Sending..."}
+                                                                {message.status ===
+                                                                    "Sent" &&
+                                                                    " • Sent"}
                                                                 {message.status ===
                                                                     "Failed" &&
                                                                     " • Failed to send"}
@@ -1446,8 +1496,7 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                                                 placeholder="Type a message..."
                                                 className="flex-1 rounded-full border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
                                                 disabled={
-                                                    isLoading[chat.sender.id] ||
-                                                    processing
+                                                    isLoading[chat.sender.id] // Removed the undefined 'processing' variable
                                                 }
                                             />
                                             <button
@@ -1471,7 +1520,7 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                                                     }
                                                 }}
                                                 disabled={
-                                                    processing ||
+                                                    // Removed the undefined 'processing' variable
                                                     isLoading[chat.sender.id] ||
                                                     !chatInputs[
                                                         chat.sender.id
@@ -1486,6 +1535,11 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                                                 )}
                                             </button>
                                         </form>
+                                        {pollingError && (
+                                            <div className="mt-2 text-xs text-red-500 text-center">
+                                                {pollingError}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
