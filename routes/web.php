@@ -70,6 +70,9 @@ Route::get('/gdpr', function () {
 Route::get('/cookies', function () {
     return inertia('Cookies');
 })->name('cookies');
+Route::get('/community-guidelines', function () {
+    return inertia('Community');
+})->name('community.guidelines');
 
 // Main section routes
 Route::get('/volunteer', [HomeController::class, 'volunteer'])->name('volunteer');

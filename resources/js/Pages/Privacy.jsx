@@ -136,7 +136,7 @@ export default function Privacy() {
                     8. Children's Privacy
                 </h2>
                 <p className="mb-4">
-                    Our services are not intended for children under 16. We do
+                    Our services are not intended for children under 18. We do
                     not knowingly collect data from children. If we learn we
                     have inadvertently collected such data, we will delete it
                     promptly.

@@ -162,12 +162,6 @@ export default function GeneralPages({ children, auth }) {
                             >
                                 Corporate Impact Sponsorship
                             </Link>
-                            <Link
-                                href={route("guide")}
-                                className="btn btn-ghost justify-start"
-                            >
-                                Volunteer Guide
-                            </Link>
 
                             <div className="flex flex-col space-y-2">
                                 {auth?.user ? (
@@ -293,8 +287,11 @@ export default function GeneralPages({ children, auth }) {
                         </h4>
                         <ul className="space-y-2">
                             {[
-                                // { route: "faq", label: "FAQs" },
-                                // { route: "blog", label: "Blog" },
+                                { route: "guide", label: "Volunteer Guide" },
+                                {
+                                    route: "community.guidelines",
+                                    label: "Community Guidelines",
+                                },
                                 // {
                                 //     route: "testimonials",
                                 //     label: "Testimonials",
@@ -309,6 +306,12 @@ export default function GeneralPages({ children, auth }) {
                                     </Link>
                                 </li>
                             ))}
+                            {/* <Link
+                                href={route("guide")}
+                                className="btn btn-ghost justify-start"
+                            >
+                                Volunteer Guide
+                            </Link> */}
                         </ul>
                     </div>
                 </div>

@@ -524,7 +524,7 @@ export default function OrganizationLayout({ children, auth }) {
 
                         <div className="flex items-center space-x-4">
                             {/* Notification Bell */}
-                            <div className="dropdown dropdown-end">
+                            {/* <div className="dropdown dropdown-end">
                                 <div
                                     tabIndex={0}
                                     role="button"
@@ -535,7 +535,7 @@ export default function OrganizationLayout({ children, auth }) {
                                         <span className="badge badge-xs badge-primary indicator-item"></span>
                                     </div>
                                 </div>
-                            </div>
+                            </div> */}
                             <button
                                 onClick={() => setIsMessageSidebarOpen(true)}
                                 className="p-3 rounded-2xl hover:bg-slate-100 transition-colors relative group"

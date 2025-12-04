@@ -5,7 +5,6 @@ import {
     ClockIcon,
     XCircleIcon,
     FolderOpenIcon,
-    ChatBubbleBottomCenterTextIcon,
     PlusCircleIcon,
     CheckBadgeIcon,
     ArrowRightIcon,
@@ -13,9 +12,6 @@ import {
     ChartBarIcon,
 } from "@heroicons/react/24/solid";
 import {
-    ArrowTrendingUpIcon,
-    DocumentCheckIcon,
-    EnvelopeIcon,
     ExclamationCircleIcon,
     UserIcon,
     PowerIcon,
@@ -447,16 +443,6 @@ export default function Dashboard({ auth }) {
                                                 : null
                                         }
                                     />
-                                    {/* Platform Status */}
-                                    <StatusItem
-                                        icon={
-                                            <ArrowTrendingUpIcon className="w-5 h-5" />
-                                        }
-                                        title="Platform Status"
-                                        status="Online"
-                                        statusColor="text-green-600"
-                                        description="All systems operational"
-                                    />
                                 </ul>
                             </div>
                         </div>
@@ -470,18 +456,6 @@ export default function Dashboard({ auth }) {
                                 Get support or learn how to use features
                             </p>
                             <div className="space-y-3">
-                                <Link
-                                    href="/organization/help"
-                                    className="block text-sm font-medium text-blue-600 hover:text-blue-800"
-                                >
-                                    📚 Documentation
-                                </Link>
-                                <Link
-                                    href="/organization/support"
-                                    className="block text-sm font-medium text-blue-600 hover:text-blue-800"
-                                >
-                                    💬 Contact Support
-                                </Link>
                                 <Link
                                     href="/organization/tutorials"
                                     className="block text-sm font-medium text-blue-600 hover:text-blue-800"
@@ -498,15 +472,6 @@ export default function Dashboard({ auth }) {
                                             🔒 Verification Process
                                         </Link>
                                     )}
-                                {/* Account status help */}
-                                {accountStatus.status === "Deactivated" && (
-                                    <Link
-                                        href="/organization/settings"
-                                        className="block text-sm font-medium text-red-600 hover:text-red-800"
-                                    >
-                                        🔄 Reactivate Account
-                                    </Link>
-                                )}
                             </div>
                         </div>
                     </div>
