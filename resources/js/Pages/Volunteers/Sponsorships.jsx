@@ -1,6 +1,42 @@
 import React, { useState, useEffect } from "react";
 import VolunteerLayout from "@/Layouts/VolunteerLayout";
 import { Head, useForm, router } from "@inertiajs/react";
+import {
+    Heart,
+    Edit,
+    Send,
+    CheckCircle,
+    XCircle,
+    AlertCircle,
+    DollarSign,
+    Calendar,
+    User,
+    Building,
+    TrendingUp,
+    FileText,
+    Target,
+    Award,
+    ChevronRight,
+    Filter,
+    RefreshCw,
+    Download,
+    Share2,
+    MoreVertical,
+    Info,
+    Clock,
+    Check,
+    X,
+    Plus,
+    Users,
+    Globe,
+    MapPin,
+    CreditCard,
+    BarChart3,
+    Sparkles,
+    Lightbulb,
+    Briefcase,
+    GraduationCap,
+} from "lucide-react";
 
 export default function Sponsorships({
     sponsorships,
@@ -16,17 +52,29 @@ export default function Sponsorships({
     const [selectedSponsorship, setSelectedSponsorship] = useState(null);
     const [selectedApplication, setSelectedApplication] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [activeTab, setActiveTab] = useState("received"); // 'received' or 'applications'
+    const [activeTab, setActiveTab] = useState("received");
     const [originalApplicationData, setOriginalApplicationData] =
         useState(null);
     const [hasChanges, setHasChanges] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+    const [showMobileFilters, setShowMobileFilters] = useState(false);
+    const [statusFilter, setStatusFilter] = useState("all");
+
+    // Check screen size
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        checkMobile();
+        window.addEventListener("resize", checkMobile);
+        return () => window.removeEventListener("resize", checkMobile);
+    }, []);
 
     const { data, setData, post, errors, reset } = useForm({
         message: "",
         sponsorship_public_id: "",
     });
 
-    // Form for editing applications
     const {
         data: editFormData,
         setData: setEditFormData,
@@ -54,10 +102,10 @@ export default function Sponsorships({
     useEffect(() => {
         if (success || show_success_modal) {
             setShowSuccessModal(true);
+            setTimeout(() => setShowSuccessModal(false), 3000);
         }
     }, [success, show_success_modal]);
 
-    // Track changes in edit form
     useEffect(() => {
         if (showEditModal && originalApplicationData) {
             const currentData = {
@@ -109,7 +157,8 @@ export default function Sponsorships({
             style: "currency",
             currency: "USD",
             minimumFractionDigits: 0,
-        }).format(amount);
+            maximumFractionDigits: 2,
+        }).format(amount || 0);
 
     const canResubmitApplication = (application) => {
         return application.status === "Rejected";
@@ -118,7 +167,7 @@ export default function Sponsorships({
     const handleResubmitApplication = (applicationId) => {
         if (
             !confirm(
-                "Are you sure you want to resubmit this application? It will be sent for review again and the status will be changed to Pending."
+                "Are you sure you want to resubmit this application? It will be sent for review again."
             )
         ) {
             return;
@@ -138,28 +187,60 @@ export default function Sponsorships({
     };
 
     const getStatusBadge = (status) => {
-        const statusStyles = {
-            completed: "bg-green-100 text-green-700 border border-green-300",
-            pending: "bg-yellow-100 text-yellow-700 border border-yellow-300",
-            failed: "bg-red-100 text-red-700 border border-red-300",
-            refunded: "bg-gray-100 text-gray-700 border border-gray-300",
-            submitted: "bg-blue-100 text-blue-700 border border-blue-300",
-            under_review:
-                "bg-purple-100 text-purple-700 border border-purple-300",
-            approved: "bg-green-100 text-green-700 border border-green-300",
-            rejected: "bg-red-100 text-red-700 border border-red-300",
-            draft: "bg-gray-100 text-gray-700 border border-gray-300",
-            Pending: "bg-yellow-100 text-yellow-700 border border-yellow-300",
+        const statusConfig = {
+            completed: {
+                color: "bg-green-100 text-green-800 border-green-200",
+                icon: CheckCircle,
+            },
+            pending: {
+                color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+                icon: Clock,
+            },
+            failed: {
+                color: "bg-red-100 text-red-800 border-red-200",
+                icon: XCircle,
+            },
+            refunded: {
+                color: "bg-gray-100 text-gray-800 border-gray-200",
+                icon: RefreshCw,
+            },
+            submitted: {
+                color: "bg-blue-100 text-blue-800 border-blue-200",
+                icon: FileText,
+            },
+            under_review: {
+                color: "bg-purple-100 text-purple-800 border-purple-200",
+                icon: AlertCircle,
+            },
+            approved: {
+                color: "bg-green-100 text-green-800 border-green-200",
+                icon: CheckCircle,
+            },
+            rejected: {
+                color: "bg-red-100 text-red-800 border-red-200",
+                icon: XCircle,
+            },
+            draft: {
+                color: "bg-gray-100 text-gray-800 border-gray-200",
+                icon: Edit,
+            },
+            Pending: {
+                color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+                icon: Clock,
+            },
         };
+
+        const config =
+            statusConfig[status?.toLowerCase()] || statusConfig.pending;
+        const Icon = config.icon;
 
         return (
             <span
-                className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                    statusStyles[status] ?? statusStyles.pending
-                }`}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${config.color}`}
             >
-                {status.charAt(0).toUpperCase() +
-                    status.slice(1).replace("_", " ")}
+                <Icon className="w-3 h-3" />
+                {status?.charAt(0).toUpperCase() +
+                    status?.slice(1).replace("_", " ") || "Unknown"}
             </span>
         );
     };
@@ -173,7 +254,6 @@ export default function Sponsorships({
         if (s.is_anonymous)
             return alert("Cannot send appreciation to anonymous donors.");
         if (hasSentAppreciation(s)) return alert("Appreciation already sent.");
-
         setSelectedSponsorship(s);
         setData("sponsorship_public_id", s.id);
         setShowAppreciationModal(true);
@@ -182,7 +262,6 @@ export default function Sponsorships({
     const submitAppreciation = (e) => {
         e.preventDefault();
         setIsSubmitting(true);
-
         post(route("volunteer.appreciation.send"), {
             preserveScroll: true,
             onSuccess: () => {
@@ -195,7 +274,6 @@ export default function Sponsorships({
         });
     };
 
-    // Edit Application Functions
     const handleEditApplication = (application) => {
         setSelectedApplication(application);
         const applicationData = {
@@ -223,8 +301,6 @@ export default function Sponsorships({
 
     const handleUpdateApplication = (e) => {
         e.preventDefault();
-
-        // Calculate total amount
         const total =
             parseFloat(editFormData.travel || 0) +
             parseFloat(editFormData.accommodation || 0) +
@@ -251,7 +327,7 @@ export default function Sponsorships({
     const handleSubmitForReview = (applicationId) => {
         if (
             !confirm(
-                "Are you sure you want to submit this application for review? The status will be changed to Pending and you won't be able to edit it after submission."
+                "Are you sure you want to submit this application for review?"
             )
         ) {
             return;
@@ -289,39 +365,78 @@ export default function Sponsorships({
         return application.status === "Rejected";
     };
 
-    const AppreciationModal = () =>
-        showAppreciationModal && selectedSponsorship ? (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm overflow-y-auto">
-                <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 animate-scale-in my-4">
-                    <h3 className="text-xl font-semibold text-gray-900">
-                        Send Appreciation
-                    </h3>
-                    <p className="mt-2 text-gray-600 text-sm">
-                        Write a thank‑you message to{" "}
-                        {getDonorName(selectedSponsorship)} for supporting your
-                        project "{selectedSponsorship.project}".
+    const filteredSponsorships = sponsorships.filter((s) => {
+        if (statusFilter === "all") return true;
+        return s.status === statusFilter;
+    });
+
+    const filteredApplications = volunteer_sponsorships.filter((app) => {
+        if (statusFilter === "all") return true;
+        return app.status === statusFilter;
+    });
+
+    // Mobile-friendly modals
+    const AppreciationModal = () => {
+        if (!showAppreciationModal || !selectedSponsorship) return null;
+
+        return (
+            <div className="modal modal-open modal-bottom sm:modal-middle">
+                <div className="modal-box bg-white p-4 sm:p-6 mx-4 sm:mx-0 max-w-md sm:max-w-lg w-full">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                                <Heart className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
+                                Send Appreciation
+                            </h3>
+                        </div>
+                        <button
+                            onClick={() => {
+                                setShowAppreciationModal(false);
+                                setSelectedSponsorship(null);
+                                reset();
+                            }}
+                            className="btn btn-ghost btn-sm"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    <p className="text-gray-600 mb-4 text-sm sm:text-base">
+                        Thank{" "}
+                        <span className="font-semibold">
+                            {getDonorName(selectedSponsorship)}
+                        </span>{" "}
+                        for supporting{" "}
+                        <span className="font-semibold">
+                            "{selectedSponsorship.project}"
+                        </span>
                     </p>
 
-                    <form
-                        onSubmit={submitAppreciation}
-                        className="mt-4 space-y-4"
-                    >
-                        <textarea
-                            className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm p-3 resize-y min-h-[120px]"
-                            rows={5}
-                            placeholder="Write your appreciation message..."
-                            value={data.message}
-                            onChange={(e) => setData("message", e.target.value)}
-                            disabled={isSubmitting}
-                            required
-                        ></textarea>
-                        {errors.message && (
-                            <p className="text-red-600 text-sm">
-                                {errors.message}
-                            </p>
-                        )}
+                    <form onSubmit={submitAppreciation} className="space-y-4">
+                        <div>
+                            <label className="label">
+                                <span className="label-text">Your Message</span>
+                            </label>
+                            <textarea
+                                className="textarea textarea-bordered w-full min-h-[120px] resize-y"
+                                placeholder="Write your heartfelt appreciation message..."
+                                value={data.message}
+                                onChange={(e) =>
+                                    setData("message", e.target.value)
+                                }
+                                disabled={isSubmitting}
+                                required
+                            />
+                            {errors.message && (
+                                <p className="text-error text-sm mt-1">
+                                    {errors.message}
+                                </p>
+                            )}
+                        </div>
 
-                        <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 pt-2">
+                        <div className="modal-action flex-col sm:flex-row gap-2">
                             <button
                                 type="button"
                                 onClick={() => {
@@ -329,58 +444,56 @@ export default function Sponsorships({
                                     setSelectedSponsorship(null);
                                     reset();
                                 }}
-                                className="px-4 py-2 rounded-lg border text-gray-700 hover:bg-gray-50 transition-colors"
+                                className="btn btn-ghost w-full sm:w-auto"
                                 disabled={isSubmitting}
                             >
                                 Cancel
                             </button>
-
                             <button
                                 type="submit"
                                 disabled={isSubmitting || !data.message.trim()}
-                                className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow transition disabled:opacity-50"
+                                className="btn btn-primary w-full sm:w-auto"
                             >
-                                {isSubmitting ? "Sending..." : "Send Message"}
+                                {isSubmitting ? (
+                                    <>
+                                        <span className="loading loading-spinner loading-sm"></span>
+                                        Sending...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send className="w-4 h-4 mr-2" />
+                                        Send Message
+                                    </>
+                                )}
                             </button>
                         </div>
                     </form>
                 </div>
             </div>
-        ) : null;
+        );
+    };
 
-    const EditApplicationModal = () =>
-        showEditModal && selectedApplication ? (
-            <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 backdrop-blur-sm overflow-y-auto">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl p-4 sm:p-6 lg:p-8 animate-scale-in my-4 max-h-[95vh] overflow-y-auto">
-                    {/* Header Section */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 pb-6 border-b border-gray-200">
-                        <div className="mb-4 sm:mb-0">
-                            <h3 className="text-xl sm:text-2xl font-bold text-gray-900">
-                                Edit Sponsorship Application
-                            </h3>
-                            <p className="text-gray-600 mt-2 text-sm sm:text-base">
-                                Update your sponsorship request for{" "}
-                                <span className="font-semibold text-blue-600">
+    const EditApplicationModal = () => {
+        if (!showEditModal || !selectedApplication) return null;
+
+        return (
+            <div className="modal modal-open modal-bottom sm:modal-middle">
+                <div className="modal-box bg-white p-4 sm:p-6 mx-4 sm:mx-0 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                                <Edit className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg sm:text-xl font-bold text-gray-900">
+                                    Edit Sponsorship Application
+                                </h3>
+                                <p className="text-gray-600 text-sm mt-1">
                                     {selectedApplication.booking?.project
                                         ?.title || "Unknown Project"}
-                                </span>
-                            </p>
-                            {hasChanges && (
-                                <div className="flex items-center gap-2 mt-2 text-amber-600 text-sm">
-                                    <svg
-                                        className="w-4 h-4"
-                                        fill="currentColor"
-                                        viewBox="0 0 20 20"
-                                    >
-                                        <path
-                                            fillRule="evenodd"
-                                            d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                            clipRule="evenodd"
-                                        />
-                                    </svg>
-                                    <span>You have unsaved changes</span>
-                                </div>
-                            )}
+                                </p>
+                            </div>
                         </div>
                         <button
                             onClick={() => {
@@ -389,146 +502,105 @@ export default function Sponsorships({
                                     !confirm(
                                         "You have unsaved changes. Are you sure you want to cancel?"
                                     )
-                                ) {
+                                )
                                     return;
-                                }
                                 setShowEditModal(false);
                                 setSelectedApplication(null);
                                 resetEditForm();
                                 setOriginalApplicationData(null);
                                 setHasChanges(false);
                             }}
-                            className="self-end sm:self-auto p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            className="btn btn-ghost btn-sm"
                         >
-                            <svg
-                                className="w-6 h-6 text-gray-500"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M6 18L18 6M6 6l12 12"
-                                />
-                            </svg>
+                            <X className="w-4 h-4" />
                         </button>
                     </div>
 
+                    {hasChanges && (
+                        <div className="alert alert-warning mb-4">
+                            <AlertCircle className="w-4 h-4" />
+                            <span>You have unsaved changes</span>
+                        </div>
+                    )}
+
                     <form
                         onSubmit={handleUpdateApplication}
-                        className="space-y-6 lg:space-y-8"
+                        className="space-y-6"
                     >
-                        {/* Funding Breakdown Section */}
-                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 sm:p-6 rounded-xl border border-blue-100">
-                            <div className="flex items-center gap-3 mb-4 sm:mb-6">
-                                <div className="bg-blue-600 p-2 rounded-lg">
-                                    <svg
-                                        className="w-5 h-5 text-white"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
-                                        />
-                                    </svg>
-                                </div>
-                                <h4 className="text-base sm:text-lg font-semibold text-gray-900">
+                        {/* Funding Requirements - Responsive Grid */}
+                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                            <div className="flex items-center gap-3 mb-4">
+                                <CreditCard className="w-5 h-5 text-blue-600" />
+                                <h4 className="font-semibold text-gray-900">
                                     Funding Requirements
                                 </h4>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {[
                                     {
                                         label: "Travel Expenses",
                                         name: "travel",
-                                        description:
-                                            "Flights, local transportation, etc.",
                                         icon: "✈️",
                                     },
                                     {
                                         label: "Accommodation",
                                         name: "accommodation",
-                                        description:
-                                            "Housing costs during the project",
                                         icon: "🏠",
                                     },
                                     {
                                         label: "Meals & Food",
                                         name: "meals",
-                                        description:
-                                            "Daily food and nutrition expenses",
                                         icon: "🍽️",
                                     },
                                     {
                                         label: "Living Expenses",
                                         name: "living_expenses",
-                                        description:
-                                            "Daily necessities and miscellaneous",
                                         icon: "💰",
                                     },
                                     {
-                                        label: "Visa & Documentation",
+                                        label: "Visa & Documents",
                                         name: "visa_fees",
-                                        description:
-                                            "Visa fees and required documents",
                                         icon: "📋",
                                     },
                                     {
                                         label: "Project Contribution",
                                         name: "project_fees_amount",
-                                        description:
-                                            "Direct project support fees",
                                         icon: "🤝",
                                     },
                                 ].map((item) => (
                                     <div
                                         key={item.name}
-                                        className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 shadow-sm"
+                                        className="bg-white p-3 rounded-lg border border-gray-200"
                                     >
-                                        <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-3 gap-2">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-lg">
-                                                    {item.icon}
-                                                </span>
-                                                <label className="block text-sm font-semibold text-gray-800">
-                                                    {item.label}
-                                                </label>
-                                            </div>
-                                            <div className="relative">
-                                                <span className="absolute left-3 top-2 text-gray-500 text-sm">
-                                                    $
-                                                </span>
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    step="0.01"
-                                                    className="w-full sm:w-32 pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-all"
-                                                    value={
-                                                        editFormData[item.name]
-                                                    }
-                                                    onChange={(e) =>
-                                                        setEditFormData(
-                                                            item.name,
-                                                            parseFloat(
-                                                                e.target.value
-                                                            ) || 0
-                                                        )
-                                                    }
-                                                />
-                                            </div>
+                                        <label className="block text-xs font-semibold text-gray-700 mb-2">
+                                            <span className="mr-1">
+                                                {item.icon}
+                                            </span>
+                                            {item.label}
+                                        </label>
+                                        <div className="relative">
+                                            <span className="absolute left-3 top-2.5 text-gray-500 text-sm">
+                                                $
+                                            </span>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                className="input input-bordered w-full pl-8"
+                                                value={editFormData[item.name]}
+                                                onChange={(e) =>
+                                                    setEditFormData(
+                                                        item.name,
+                                                        parseFloat(
+                                                            e.target.value
+                                                        ) || 0
+                                                    )
+                                                }
+                                            />
                                         </div>
-                                        <p className="text-xs text-gray-500">
-                                            {item.description}
-                                        </p>
                                         {editErrors[item.name] && (
-                                            <p className="text-red-600 text-xs mt-1">
+                                            <p className="text-error text-xs mt-1">
                                                 {editErrors[item.name]}
                                             </p>
                                         )}
@@ -536,8 +608,8 @@ export default function Sponsorships({
                                 ))}
                             </div>
 
-                            {/* Total Amount Summary */}
-                            <div className="mt-4 sm:mt-6 p-4 bg-white rounded-lg border-2 border-blue-200 shadow-sm">
+                            {/* Total Summary */}
+                            <div className="mt-4 p-3 bg-white rounded-lg border-2 border-blue-200">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between">
                                     <div>
                                         <p className="text-sm font-medium text-gray-600">
@@ -545,11 +617,11 @@ export default function Sponsorships({
                                         </p>
                                         <p className="text-xs text-gray-500">
                                             This amount will be shown to
-                                            potential sponsors
+                                            sponsors
                                         </p>
                                     </div>
                                     <div className="text-right mt-2 sm:mt-0">
-                                        <p className="text-xl sm:text-2xl font-bold text-blue-600">
+                                        <p className="text-xl font-bold text-blue-600">
                                             {formatCurrency(calculateTotal())}
                                         </p>
                                         <p className="text-xs text-gray-500 mt-1">
@@ -560,41 +632,20 @@ export default function Sponsorships({
                             </div>
                         </div>
 
-                        {/* Application Details Section */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+                        {/* Application Details - Responsive Grid */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* Self Introduction */}
                             <div className="space-y-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="bg-green-600 p-2 rounded-lg">
-                                        <svg
-                                            className="w-5 h-5 text-white"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                                            />
-                                        </svg>
-                                    </div>
-                                    <h4 className="text-base sm:text-lg font-semibold text-gray-900">
+                                    <User className="w-5 h-5 text-green-600" />
+                                    <h4 className="font-semibold text-gray-900">
                                         Personal Introduction
                                     </h4>
                                 </div>
-
-                                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                                    <label className="block text-sm font-medium text-gray-700 mb-3">
-                                        Tell us about yourself
-                                        <span className="text-red-500 ml-1">
-                                            *
-                                        </span>
-                                    </label>
+                                <div className="bg-white p-4 rounded-lg border border-gray-200">
                                     <textarea
-                                        className="w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm p-3 min-h-[120px] resize-y transition-all"
-                                        placeholder="Share your background, experience, and what motivates you to participate in this project. This helps sponsors understand your passion and commitment..."
+                                        className="textarea textarea-bordered w-full min-h-[120px] resize-y"
+                                        placeholder="Share your background, experience, and motivation..."
                                         value={editFormData.self_introduction}
                                         onChange={(e) =>
                                             setEditFormData(
@@ -609,28 +660,17 @@ export default function Sponsorships({
                                                 editFormData.self_introduction
                                                     .length
                                             }
-                                            /2000 characters
+                                            /2000
                                         </p>
                                         {editFormData.self_introduction.length >
-                                            0 && (
-                                            <p
-                                                className={`text-xs ${
-                                                    editFormData
-                                                        .self_introduction
-                                                        .length > 1800
-                                                        ? "text-orange-500"
-                                                        : "text-green-500"
-                                                }`}
-                                            >
-                                                {editFormData.self_introduction
-                                                    .length > 1800
-                                                    ? "Getting long"
-                                                    : "Good length"}
+                                            1800 && (
+                                            <p className="text-xs text-warning">
+                                                Getting long
                                             </p>
                                         )}
                                     </div>
                                     {editErrors.self_introduction && (
-                                        <p className="text-red-600 text-sm mt-2">
+                                        <p className="text-error text-sm mt-2">
                                             {editErrors.self_introduction}
                                         </p>
                                     )}
@@ -640,36 +680,15 @@ export default function Sponsorships({
                             {/* Impact Statement */}
                             <div className="space-y-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="bg-purple-600 p-2 rounded-lg">
-                                        <svg
-                                            className="w-5 h-5 text-white"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                                            />
-                                        </svg>
-                                    </div>
-                                    <h4 className="text-base sm:text-lg font-semibold text-gray-900">
+                                    <Target className="w-5 h-5 text-purple-600" />
+                                    <h4 className="font-semibold text-gray-900">
                                         Expected Impact
                                     </h4>
                                 </div>
-
-                                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                                    <label className="block text-sm font-medium text-gray-700 mb-3">
-                                        Describe your potential impact
-                                        <span className="text-red-500 ml-1">
-                                            *
-                                        </span>
-                                    </label>
+                                <div className="bg-white p-4 rounded-lg border border-gray-200">
                                     <textarea
-                                        className="w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm p-3 min-h-[120px] resize-y transition-all"
-                                        placeholder="Explain how your participation will benefit the project, community, or cause. What specific outcomes do you hope to achieve? This helps sponsors see the value of their investment..."
+                                        className="textarea textarea-bordered w-full min-h-[120px] resize-y"
+                                        placeholder="Explain how your participation will benefit the project..."
                                         value={editFormData.impact}
                                         onChange={(e) =>
                                             setEditFormData(
@@ -681,26 +700,15 @@ export default function Sponsorships({
                                     <div className="flex justify-between items-center mt-2">
                                         <p className="text-xs text-gray-500">
                                             {editFormData.impact.length}/2000
-                                            characters
                                         </p>
-                                        {editFormData.impact.length > 0 && (
-                                            <p
-                                                className={`text-xs ${
-                                                    editFormData.impact.length >
-                                                    1800
-                                                        ? "text-orange-500"
-                                                        : "text-green-500"
-                                                }`}
-                                            >
-                                                {editFormData.impact.length >
-                                                1800
-                                                    ? "Getting long"
-                                                    : "Good length"}
+                                        {editFormData.impact.length > 1800 && (
+                                            <p className="text-xs text-warning">
+                                                Getting long
                                             </p>
                                         )}
                                     </div>
                                     {editErrors.impact && (
-                                        <p className="text-red-600 text-sm mt-2">
+                                        <p className="text-error text-sm mt-2">
                                             {editErrors.impact}
                                         </p>
                                     )}
@@ -709,37 +717,23 @@ export default function Sponsorships({
                         </div>
 
                         {/* Skills and Funding Priorities */}
-                        <div className="bg-gradient-to-r from-orange-50 to-amber-50 p-4 sm:p-6 rounded-xl border border-orange-100">
-                            <div className="flex items-center gap-3 mb-4 sm:mb-6">
-                                <div className="bg-orange-600 p-2 rounded-lg">
-                                    <svg
-                                        className="w-5 h-5 text-white"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                                        />
-                                    </svg>
-                                </div>
-                                <h4 className="text-base sm:text-lg font-semibold text-gray-900">
+                        <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                            <div className="flex items-center gap-3 mb-4">
+                                <Award className="w-5 h-5 text-orange-600" />
+                                <h4 className="font-semibold text-gray-900">
                                     Additional Information
                                 </h4>
                             </div>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                 {/* Skills */}
-                                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                                <div className="bg-white p-3 rounded-lg border border-gray-200">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Relevant Skills & Expertise
                                     </label>
                                     <textarea
-                                        className="w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm p-3 min-h-[80px] resize-y transition-all"
-                                        placeholder="List any skills, qualifications, or experiences that make you well-suited for this project..."
+                                        className="textarea textarea-bordered w-full min-h-[80px] resize-y"
+                                        placeholder="List skills, qualifications, or experiences..."
                                         value={
                                             editFormData.skills?.join(", ") ||
                                             ""
@@ -762,13 +756,13 @@ export default function Sponsorships({
                                 </div>
 
                                 {/* Funding Priorities */}
-                                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                                <div className="bg-white p-3 rounded-lg border border-gray-200">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Funding Priority Areas
                                     </label>
                                     <textarea
-                                        className="w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm p-3 min-h-[80px] resize-y transition-all"
-                                        placeholder="Which aspects of your funding request are most critical? (e.g., travel, accommodation, project fees)..."
+                                        className="textarea textarea-bordered w-full min-h-[80px] resize-y"
+                                        placeholder="Which aspects are most critical? (e.g., travel, accommodation)..."
                                         value={
                                             editFormData.aspect_needs_funding?.join(
                                                 ", "
@@ -792,19 +786,15 @@ export default function Sponsorships({
                         </div>
 
                         {/* Action Buttons */}
-                        <div className="flex flex-col sm:flex-row justify-between items-center pt-6 border-t border-gray-200 gap-4">
+                        <div className="flex flex-col sm:flex-row justify-between items-center pt-4 border-t border-gray-200 gap-3">
                             <div className="text-sm text-gray-500 text-center sm:text-left">
-                                <p>
-                                    Review all information carefully before
-                                    submitting
-                                </p>
                                 {hasChanges && (
-                                    <p className="text-amber-600 font-medium mt-1">
+                                    <p className="text-warning font-medium">
                                         You have unsaved changes
                                     </p>
                                 )}
                             </div>
-                            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -813,46 +803,32 @@ export default function Sponsorships({
                                             !confirm(
                                                 "You have unsaved changes. Are you sure you want to cancel?"
                                             )
-                                        ) {
+                                        )
                                             return;
-                                        }
                                         setShowEditModal(false);
                                         setSelectedApplication(null);
                                         resetEditForm();
                                         setOriginalApplicationData(null);
                                         setHasChanges(false);
                                     }}
-                                    className="px-6 py-3 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium transition-all duration-200"
+                                    className="btn btn-ghost btn-sm sm:btn-md"
                                     disabled={editProcessing}
                                 >
                                     Cancel
                                 </button>
-
                                 <button
                                     type="submit"
                                     disabled={editProcessing || !hasChanges}
-                                    className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 font-semibold shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    className="btn btn-primary btn-sm sm:btn-md"
                                 >
                                     {editProcessing ? (
                                         <>
-                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            <span className="loading loading-spinner loading-sm"></span>
                                             Updating...
                                         </>
                                     ) : (
                                         <>
-                                            <svg
-                                                className="w-5 h-5"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth={2}
-                                                    d="M5 13l4 4L19 7"
-                                                />
-                                            </svg>
+                                            <Check className="w-4 h-4 mr-2" />
                                             {hasChanges
                                                 ? "Update Application"
                                                 : "No Changes Made"}
@@ -864,46 +840,38 @@ export default function Sponsorships({
                     </form>
                 </div>
             </div>
-        ) : null;
+        );
+    };
 
-    const SuccessModal = () =>
-        showSuccessModal ? (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm overflow-y-auto">
-                <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 text-center animate-scale-in mx-4 my-4">
-                    <div className="flex justify-center mb-3">
-                        <div className="bg-green-100 p-3 rounded-full">
-                            <svg
-                                className="w-7 h-7 text-green-600"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M5 13l4 4L19 7"
-                                />
-                            </svg>
+    const SuccessModal = () => {
+        if (!showSuccessModal) return null;
+
+        return (
+            <div className="modal modal-open modal-bottom sm:modal-middle">
+                <div className="modal-box bg-gradient-to-br from-green-100 to-green-50 border border-green-200 max-w-sm mx-4 sm:mx-0">
+                    <div className="flex flex-col items-center text-center">
+                        <div className="bg-green-100 p-3 rounded-full mb-4">
+                            <CheckCircle className="w-8 h-8 text-green-600" />
                         </div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                            Success!
+                        </h3>
+                        <p className="text-gray-600 text-sm mb-4">
+                            {selectedApplication
+                                ? "Application updated successfully!"
+                                : "Your appreciation message has been delivered successfully."}
+                        </p>
+                        <button
+                            onClick={() => setShowSuccessModal(false)}
+                            className="btn btn-success btn-sm w-full"
+                        >
+                            Continue
+                        </button>
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-800">
-                        Success!
-                    </h3>
-                    <p className="mt-2 text-gray-600 text-sm">
-                        {selectedApplication
-                            ? "Application updated successfully!"
-                            : "Your appreciation message has been delivered successfully."}
-                    </p>
-                    <button
-                        onClick={() => setShowSuccessModal(false)}
-                        className="mt-5 px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow w-full sm:w-auto"
-                    >
-                        Continue
-                    </button>
                 </div>
             </div>
-        ) : null;
+        );
+    };
 
     return (
         <VolunteerLayout auth={auth}>
@@ -913,241 +881,363 @@ export default function Sponsorships({
             <EditApplicationModal />
             <SuccessModal />
 
-            <div className="max-w-7xl mx-auto py-6 sm:py-10 px-4 sm:px-6 lg:px-8">
-                <div className="mb-8 sm:mb-10">
-                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                        My Sponsorships
-                    </h1>
-                    <p className="text-gray-600 mt-2 text-sm sm:text-base">
-                        Manage your sponsorship applications and received
-                        sponsorships.
-                    </p>
+            <div className="container mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-8">
+                {/* Page Header */}
+                <div className="mb-6 sm:mb-8">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                        <div>
+                            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                                My Sponsorships
+                            </h1>
+                            <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">
+                                Manage your sponsorship applications and
+                                received sponsorships
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Heart className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
+                        </div>
+                    </div>
                 </div>
+
+                {/* Mobile Filter Toggle */}
+                {isMobile && (
+                    <div className="mb-4">
+                        <button
+                            onClick={() =>
+                                setShowMobileFilters(!showMobileFilters)
+                            }
+                            className="btn btn-outline btn-sm w-full justify-between"
+                        >
+                            <span className="flex items-center gap-2">
+                                <Filter className="w-4 h-4" />
+                                Filters
+                            </span>
+                            <ChevronRight
+                                className={`w-4 h-4 transition-transform ${
+                                    showMobileFilters ? "rotate-90" : ""
+                                }`}
+                            />
+                        </button>
+                        {showMobileFilters && (
+                            <div className="mt-2 p-3 bg-base-100 rounded-lg border border-base-300 shadow-sm">
+                                <div className="flex flex-wrap gap-2">
+                                    {[
+                                        "all",
+                                        "completed",
+                                        "pending",
+                                        "rejected",
+                                    ].map((status) => (
+                                        <button
+                                            key={status}
+                                            onClick={() =>
+                                                setStatusFilter(status)
+                                            }
+                                            className={`btn btn-xs ${
+                                                statusFilter === status
+                                                    ? "btn-primary"
+                                                    : "btn-ghost"
+                                            }`}
+                                        >
+                                            {status.charAt(0).toUpperCase() +
+                                                status.slice(1)}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Tab Navigation */}
-                <div className="mb-6 sm:mb-8 border-b border-gray-200 overflow-x-auto">
-                    <nav className="flex space-x-8 min-w-max">
-                        <button
-                            onClick={() => setActiveTab("received")}
-                            className={`whitespace-nowrap py-3 sm:py-4 px-1 border-b-2 font-medium text-sm ${
-                                activeTab === "received"
-                                    ? "border-blue-500 text-blue-600"
-                                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                            }`}
-                        >
-                            Received Sponsorships
-                            {sponsorships.length > 0 && (
-                                <span className="ml-2 bg-blue-100 text-blue-600 py-0.5 px-2 rounded-full text-xs">
-                                    {sponsorships.length}
-                                </span>
-                            )}
-                        </button>
-                        <button
-                            onClick={() => setActiveTab("applications")}
-                            className={`whitespace-nowrap py-3 sm:py-4 px-1 border-b-2 font-medium text-sm ${
-                                activeTab === "applications"
-                                    ? "border-blue-500 text-blue-600"
-                                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                            }`}
-                        >
-                            My Applications
-                            {volunteer_sponsorships.length > 0 && (
-                                <span className="ml-2 bg-blue-100 text-blue-600 py-0.5 px-2 rounded-full text-xs">
-                                    {volunteer_sponsorships.length}
-                                </span>
-                            )}
-                        </button>
-                    </nav>
+                <div className="tabs tabs-boxed bg-base-200 p-1 mb-6 sm:mb-8">
+                    <button
+                        onClick={() => setActiveTab("received")}
+                        className={`tab tab-lg flex-1 ${
+                            activeTab === "received" ? "tab-active" : ""
+                        }`}
+                    >
+                        <span className="flex items-center gap-2">
+                            <Heart className="w-4 h-4" />
+                            Received
+                            <span className="badge badge-sm badge-primary">
+                                {filteredSponsorships.length}
+                            </span>
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("applications")}
+                        className={`tab tab-lg flex-1 ${
+                            activeTab === "applications" ? "tab-active" : ""
+                        }`}
+                    >
+                        <span className="flex items-center gap-2">
+                            <FileText className="w-4 h-4" />
+                            Applications
+                            <span className="badge badge-sm badge-primary">
+                                {filteredApplications.length}
+                            </span>
+                        </span>
+                    </button>
                 </div>
 
-                {/* Stats - Only show for received sponsorships */}
+                {/* Stats Cards - Only for received tab */}
                 {activeTab === "received" && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-10">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
                         {[
                             {
                                 label: "Total Sponsored",
-                                value: formatCurrency(stats.total_sponsored),
-                                iconColor: "text-blue-600",
+                                value: formatCurrency(
+                                    stats?.total_sponsored || 0
+                                ),
+                                icon: DollarSign,
+                                color: "bg-blue-100 text-blue-600",
                             },
                             {
-                                label: "Completed Sponsorships",
-                                value: stats.completed_sponsorships,
-                                iconColor: "text-green-600",
+                                label: "Completed",
+                                value: stats?.completed_sponsorships || 0,
+                                icon: CheckCircle,
+                                color: "bg-green-100 text-green-600",
                             },
                             {
                                 label: "Total Sponsorships",
-                                value: stats.total_sponsorships,
-                                iconColor: "text-purple-600",
+                                value: stats?.total_sponsorships || 0,
+                                icon: BarChart3,
+                                color: "bg-purple-100 text-purple-600",
                             },
                         ].map((item, i) => (
                             <div
                                 key={i}
-                                className="bg-white rounded-xl sm:rounded-2xl shadow p-4 sm:p-6 flex items-center space-x-4"
+                                className="card bg-base-100 shadow-sm border border-base-300"
                             >
-                                <div
-                                    className={`rounded-full bg-gray-100 p-3 ${item.iconColor}`}
-                                >
-                                    ★
-                                </div>
-                                <div>
-                                    <p className="text-sm text-gray-600 font-medium">
-                                        {item.label}
-                                    </p>
-                                    <p className="text-xl sm:text-2xl font-bold text-gray-900">
-                                        {item.value}
-                                    </p>
+                                <div className="card-body p-4 sm:p-6">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-xs sm:text-sm font-medium text-base-content/70 mb-1">
+                                                {item.label}
+                                            </p>
+                                            <p className="text-xl sm:text-2xl font-bold">
+                                                {item.value}
+                                            </p>
+                                        </div>
+                                        <div
+                                            className={`p-2 sm:p-3 rounded-full ${item.color}`}
+                                        >
+                                            <item.icon className="w-5 h-5 sm:w-6 sm:h-6" />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         ))}
                     </div>
                 )}
 
-                {/* Received Sponsorships Tab */}
-                {activeTab === "received" && (
-                    <div className="bg-white shadow rounded-xl sm:rounded-2xl overflow-hidden">
-                        {sponsorships.length ? (
-                            <div className="max-h-[600px] overflow-y-auto">
-                                {sponsorships.map((s) => (
-                                    <div
-                                        key={s.id}
-                                        className="px-4 sm:px-6 py-4 sm:py-5 border-b last:border-0 hover:bg-gray-50 transition"
+                {/* Desktop Filter Bar */}
+                {!isMobile && (
+                    <div className="mb-4 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Filter className="w-4 h-4 text-gray-500" />
+                            <span className="text-sm font-medium text-gray-700">
+                                Filter by status:
+                            </span>
+                            <div className="flex gap-1">
+                                {[
+                                    "all",
+                                    "completed",
+                                    "pending",
+                                    "rejected",
+                                ].map((status) => (
+                                    <button
+                                        key={status}
+                                        onClick={() => setStatusFilter(status)}
+                                        className={`btn btn-xs ${
+                                            statusFilter === status
+                                                ? "btn-primary"
+                                                : "btn-ghost"
+                                        }`}
                                     >
-                                        <div className="flex flex-col lg:flex-row justify-between">
-                                            <div className="flex-1">
-                                                <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 mb-2">
-                                                    {getStatusBadge(s.status)}
-                                                    <h3 className="text-lg font-semibold text-gray-900 break-words">
-                                                        {s.project}
-                                                    </h3>
-                                                </div>
-                                                <div className="mt-2 text-sm text-gray-600 space-y-1">
-                                                    <p>
-                                                        <b>Donor:</b>{" "}
-                                                        {getDonorName(s)}
-                                                    </p>
-                                                    <p>
-                                                        <b>Organization:</b>{" "}
-                                                        {s.organization}
-                                                    </p>
-                                                    <p>
-                                                        <b>Date:</b> {s.date}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="mt-4 lg:mt-0 text-left lg:text-right">
-                                                <p className="text-xl sm:text-2xl font-bold text-green-600">
-                                                    {formatCurrency(s.amount)}
-                                                </p>
-                                                {s.processed_amount !==
-                                                    s.amount && (
-                                                    <p className="text-gray-500 text-sm">
-                                                        Processed:{" "}
-                                                        {formatCurrency(
-                                                            s.processed_amount
-                                                        )}
-                                                    </p>
-                                                )}
-
-                                                {/* Appreciation Button */}
-                                                {s.status === "completed" &&
-                                                    !s.is_anonymous &&
-                                                    (hasSentAppreciation(s) ? (
-                                                        <div className="mt-3 inline-flex items-center text-green-700 bg-green-100 px-3 py-1 rounded-lg text-sm border border-green-300">
-                                                            ✓ Appreciation Sent
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() =>
-                                                                handleSendAppreciation(
-                                                                    s
-                                                                )
-                                                            }
-                                                            className="mt-3 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 w-full lg:w-auto"
-                                                        >
-                                                            Send Appreciation
-                                                        </button>
-                                                    ))}
-                                            </div>
-                                        </div>
-                                    </div>
+                                        {status.charAt(0).toUpperCase() +
+                                            status.slice(1)}
+                                    </button>
                                 ))}
                             </div>
-                        ) : (
-                            <div className="text-center py-10 sm:py-14 text-gray-500 px-4">
-                                <div className="mb-4">
-                                    <svg
-                                        className="w-12 h-12 sm:w-16 sm:h-16 mx-auto text-gray-300"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={1}
-                                            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
-                                        />
-                                    </svg>
+                        </div>
+                    </div>
+                )}
+
+                {/* Received Sponsorships Tab */}
+                {activeTab === "received" && (
+                    <div className="card bg-base-100 shadow-sm border border-base-300">
+                        <div className="card-body p-0">
+                            {filteredSponsorships.length > 0 ? (
+                                <div className="divide-y divide-base-300">
+                                    {filteredSponsorships.map((s) => (
+                                        <div
+                                            key={s.id}
+                                            className="p-4 sm:p-6 hover:bg-base-100/50 transition-colors"
+                                        >
+                                            <div className="flex flex-col lg:flex-row gap-4">
+                                                <div className="flex-1">
+                                                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+                                                        {getStatusBadge(
+                                                            s.status
+                                                        )}
+                                                        <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
+                                                            {s.project}
+                                                        </h3>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                                                        <div className="flex items-center gap-2 text-base-content/70">
+                                                            <User className="w-4 h-4" />
+                                                            <span>
+                                                                <strong>
+                                                                    Donor:
+                                                                </strong>{" "}
+                                                                {getDonorName(
+                                                                    s
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-base-content/70">
+                                                            <Building className="w-4 h-4" />
+                                                            <span>
+                                                                <strong>
+                                                                    Organization:
+                                                                </strong>{" "}
+                                                                {s.organization}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-base-content/70">
+                                                            <Calendar className="w-4 h-4" />
+                                                            <span>
+                                                                <strong>
+                                                                    Date:
+                                                                </strong>{" "}
+                                                                {s.date}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-base-content/70">
+                                                            <DollarSign className="w-4 h-4" />
+                                                            <span>
+                                                                <strong>
+                                                                    Amount:
+                                                                </strong>{" "}
+                                                                {formatCurrency(
+                                                                    s.amount
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    {s.processed_amount !==
+                                                        s.amount && (
+                                                        <div className="mt-3 text-sm text-warning">
+                                                            Processed:{" "}
+                                                            {formatCurrency(
+                                                                s.processed_amount
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex flex-col items-start lg:items-end gap-3">
+                                                    <div className="text-right">
+                                                        <p className="text-xl sm:text-2xl font-bold text-success">
+                                                            {formatCurrency(
+                                                                s.amount
+                                                            )}
+                                                        </p>
+                                                    </div>
+
+                                                    {s.status === "completed" &&
+                                                        !s.is_anonymous &&
+                                                        (hasSentAppreciation(
+                                                            s
+                                                        ) ? (
+                                                            <div className="badge badge-success badge-outline gap-1">
+                                                                <Check className="w-3 h-3" />
+                                                                Appreciation
+                                                                Sent
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() =>
+                                                                    handleSendAppreciation(
+                                                                        s
+                                                                    )
+                                                                }
+                                                                className="btn btn-primary btn-sm sm:btn-md gap-2"
+                                                            >
+                                                                <Send className="w-4 h-4" />
+                                                                Send
+                                                                Appreciation
+                                                            </button>
+                                                        ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                                    No Sponsorships Yet
-                                </h3>
-                                <p className="text-gray-500 text-sm sm:text-base">
-                                    You haven't received any sponsorships yet.
-                                    Start by applying for sponsorship for your
-                                    volunteer projects.
-                                </p>
-                            </div>
-                        )}
+                            ) : (
+                                <div className="p-8 sm:p-12 text-center">
+                                    <div className="max-w-md mx-auto">
+                                        <div className="bg-base-200 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                                            <Heart className="w-8 h-8 text-base-content/40" />
+                                        </div>
+                                        <h4 className="text-lg font-semibold text-gray-700 mb-2">
+                                            No Sponsorships Yet
+                                        </h4>
+                                        <p className="text-base-content/70 mb-6 text-sm">
+                                            You haven't received any
+                                            sponsorships yet. Start by applying
+                                            for sponsorship for your volunteer
+                                            projects.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 
                 {/* Volunteer Sponsorship Applications Tab */}
                 {activeTab === "applications" && (
-                    <div className="bg-white shadow-lg rounded-xl border border-gray-100 overflow-hidden">
-                        {volunteer_sponsorships.length ? (
-                            <div className="max-h-[600px] overflow-y-auto">
-                                {volunteer_sponsorships.map((application) => (
-                                    <div
-                                        key={application.public_id}
-                                        className="px-6 py-6 border-b border-gray-100 last:border-0 hover:bg-gray-50/80 transition-all duration-200 group"
-                                    >
-                                        <div className="flex flex-col lg:flex-row justify-between gap-6">
-                                            <div className="flex-1 space-y-4">
-                                                {/* Header Section */}
-                                                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                                                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="card bg-base-100 shadow-sm border border-base-300">
+                        <div className="card-body p-0">
+                            {filteredApplications.length > 0 ? (
+                                <div className="divide-y divide-base-300">
+                                    {filteredApplications.map((application) => (
+                                        <div
+                                            key={application.public_id}
+                                            className="p-4 sm:p-6 hover:bg-base-100/50"
+                                        >
+                                            <div className="space-y-4">
+                                                {/* Header */}
+                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                                    <div className="flex items-center gap-3">
                                                         {getStatusBadge(
-                                                            application.status ||
-                                                                "submitted"
+                                                            application.status
                                                         )}
                                                         <div>
-                                                            <h3 className="text-lg font-semibold text-gray-900 leading-tight">
+                                                            <h3 className="text-lg font-semibold text-gray-900">
                                                                 {application
                                                                     .booking
                                                                     ?.project
                                                                     ?.title ||
                                                                     "Unknown Project"}
                                                             </h3>
-                                                            <p className="text-sm text-gray-500 mt-1">
-                                                                Applied on{" "}
+                                                            <p className="text-sm text-gray-500">
+                                                                Applied{" "}
                                                                 {new Date(
                                                                     application.created_at
-                                                                ).toLocaleDateString(
-                                                                    "en-US",
-                                                                    {
-                                                                        year: "numeric",
-                                                                        month: "long",
-                                                                        day: "numeric",
-                                                                    }
-                                                                )}
+                                                                ).toLocaleDateString()}
                                                             </p>
                                                         </div>
                                                     </div>
 
                                                     {/* Action Buttons */}
-                                                    <div className="flex flex-wrap gap-2">
+                                                    <div className="flex gap-2">
                                                         {canEditApplication(
                                                             application
                                                         ) && (
@@ -1157,23 +1247,9 @@ export default function Sponsorships({
                                                                         application
                                                                     )
                                                                 }
-                                                                className="px-4 py-2 text-sm bg-white text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 font-medium shadow-sm hover:shadow-md flex items-center gap-2"
+                                                                className="btn btn-outline btn-sm gap-2"
                                                             >
-                                                                <svg
-                                                                    className="w-4 h-4"
-                                                                    fill="none"
-                                                                    stroke="currentColor"
-                                                                    viewBox="0 0 24 24"
-                                                                >
-                                                                    <path
-                                                                        strokeLinecap="round"
-                                                                        strokeLinejoin="round"
-                                                                        strokeWidth={
-                                                                            2
-                                                                        }
-                                                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                                                    />
-                                                                </svg>
+                                                                <Edit className="w-4 h-4" />
                                                                 Edit
                                                             </button>
                                                         )}
@@ -1186,23 +1262,9 @@ export default function Sponsorships({
                                                                         application.public_id
                                                                     )
                                                                 }
-                                                                className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all duration-200 font-medium shadow-sm hover:shadow-md flex items-center gap-2"
+                                                                className="btn btn-success btn-sm gap-2"
                                                             >
-                                                                <svg
-                                                                    className="w-4 h-4"
-                                                                    fill="none"
-                                                                    stroke="currentColor"
-                                                                    viewBox="0 0 24 24"
-                                                                >
-                                                                    <path
-                                                                        strokeLinecap="round"
-                                                                        strokeLinejoin="round"
-                                                                        strokeWidth={
-                                                                            2
-                                                                        }
-                                                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                                                    />
-                                                                </svg>
+                                                                <Check className="w-4 h-4" />
                                                                 Submit for
                                                                 Review
                                                             </button>
@@ -1210,48 +1272,33 @@ export default function Sponsorships({
                                                     </div>
                                                 </div>
 
-                                                {/* Content Grid */}
-                                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                                    {/* Funding Breakdown */}
-                                                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                                                        <div className="flex items-center gap-2 mb-3">
-                                                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                                            <h4 className="font-semibold text-gray-900 text-sm uppercase tracking-wide">
-                                                                Funding
-                                                                Breakdown
-                                                            </h4>
-                                                        </div>
-                                                        <div className="space-y-3">
+                                                {/* Funding Overview */}
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                                    <div className="bg-base-200 p-4 rounded-lg">
+                                                        <h4 className="font-semibold text-sm mb-3 text-base-content/70">
+                                                            Funding Breakdown
+                                                        </h4>
+                                                        <div className="space-y-2">
                                                             {[
                                                                 {
                                                                     label: "Travel",
-                                                                    value:
-                                                                        application.travel ||
-                                                                        0,
+                                                                    value: application.travel,
                                                                 },
                                                                 {
                                                                     label: "Accommodation",
-                                                                    value:
-                                                                        application.accommodation ||
-                                                                        0,
+                                                                    value: application.accommodation,
                                                                 },
                                                                 {
                                                                     label: "Meals",
-                                                                    value:
-                                                                        application.meals ||
-                                                                        0,
+                                                                    value: application.meals,
                                                                 },
                                                                 {
                                                                     label: "Living Expenses",
-                                                                    value:
-                                                                        application.living_expenses ||
-                                                                        0,
+                                                                    value: application.living_expenses,
                                                                 },
                                                                 {
                                                                     label: "Visa Fees",
-                                                                    value:
-                                                                        application.visa_fees ||
-                                                                        0,
+                                                                    value: application.visa_fees,
                                                                 },
                                                             ].map(
                                                                 (
@@ -1262,14 +1309,14 @@ export default function Sponsorships({
                                                                         key={
                                                                             index
                                                                         }
-                                                                        className="flex justify-between items-center"
+                                                                        className="flex justify-between text-sm"
                                                                     >
-                                                                        <span className="text-sm text-gray-600">
+                                                                        <span className="text-base-content/70">
                                                                             {
                                                                                 item.label
                                                                             }
                                                                         </span>
-                                                                        <span className="font-medium text-gray-900 text-sm">
+                                                                        <span className="font-medium">
                                                                             {formatCurrency(
                                                                                 item.value
                                                                             )}
@@ -1277,16 +1324,14 @@ export default function Sponsorships({
                                                                     </div>
                                                                 )
                                                             )}
-                                                            <div className="border-t border-gray-300 pt-3 mt-2">
-                                                                <div className="flex justify-between items-center">
-                                                                    <span className="font-semibold text-gray-900">
+                                                            <div className="border-t border-base-300 pt-2 mt-2">
+                                                                <div className="flex justify-between font-semibold">
+                                                                    <span>
                                                                         Total
-                                                                        Requested
                                                                     </span>
-                                                                    <span className="font-bold text-green-600 text-lg">
+                                                                    <span className="text-success">
                                                                         {formatCurrency(
-                                                                            application.total_amount ||
-                                                                                0
+                                                                            application.total_amount
                                                                         )}
                                                                     </span>
                                                                 </div>
@@ -1294,100 +1339,25 @@ export default function Sponsorships({
                                                         </div>
                                                     </div>
 
-                                                    {/* Application Details */}
-                                                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                                                        <div className="flex items-center gap-2 mb-3">
-                                                            <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                                                            <h4 className="font-semibold text-gray-900 text-sm uppercase tracking-wide">
-                                                                Application
-                                                                Details
-                                                            </h4>
-                                                        </div>
+                                                    <div className="bg-base-200 p-4 rounded-lg">
+                                                        <h4 className="font-semibold text-sm mb-3 text-base-content/70">
+                                                            Funding Progress
+                                                        </h4>
                                                         <div className="space-y-3">
                                                             <div>
-                                                                <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
-                                                                    Project
-                                                                </p>
-                                                                <p className="text-sm font-medium text-gray-900 mt-1">
-                                                                    {application
-                                                                        .booking
-                                                                        ?.project
-                                                                        ?.title ||
-                                                                        "N/A"}
-                                                                </p>
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
-                                                                    Funded
-                                                                    Amount
-                                                                </p>
-                                                                <p className="text-lg font-bold text-emerald-600 mt-1">
-                                                                    {formatCurrency(
-                                                                        application.funded_amount ||
-                                                                            0
-                                                                    )}
-                                                                </p>
-                                                            </div>
-                                                            {application.aspect_needs_funding &&
-                                                                application
-                                                                    .aspect_needs_funding
-                                                                    .length >
-                                                                    0 && (
-                                                                    <div>
-                                                                        <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
-                                                                            Priority
-                                                                            Areas
-                                                                        </p>
-                                                                        <div className="flex flex-wrap gap-1 mt-2">
-                                                                            {application.aspect_needs_funding.map(
-                                                                                (
-                                                                                    aspect,
-                                                                                    index
-                                                                                ) => (
-                                                                                    <span
-                                                                                        key={
-                                                                                            index
-                                                                                        }
-                                                                                        className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium"
-                                                                                    >
-                                                                                        {
-                                                                                            aspect
-                                                                                        }
-                                                                                    </span>
-                                                                                )
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                )}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Progress & Skills */}
-                                                    <div className="space-y-4">
-                                                        {/* Funding Progress */}
-                                                        {application.total_amount >
-                                                            0 && (
-                                                            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                                                                <div className="flex items-center justify-between mb-3">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                                                        <h4 className="font-semibold text-gray-900 text-sm uppercase tracking-wide">
-                                                                            Funding
-                                                                            Progress
-                                                                        </h4>
-                                                                    </div>
-                                                                    <span className="text-sm font-semibold text-gray-700">
-                                                                        {Math.round(
-                                                                            (application.funded_amount /
-                                                                                application.total_amount) *
-                                                                                100
+                                                                <div className="flex justify-between text-sm mb-1">
+                                                                    <span>
+                                                                        Funded
+                                                                    </span>
+                                                                    <span className="font-semibold">
+                                                                        {formatCurrency(
+                                                                            application.funded_amount
                                                                         )}
-                                                                        %
                                                                     </span>
                                                                 </div>
-                                                                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                                                <div className="w-full bg-base-300 rounded-full h-2">
                                                                     <div
-                                                                        className="bg-gradient-to-r from-green-500 to-emerald-600 h-2.5 rounded-full transition-all duration-500"
+                                                                        className="bg-success h-2 rounded-full transition-all duration-500"
                                                                         style={{
                                                                             width: `${Math.min(
                                                                                 (application.funded_amount /
@@ -1398,189 +1368,215 @@ export default function Sponsorships({
                                                                         }}
                                                                     ></div>
                                                                 </div>
-                                                                <div className="flex justify-between text-xs text-gray-500 mt-2">
-                                                                    <span>
-                                                                        Funded:{" "}
-                                                                        {formatCurrency(
-                                                                            application.funded_amount ||
-                                                                                0
-                                                                        )}
-                                                                    </span>
-                                                                    <span>
-                                                                        Goal:{" "}
-                                                                        {formatCurrency(
-                                                                            application.total_amount ||
-                                                                                0
-                                                                        )}
-                                                                    </span>
-                                                                </div>
                                                             </div>
-                                                        )}
+                                                            <div className="text-center">
+                                                                <p className="text-2xl font-bold text-success">
+                                                                    {Math.round(
+                                                                        (application.funded_amount /
+                                                                            application.total_amount) *
+                                                                            100
+                                                                    )}
+                                                                    %
+                                                                </p>
+                                                                <p className="text-xs text-base-content/70">
+                                                                    Funding
+                                                                    Progress
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
 
-                                                        {/* Skills */}
-                                                        {application.skills &&
-                                                            application.skills
-                                                                .length > 0 && (
-                                                                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                                                                    <div className="flex items-center gap-2 mb-3">
-                                                                        <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                                                                        <h4 className="font-semibold text-gray-900 text-sm uppercase tracking-wide">
-                                                                            Skills
-                                                                            &
-                                                                            Expertise
-                                                                        </h4>
-                                                                    </div>
+                                                    <div className="bg-base-200 p-4 rounded-lg">
+                                                        <h4 className="font-semibold text-sm mb-3 text-base-content/70">
+                                                            Details
+                                                        </h4>
+                                                        <div className="space-y-3">
+                                                            {application
+                                                                .aspect_needs_funding
+                                                                ?.length >
+                                                                0 && (
+                                                                <div>
+                                                                    <p className="text-sm font-medium mb-2">
+                                                                        Priority
+                                                                        Areas
+                                                                    </p>
                                                                     <div className="flex flex-wrap gap-1">
-                                                                        {application.skills
+                                                                        {application.aspect_needs_funding
                                                                             .slice(
                                                                                 0,
-                                                                                4
+                                                                                3
                                                                             )
                                                                             .map(
                                                                                 (
-                                                                                    skill,
+                                                                                    aspect,
                                                                                     index
                                                                                 ) => (
                                                                                     <span
                                                                                         key={
                                                                                             index
                                                                                         }
-                                                                                        className="inline-block bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded font-medium"
+                                                                                        className="badge badge-sm badge-outline"
                                                                                     >
                                                                                         {
-                                                                                            skill
+                                                                                            aspect
                                                                                         }
                                                                                     </span>
                                                                                 )
                                                                             )}
                                                                         {application
-                                                                            .skills
+                                                                            .aspect_needs_funding
                                                                             .length >
-                                                                            4 && (
-                                                                            <span className="inline-block bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded font-medium">
+                                                                            3 && (
+                                                                            <span className="badge badge-sm badge-ghost">
                                                                                 +
                                                                                 {application
-                                                                                    .skills
+                                                                                    .aspect_needs_funding
                                                                                     .length -
-                                                                                    4}{" "}
+                                                                                    3}{" "}
                                                                                 more
                                                                             </span>
                                                                         )}
                                                                     </div>
                                                                 </div>
                                                             )}
+                                                        </div>
                                                     </div>
                                                 </div>
 
                                                 {/* Introduction & Impact */}
-                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                                    {application.self_introduction && (
-                                                        <div className="bg-blue-50/50 rounded-lg p-4 border border-blue-100">
-                                                            <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                                                                <svg
-                                                                    className="w-4 h-4 text-blue-600"
-                                                                    fill="none"
-                                                                    stroke="currentColor"
-                                                                    viewBox="0 0 24 24"
-                                                                >
-                                                                    <path
-                                                                        strokeLinecap="round"
-                                                                        strokeLinejoin="round"
-                                                                        strokeWidth={
-                                                                            2
-                                                                        }
-                                                                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                                                                    />
-                                                                </svg>
-                                                                Self
-                                                                Introduction
-                                                            </h4>
-                                                            <p className="text-sm text-gray-700 leading-relaxed line-clamp-3">
-                                                                {
-                                                                    application.self_introduction
-                                                                }
-                                                            </p>
-                                                        </div>
-                                                    )}
-
-                                                    {application.impact && (
-                                                        <div className="bg-purple-50/50 rounded-lg p-4 border border-purple-100">
-                                                            <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                                                                <svg
-                                                                    className="w-4 h-4 text-purple-600"
-                                                                    fill="none"
-                                                                    stroke="currentColor"
-                                                                    viewBox="0 0 24 24"
-                                                                >
-                                                                    <path
-                                                                        strokeLinecap="round"
-                                                                        strokeLinejoin="round"
-                                                                        strokeWidth={
-                                                                            2
-                                                                        }
-                                                                        d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                                                                    />
-                                                                </svg>
-                                                                Expected Impact
-                                                            </h4>
-                                                            <p className="text-sm text-gray-700 leading-relaxed line-clamp-3">
-                                                                {
-                                                                    application.impact
-                                                                }
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                {(application.self_introduction ||
+                                                    application.impact) && (
+                                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                                        {application.self_introduction && (
+                                                            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                                                                <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                                                                    <User className="w-4 h-4 text-blue-600" />
+                                                                    Self
+                                                                    Introduction
+                                                                </h4>
+                                                                <p className="text-sm text-gray-700 line-clamp-3">
+                                                                    {
+                                                                        application.self_introduction
+                                                                    }
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                        {application.impact && (
+                                                            <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+                                                                <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                                                                    <Target className="w-4 h-4 text-purple-600" />
+                                                                    Expected
+                                                                    Impact
+                                                                </h4>
+                                                                <p className="text-sm text-gray-700 line-clamp-3">
+                                                                    {
+                                                                        application.impact
+                                                                    }
+                                                                </p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-16 px-6">
-                                <div className="max-w-md mx-auto">
-                                    <div className="w-20 h-20 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
-                                        <svg
-                                            className="w-10 h-10 text-gray-400"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={1.5}
-                                                d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z"
-                                            />
-                                        </svg>
-                                    </div>
-                                    <h3 className="text-2xl font-bold text-gray-900 mb-3">
-                                        No Applications Yet
-                                    </h3>
-                                    <p className="text-gray-600 mb-8 leading-relaxed">
-                                        You haven't submitted any sponsorship
-                                        applications yet. Start your journey by
-                                        creating your first application.
-                                    </p>
-                                    <button className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 font-semibold shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105">
-                                        Start Your First Application
-                                    </button>
+                                    ))}
                                 </div>
-                            </div>
-                        )}
+                            ) : (
+                                <div className="p-8 sm:p-12 text-center">
+                                    <div className="max-w-md mx-auto">
+                                        <div className="bg-base-200 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                                            <FileText className="w-8 h-8 text-base-content/40" />
+                                        </div>
+                                        <h4 className="text-lg font-semibold text-gray-700 mb-2">
+                                            No Applications Yet
+                                        </h4>
+                                        <p className="text-base-content/70 mb-6 text-sm">
+                                            You haven't submitted any
+                                            sponsorship applications yet.
+                                        </p>
+                                        {/* <button className="btn btn-primary gap-2">
+                                            <Plus className="w-4 h-4" />
+                                            Start Your First Application
+                                        </button> */}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 
-                {/* Information Section */}
-                <div className="mt-8 sm:mt-10 bg-blue-50 p-4 sm:p-6 rounded-xl border border-blue-100">
-                    <h3 className="text-blue-800 font-semibold text-sm sm:text-base">
-                        About Sponsorships
-                    </h3>
-                    <p className="mt-2 text-blue-700 text-xs sm:text-sm">
-                        {activeTab === "received"
-                            ? "Sponsorships help support your volunteer work. Amounts displayed are what you receive after processing fees."
-                            : "Track your sponsorship applications and funding progress. Update your applications as needed to increase your chances of getting sponsored."}
-                    </p>
+                {/* Information Panel */}
+                <div className="mt-6 sm:mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                    <div className="card bg-info/5 border border-info/20">
+                        <div className="card-body p-4 sm:p-6">
+                            <h4 className="card-title text-lg font-semibold mb-3 flex items-center gap-2">
+                                <Info className="w-5 h-5 text-info" />
+                                How Sponsorships Work
+                            </h4>
+                            <ul className="space-y-2 text-sm sm:text-base">
+                                <li className="flex items-start gap-2">
+                                    <div className="badge badge-info badge-xs mt-1">
+                                        ✓
+                                    </div>
+                                    <span>
+                                        <strong>Apply for sponsorship</strong>{" "}
+                                        to fund your volunteer projects
+                                    </span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <div className="badge badge-info badge-xs mt-1">
+                                        ✓
+                                    </div>
+                                    <span>
+                                        <strong>Get sponsored</strong> by
+                                        individuals or organizations
+                                    </span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <div className="badge badge-info badge-xs mt-1">
+                                        ✓
+                                    </div>
+                                    <span>
+                                        <strong>Show appreciation</strong> to
+                                        your sponsors with thank-you messages
+                                    </span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div className="card bg-success/5 border border-success/20">
+                        <div className="card-body p-4 sm:p-6">
+                            <h4 className="card-title text-lg font-semibold mb-3 flex items-center gap-2">
+                                <CheckCircle className="w-5 h-5 text-success" />
+                                Tips for Success
+                            </h4>
+                            <div className="space-y-3 text-sm sm:text-base">
+                                <ul className="space-y-2">
+                                    <li className="flex items-start gap-2">
+                                        <Check className="w-4 h-4 text-success mt-0.5" />
+                                        <span>
+                                            Be specific about how funds will be
+                                            used
+                                        </span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <Check className="w-4 h-4 text-success mt-0.5" />
+                                        <span>
+                                            Share your passion and expected
+                                            impact
+                                        </span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <Check className="w-4 h-4 text-success mt-0.5" />
+                                        <span>
+                                            Always thank your sponsors promptly
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </VolunteerLayout>

@@ -23,8 +23,10 @@ import {
     UserCheck,
     Mail,
     Phone,
+    Menu,
+    X as XIcon,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Button } from "@headlessui/react";
 import Review from "@/Components/Review";
@@ -54,8 +56,10 @@ export default function Projects({ auth, payments, points, totalPoints }) {
     const [showSuccess, setShowSuccess] = useState(false);
     const [stripePromise, setStripePromise] = useState(null);
     const [showMessageModal, setShowMessageModal] = useState(false);
-    const [showMobileSidebar, setShowMobileSidebar] = useState(false);
     const [mobileView, setMobileView] = useState("list");
+    const [isMobile, setIsMobile] = useState(false);
+    const [isTablet, setIsTablet] = useState(false);
+    const [showMobileMenu, setShowMobileMenu] = useState(false);
 
     const [contactRequests, setContactRequests] = useState([]);
     const [sharedContacts, setSharedContacts] = useState([]);
@@ -74,12 +78,30 @@ export default function Projects({ auth, payments, points, totalPoints }) {
     // Get PayPal client ID from environment or use a fallback
     const paypalClientId = import.meta.env.VITE_PAYPAL_CLIENT_ID || "test";
 
+    // Check screen size on mount and resize
+    useEffect(() => {
+        const checkScreenSize = () => {
+            const width = window.innerWidth;
+            setIsMobile(width < 768);
+            setIsTablet(width >= 768 && width < 1024);
+
+            // Auto-switch to list view on mobile when screen resizes
+            if (width >= 1024 && mobileView === "details") {
+                setMobileView("list");
+            }
+        };
+
+        checkScreenSize();
+        window.addEventListener("resize", checkScreenSize);
+
+        return () => window.removeEventListener("resize", checkScreenSize);
+    }, [mobileView]);
+
     // Professional Success Modal Handler
     const showProfessionalSuccessModal = (message) => {
         setSuccessMessage(message);
         setShowProfessionalSuccess(true);
 
-        // Auto hide after 3 seconds
         setTimeout(() => {
             setShowProfessionalSuccess(false);
         }, 3000);
@@ -104,7 +126,6 @@ export default function Projects({ auth, payments, points, totalPoints }) {
             console.log("Order ID:", data.orderID);
             console.log("Active Booking:", activeBooking);
 
-            // Show loading spinner
             setPaymentLoading(true);
 
             const response = await axios.post(route("paypal.capture-order"), {
@@ -114,18 +135,13 @@ export default function Projects({ auth, payments, points, totalPoints }) {
             console.log("Capture response:", response.data);
 
             if (response.data.success) {
-                // Payment capture successful - wait for database storage
                 setPaymentSuccess(true);
 
-                // Refresh page to get updated payment data
                 setTimeout(() => {
                     router.reload({
                         only: ["bookings", "payments", "points", "totalPoints"],
                         onSuccess: () => {
-                            // Hide loading spinner after reload
                             setPaymentLoading(false);
-
-                            // Show success modal only after page refresh confirms payment
                             const updatedBooking = bookings.find(
                                 (booking) =>
                                     booking.public_id ===
@@ -140,7 +156,6 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                     "Payment completed successfully!"
                                 );
                             } else {
-                                // Fallback in case payment status didn't update properly
                                 showProfessionalSuccessModal(
                                     "Payment processing completed! Please check your payment status."
                                 );
@@ -153,7 +168,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                             );
                         },
                     });
-                }, 1000); // Small delay to ensure database is updated
+                }, 1000);
             } else {
                 throw new Error(
                     response.data.error || "Payment capture failed"
@@ -166,7 +181,6 @@ export default function Projects({ auth, payments, points, totalPoints }) {
             console.error("Response data:", error.response?.data);
             console.error("Response status:", error.response?.status);
 
-            // Hide loading spinner on error
             setPaymentLoading(false);
 
             let errorMessage = "Payment processing failed. Please try again.";
@@ -310,34 +324,10 @@ export default function Projects({ auth, payments, points, totalPoints }) {
     // Add useEffect to fetch contact requests when activeBooking changes
     useEffect(() => {
         if (activeBooking) {
-            fetchContactRequests();
-            fetchSharedContacts();
-            // Debug payment conditions
+            fetchContactData();
             console.log("Payment conditions check:", debugPaymentConditions());
         }
     }, [activeBooking]);
-
-    const fetchContactRequests = async () => {
-        try {
-            const response = await axios.get(
-                route("volunteer.contact.requests")
-            );
-            setContactRequests(response.data.requests);
-        } catch (error) {
-            console.error("Error fetching contact requests:", error);
-        }
-    };
-
-    const fetchSharedContacts = async () => {
-        try {
-            const response = await axios.get(
-                route("volunteer.shared.contacts")
-            );
-            setSharedContacts(response.data.shared_contacts);
-        } catch (error) {
-            console.error("Error fetching shared contacts:", error);
-        }
-    };
 
     const fetchContactData = async () => {
         try {
@@ -351,25 +341,15 @@ export default function Projects({ auth, payments, points, totalPoints }) {
         }
     };
 
-    // Replace both fetch functions with this single call
-    useEffect(() => {
-        if (activeBooking) {
-            fetchContactData();
-            // Debug payment conditions
-            console.log("Payment conditions check:", debugPaymentConditions());
-        }
-    }, [activeBooking]);
-
-    // Function to handle project selection (will show details on mobile)
+    // Function to handle project selection
     const handleProjectSelect = (booking) => {
         setActiveBooking(booking);
         setPointsPaymentSuccess(false);
         setShowPointsPaymentModal(false);
-        setShowMobileSidebar(false);
 
-        // On mobile, switch to details view
-        if (window.innerWidth < 1024) {
+        if (isMobile) {
             setMobileView("details");
+            setShowMobileMenu(false);
         }
     };
 
@@ -607,21 +587,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
         return totalAmount * 0.2;
     };
 
-    // Check if we're on mobile view
-    const [isMobileView, setIsMobileView] = useState(false);
-
-    useEffect(() => {
-        const checkMobile = () => {
-            setIsMobileView(window.innerWidth < 1024);
-        };
-
-        checkMobile();
-        window.addEventListener("resize", checkMobile);
-
-        return () => window.removeEventListener("resize", checkMobile);
-    }, []);
-
-    // Add this to check if PayPal button should render
+    // Check if PayPal button should render
     const shouldShowPayPalButton =
         !shouldHidePayButton() &&
         calculateRemainingBalance() > 0 &&
@@ -633,32 +599,24 @@ export default function Projects({ auth, payments, points, totalPoints }) {
             {/* Payment Loading Modal */}
             {paymentLoading && (
                 <div className="modal modal-open modal-middle">
-                    <div className="modal-box bg-base-100 shadow-2xl border-0 max-w-md">
-                        <div className="flex flex-col items-center text-center p-8">
-                            {/* Animated Spinner */}
-                            <div className="mb-6">
+                    <div className="modal-box bg-base-100 shadow-2xl border-0 max-w-md mx-4">
+                        <div className="flex flex-col items-center text-center p-6 md:p-8">
+                            <div className="mb-4 md:mb-6">
                                 <div className="loading loading-spinner loading-lg text-primary"></div>
                             </div>
-
-                            {/* Loading Message */}
-                            <h3 className="text-xl font-bold mb-3 text-base-content">
+                            <h3 className="text-lg md:text-xl font-bold mb-3 text-base-content">
                                 Processing Payment
                             </h3>
-                            <p className="text-base-content/70 mb-4 leading-relaxed">
-                                Please wait while we process your payment and
-                                update your booking. This may take a few
-                                moments...
+                            <p className="text-base-content/70 mb-4 text-sm md:text-base leading-relaxed">
+                                Please wait while we process your payment...
                             </p>
-
-                            {/* Progress Indicator */}
                             <div className="w-full bg-base-300 rounded-full h-2 mb-2">
                                 <div
                                     className="bg-primary h-2 rounded-full transition-all duration-1000 ease-in-out animate-pulse"
                                     style={{ width: "60%" }}
                                 ></div>
                             </div>
-
-                            <p className="text-base-content/50 text-sm">
+                            <p className="text-base-content/50 text-xs md:text-sm">
                                 Do not close this window
                             </p>
                         </div>
@@ -669,32 +627,26 @@ export default function Projects({ auth, payments, points, totalPoints }) {
             {/* Professional Success Modal */}
             {showProfessionalSuccess && (
                 <div className="modal modal-open modal-middle">
-                    <div className="modal-box bg-gradient-to-br from-success to-success/90 text-success-content shadow-2xl border-0 transform transition-all duration-300 scale-100">
-                        <div className="flex flex-col items-center text-center p-6">
-                            {/* Animated Check Icon */}
+                    <div className="modal-box bg-gradient-to-br from-success to-success/90 text-success-content shadow-2xl border-0 mx-4 max-w-sm md:max-w-md">
+                        <div className="flex flex-col items-center text-center p-4 md:p-6">
                             <div className="mb-4 transform transition-all duration-500 scale-110">
-                                <div className="rounded-full bg-white/20 p-4">
-                                    <CheckCircle2 className="h-16 w-16 text-white animate-pulse" />
+                                <div className="rounded-full bg-white/20 p-3 md:p-4">
+                                    <CheckCircle2 className="h-12 w-12 md:h-16 md:w-16 text-white animate-pulse" />
                                 </div>
                             </div>
-
-                            {/* Success Message */}
-                            <h3 className="text-2xl font-bold mb-3 text-white">
+                            <h3 className="text-lg md:text-2xl font-bold mb-3 text-white">
                                 Success!
                             </h3>
-                            <p className="text-lg text-white/90 mb-6 leading-relaxed">
+                            <p className="text-base md:text-lg text-white/90 mb-6 leading-relaxed">
                                 {successMessage}
                             </p>
-
-                            {/* Loading Bar */}
                             <div className="w-full bg-white/30 rounded-full h-2 mb-4">
                                 <div
                                     className="bg-white h-2 rounded-full transition-all duration-3000 ease-linear"
                                     style={{ width: "100%" }}
                                 ></div>
                             </div>
-
-                            <p className="text-white/70 text-sm">
+                            <p className="text-white/70 text-xs md:text-sm">
                                 Modal will close automatically...
                             </p>
                         </div>
@@ -702,7 +654,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                 </div>
             )}
 
-            {/* Original Success Notification (kept for backward compatibility) */}
+            {/* Original Success Notification */}
             {showSuccess && (
                 <div className="toast toast-top toast-end z-50">
                     <div className="alert alert-success">
@@ -712,24 +664,62 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                 </div>
             )}
 
+            {/* Mobile Header Controls */}
+            <div className="lg:hidden mb-4">
+                <div className="flex items-center justify-between p-4 bg-base-100 rounded-lg shadow-sm">
+                    <div className="flex items-center gap-2">
+                        <CalendarDays className="w-5 h-5 text-primary" />
+                        <h1 className="text-lg font-semibold">My Projects</h1>
+                        <span className="badge badge-primary badge-sm">
+                            {bookings.length}
+                        </span>
+                    </div>
+
+                    {/* Mobile View Toggle Buttons */}
+                    <div className="flex items-center gap-2">
+                        {mobileView === "details" && (
+                            <button
+                                onClick={handleBackToList}
+                                className="btn btn-ghost btn-sm gap-2 text-primary"
+                            >
+                                <ArrowLeft className="w-4 h-4" />
+                                <span className="hidden xs:inline">Back</span>
+                            </button>
+                        )}
+
+                        <button
+                            onClick={() => setShowMobileMenu(!showMobileMenu)}
+                            className="btn btn-ghost btn-sm"
+                        >
+                            {showMobileMenu ? (
+                                <XIcon className="w-5 h-5" />
+                            ) : (
+                                ""
+                                // <Menu className="w-5 h-5" />
+                            )}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div className="">
                 {bookings.length === 0 ? (
                     <div className="card bg-base-200 max-w-2xl mx-auto shadow-lg">
-                        <div className="card-body items-center text-center py-4">
+                        <div className="card-body items-center text-center py-6 md:py-8 px-4">
                             <div className="rounded-full bg-primary/10 p-4 mb-4">
                                 <CalendarDays className="h-8 w-8 text-primary" />
                             </div>
-                            <h2 className="card-title text-lg mb-2">
+                            <h2 className="card-title text-lg md:text-xl mb-2">
                                 No projects booked yet
                             </h2>
-                            <p className="text-base-content/70 mb-6">
+                            <p className="text-base-content/70 mb-6 text-sm md:text-base">
                                 You haven't booked any volunteer projects.
                                 Browse available opportunities to get started.
                             </p>
                             <div className="card-actions">
                                 <Link
                                     href="/projects"
-                                    className="btn btn-primary btn-lg"
+                                    className="btn btn-primary btn-md md:btn-lg w-full sm:w-auto"
                                 >
                                     Browse Volunteer Projects
                                 </Link>
@@ -737,33 +727,22 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                         </div>
                     </div>
                 ) : (
-                    <div className="flex flex-col lg:flex-row gap-4 lg:max-h-[calc(100vh-120px)]">
-                        {/* Mobile Back Button (only shown in details view on mobile) */}
-                        {isMobileView && mobileView === "details" && (
-                            <div className="lg:hidden fixed py-[2px] rounded-full bg-base-100 shadow-md z-40 mb-4">
-                                <button
-                                    onClick={handleBackToList}
-                                    className="btn btn-ghost btn-sm gap-2 text-primary hover:bg-primary/10"
-                                >
-                                    <ArrowLeftCircle className="w-5 h-5" />
-                                    <span className="font-medium">Back</span>
-                                </button>
-                            </div>
-                        )}
-
+                    <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
                         {/* Projects List Sidebar */}
                         <div
                             className={`
-                            w-full lg:w-1/3
-                            ${
-                                isMobileView && mobileView === "details"
-                                    ? "hidden"
-                                    : "block"
-                            }
-                        `}
+                                w-full lg:w-1/3 xl:w-1/4
+                                ${
+                                    (isMobile || isTablet) &&
+                                    mobileView === "details"
+                                        ? "hidden"
+                                        : "block"
+                                }
+                                ${showMobileMenu ? "block" : ""}
+                            `}
                         >
-                            <div className="card bg-base-100 shadow-md border border-base-300 h-fit lg:sticky lg:top-0">
-                                <div className="card-title p-4 border-b border-base-300 flex items-center justify-between">
+                            <div className="card bg-base-100 shadow-md border border-base-300 lg:sticky lg:top-4 max-h-[calc(100vh-200px)] lg:max-h-[calc(100vh-120px)] overflow-hidden">
+                                <div className="card-title p-4 border-b border-base-300 flex items-center justify-between sticky top-0 bg-base-100 z-10">
                                     <h3 className="text-lg font-semibold">
                                         My Projects
                                     </h3>
@@ -771,7 +750,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                         {bookings.length}
                                     </span>
                                 </div>
-                                <div className="overflow-y-auto max-h-[calc(100vh-200px)]">
+                                <div className="overflow-y-auto flex-1">
                                     {bookings.map((booking) => {
                                         const StatusIcon =
                                             statusIcons[
@@ -791,16 +770,16 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                 }
                                             >
                                                 <div className="flex justify-between items-start">
-                                                    <div className="flex-1 min-w-0">
-                                                        <h4 className="font-semibold text-md truncate group-hover:text-primary transition-colors">
+                                                    <div className="flex-1 min-w-0 pr-2">
+                                                        <h4 className="font-semibold text-sm sm:text-md truncate group-hover:text-primary transition-colors">
                                                             {
                                                                 booking.project
                                                                     ?.title
                                                             }
                                                         </h4>
-                                                        <div className="flex items-center mt-2 text-[12px] text-base-content/70">
-                                                            <CalendarDays className="w-4 h-4 mr-2 flex-shrink-0" />
-                                                            <span>
+                                                        <div className="flex items-center mt-2 text-xs sm:text-[12px] text-base-content/70">
+                                                            <CalendarDays className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                                                            <span className="truncate">
                                                                 {new Date(
                                                                     booking.start_date
                                                                 ).toLocaleDateString()}{" "}
@@ -811,21 +790,29 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                             </span>
                                                         </div>
                                                     </div>
-                                                    <div className="flex items-center ml-4">
+                                                    <div className="flex items-center ml-2">
                                                         <div
-                                                            className={`badge text-[12px] badge-sm gap-1 ${
+                                                            className={`badge text-xs sm:text-[12px] badge-sm gap-1 ${
                                                                 statusColors[
                                                                     booking
                                                                         .booking_status
                                                                 ]
                                                             }`}
                                                         >
-                                                            <StatusIcon className="w-4 h-4" />
-                                                            {
-                                                                booking.booking_status
-                                                            }
+                                                            <StatusIcon className="w-3 h-3 sm:w-4 sm:h-4" />
+                                                            <span className="hidden xs:inline">
+                                                                {
+                                                                    booking.booking_status
+                                                                }
+                                                            </span>
+                                                            <span className="xs:hidden">
+                                                                {booking.booking_status.slice(
+                                                                    0,
+                                                                    3
+                                                                )}
+                                                            </span>
                                                         </div>
-                                                        <ChevronRight className="w-5 h-5 ml-2 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                                                        <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 ml-1 sm:ml-2 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                                                     </div>
                                                 </div>
                                             </div>
@@ -838,29 +825,35 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                         {/* Project Details Panel */}
                         <div
                             className={`
-                            w-full lg:w-2/3
-                            ${
-                                isMobileView && mobileView === "list"
-                                    ? "hidden"
-                                    : "block"
-                            }
-                        `}
+                                w-full lg:w-2/3 xl:w-3/4
+                                ${
+                                    (isMobile || isTablet) &&
+                                    mobileView === "list"
+                                        ? "hidden"
+                                        : "block"
+                                }
+                            `}
                         >
-                            <div className="card bg-base-100 shadow-md border border-base-300 overflow-y-auto lg:max-h-[calc(100vh-120px)]">
+                            <div className="card bg-base-100 shadow-md border border-base-300 overflow-hidden">
                                 {activeBooking ? (
                                     <>
-                                        <div className="bg-primary p-4 lg:pt-[20px] pt-[40px]">
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <h2 className="text-2xl font-bold text-primary-content mb-2">
+                                        {/* Header */}
+                                        <div className="bg-primary p-4 lg:p-6">
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                                <div className="flex-1 min-w-0">
+                                                    <h2 className="text-xl sm:text-2xl font-bold text-primary-content mb-2 truncate">
                                                         {
                                                             activeBooking
                                                                 .project?.title
                                                         }
                                                     </h2>
-                                                    <div className="flex items-center gap-3">
+                                                    <div className="flex flex-wrap gap-2">
                                                         <div
-                                                            className={`badge badge-lg ${
+                                                            className={`badge ${
+                                                                isMobile
+                                                                    ? "badge-md"
+                                                                    : "badge-lg"
+                                                            } ${
                                                                 statusColors[
                                                                     activeBooking
                                                                         .booking_status
@@ -874,8 +867,8 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                         {activeBooking.booking_status ===
                                                             "Completed" &&
                                                             activeBooking.days_spent && (
-                                                                <div className="badge badge-info badge-lg gap-2">
-                                                                    <Star className="w-4 h-4" />
+                                                                <div className="badge badge-info gap-2 text-xs sm:text-sm">
+                                                                    <Star className="w-3 h-3 sm:w-4 sm:h-4" />
                                                                     Earned{" "}
                                                                     {
                                                                         activeBooking.days_spent
@@ -888,31 +881,27 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                             </div>
                                         </div>
 
-                                        <div className="p-4">
-                                            <div className="grid grid-cols-1 gap-4">
+                                        <div className="p-4 sm:p-6">
+                                            <div className="space-y-4 sm:space-y-6">
                                                 {/* Enhanced Contact Access Section */}
                                                 {hasShareContacts && (
                                                     <div className="card bg-gradient-to-br from-blue-50 to-indigo-50 shadow-lg border border-blue-200">
-                                                        <div className="card-body p-6">
+                                                        <div className="card-body p-4 sm:p-6">
                                                             {/* Header Section */}
-                                                            <div className="flex items-center gap-4 mb-6">
-                                                                <div className="bg-blue-100 p-3 rounded-2xl">
-                                                                    <Shield className="h-8 w-8 text-blue-600" />
+                                                            <div className="flex items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+                                                                <div className="bg-blue-100 p-2 sm:p-3 rounded-xl sm:rounded-2xl flex-shrink-0">
+                                                                    <Shield className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
                                                                 </div>
-                                                                <div>
-                                                                    <h3 className="card-title text-2xl font-bold text-gray-900">
+                                                                <div className="flex-1 min-w-0">
+                                                                    <h3 className="card-title text-lg sm:text-xl md:text-2xl font-bold text-gray-900">
                                                                         Contact
                                                                         Access
-                                                                        Management
                                                                     </h3>
-                                                                    <p className="text-gray-600 mt-1">
+                                                                    <p className="text-gray-600 mt-1 text-sm sm:text-base">
                                                                         Manage
-                                                                        organizations
-                                                                        requesting
-                                                                        access
-                                                                        to your
                                                                         contact
-                                                                        information
+                                                                        access
+                                                                        requests
                                                                     </p>
                                                                 </div>
                                                             </div>
@@ -923,17 +912,16 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                     .contact_requests
                                                                     .length >
                                                                     0 && (
-                                                                    <div className="mb-8">
-                                                                        <div className="flex items-center gap-3 mb-4">
-                                                                            <div className="bg-amber-100 p-2 rounded-lg">
-                                                                                <ClockIcon className="h-5 w-5 text-amber-600" />
+                                                                    <div className="mb-6 sm:mb-8">
+                                                                        <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                                                                            <div className="bg-amber-100 p-1.5 sm:p-2 rounded-lg">
+                                                                                <ClockIcon className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" />
                                                                             </div>
-                                                                            <h4 className="text-lg font-semibold text-gray-800">
+                                                                            <h4 className="text-base sm:text-lg font-semibold text-gray-800">
                                                                                 Pending
-                                                                                Access
                                                                                 Requests
                                                                             </h4>
-                                                                            <span className="badge badge-warning badge-lg">
+                                                                            <span className="badge badge-warning">
                                                                                 {
                                                                                     activeBooking
                                                                                         .contact_requests
@@ -942,7 +930,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                             </span>
                                                                         </div>
 
-                                                                        <div className="space-y-4">
+                                                                        <div className="space-y-3 sm:space-y-4">
                                                                             {activeBooking.contact_requests.map(
                                                                                 (
                                                                                     request
@@ -951,11 +939,11 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                                         key={
                                                                                             request.public_id
                                                                                         }
-                                                                                        className="bg-white rounded-xl border border-amber-200 p-5 shadow-sm hover:shadow-md transition-shadow"
+                                                                                        className="bg-white rounded-lg sm:rounded-xl border border-amber-200 p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow"
                                                                                     >
-                                                                                        <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+                                                                                        <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
                                                                                             {/* Organization Info */}
-                                                                                            <div className="flex items-start gap-4 flex-1">
+                                                                                            <div className="flex items-start gap-3 sm:gap-4 flex-1">
                                                                                                 <div className="flex-shrink-0">
                                                                                                     {request
                                                                                                         .organization
@@ -968,30 +956,29 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                                                                     .organization
                                                                                                                     ?.name
                                                                                                             }
-                                                                                                            className="w-14 h-14 rounded-xl object-cover border-2 border-amber-200"
+                                                                                                            className="w-10 h-10 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl object-cover border-2 border-amber-200"
                                                                                                         />
                                                                                                     ) : (
-                                                                                                        <div className="w-14 h-14 rounded-xl bg-amber-100 border-2 border-amber-200 flex items-center justify-center">
-                                                                                                            <Users className="h-6 w-6 text-amber-600" />
+                                                                                                        <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl bg-amber-100 border-2 border-amber-200 flex items-center justify-center">
+                                                                                                            <Users className="h-5 w-5 sm:h-6 sm:w-6 text-amber-600" />
                                                                                                         </div>
                                                                                                     )}
                                                                                                 </div>
                                                                                                 <div className="flex-1 min-w-0">
-                                                                                                    <h5 className="font-bold text-gray-900 text-lg">
+                                                                                                    <h5 className="font-bold text-gray-900 text-sm sm:text-lg truncate">
                                                                                                         {request
                                                                                                             .organization
                                                                                                             ?.name ||
                                                                                                             "Organization"}
                                                                                                     </h5>
-                                                                                                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
+                                                                                                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
                                                                                                         <div className="flex items-center gap-1">
-                                                                                                            <CalendarDays className="h-4 w-4" />
-                                                                                                            Requested{" "}
+                                                                                                            <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4" />
                                                                                                             {new Date(
                                                                                                                 request.requested_at
                                                                                                             ).toLocaleDateString()}
                                                                                                         </div>
-                                                                                                        <div className="badge badge-warning badge-outline">
+                                                                                                        <div className="badge badge-warning badge-outline text-xs">
                                                                                                             Awaiting
                                                                                                             Approval
                                                                                                         </div>
@@ -999,8 +986,8 @@ export default function Projects({ auth, payments, points, totalPoints }) {
 
                                                                                                     {/* Request Message */}
                                                                                                     {request.message && (
-                                                                                                        <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-100">
-                                                                                                            <p className="text-sm text-gray-700">
+                                                                                                        <div className="mt-2 sm:mt-3 p-2 sm:p-3 bg-amber-50 rounded-lg border border-amber-100">
+                                                                                                            <p className="text-xs sm:text-sm text-gray-700 line-clamp-2">
                                                                                                                 <span className="font-semibold text-amber-700">
                                                                                                                     Message:
                                                                                                                 </span>{" "}
@@ -1013,25 +1000,11 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                                                             </p>
                                                                                                         </div>
                                                                                                     )}
-
-                                                                                                    {/* Access Details */}
-                                                                                                    <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
-                                                                                                        <div className="flex items-center gap-1">
-                                                                                                            <Mail className="h-3 w-3" />
-                                                                                                            Email
-                                                                                                            access
-                                                                                                        </div>
-                                                                                                        <div className="flex items-center gap-1">
-                                                                                                            <Phone className="h-3 w-3" />
-                                                                                                            Phone
-                                                                                                            access
-                                                                                                        </div>
-                                                                                                    </div>
                                                                                                 </div>
                                                                                             </div>
 
                                                                                             {/* Action Buttons */}
-                                                                                            <div className="flex lg:flex-col gap-2 lg:ml-auto">
+                                                                                            <div className="flex sm:flex-col gap-2 sm:ml-auto">
                                                                                                 <button
                                                                                                     onClick={() =>
                                                                                                         handleContactRequestResponse(
@@ -1039,17 +1012,22 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                                                             "approved"
                                                                                                         )
                                                                                                     }
-                                                                                                    className="btn btn-success btn-sm lg:btn-md gap-2 flex-1 lg:flex-none"
+                                                                                                    className="btn btn-success btn-xs sm:btn-sm md:btn-md gap-1 sm:gap-2 flex-1 sm:flex-none"
                                                                                                     disabled={
                                                                                                         processingContactRequest
                                                                                                     }
                                                                                                 >
                                                                                                     {processingContactRequest ? (
-                                                                                                        <span className="loading loading-spinner loading-sm"></span>
+                                                                                                        <span className="loading loading-spinner loading-xs sm:loading-sm"></span>
                                                                                                     ) : (
                                                                                                         <>
-                                                                                                            <Check className="w-4 h-4" />
-                                                                                                            Approve
+                                                                                                            <Check className="w-3 h-3 sm:w-4 sm:h-4" />
+                                                                                                            <span className="hidden xs:inline">
+                                                                                                                Approve
+                                                                                                            </span>
+                                                                                                            <span className="xs:hidden">
+                                                                                                                OK
+                                                                                                            </span>
                                                                                                         </>
                                                                                                     )}
                                                                                                 </button>
@@ -1060,17 +1038,22 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                                                             "rejected"
                                                                                                         )
                                                                                                     }
-                                                                                                    className="btn btn-outline btn-error btn-sm lg:btn-md gap-2 flex-1 lg:flex-none"
+                                                                                                    className="btn btn-outline btn-error btn-xs sm:btn-sm md:btn-md gap-1 sm:gap-2 flex-1 sm:flex-none"
                                                                                                     disabled={
                                                                                                         processingContactRequest
                                                                                                     }
                                                                                                 >
                                                                                                     {processingContactRequest ? (
-                                                                                                        <span className="loading loading-spinner loading-sm"></span>
+                                                                                                        <span className="loading loading-spinner loading-xs sm:loading-sm"></span>
                                                                                                     ) : (
                                                                                                         <>
-                                                                                                            <X className="w-4 h-4" />
-                                                                                                            Decline
+                                                                                                            <X className="w-3 h-3 sm:w-4 sm:h-4" />
+                                                                                                            <span className="hidden xs:inline">
+                                                                                                                Decline
+                                                                                                            </span>
+                                                                                                            <span className="xs:hidden">
+                                                                                                                No
+                                                                                                            </span>
                                                                                                         </>
                                                                                                     )}
                                                                                                 </button>
@@ -1083,182 +1066,27 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                     </div>
                                                                 )}
 
-                                                            {/* Shared Contacts Section */}
-                                                            {activeBooking.shared_contacts &&
-                                                                activeBooking
-                                                                    .shared_contacts
-                                                                    .length >
-                                                                    0 && (
-                                                                    <div>
-                                                                        <div className="flex items-center gap-3 mb-4">
-                                                                            <div className="bg-green-100 p-2 rounded-lg">
-                                                                                <UserCheck className="h-5 w-5 text-green-600" />
-                                                                            </div>
-                                                                            <h4 className="text-lg font-semibold text-gray-800">
-                                                                                Approved
-                                                                                Contacts
-                                                                            </h4>
-                                                                            <span className="badge badge-success badge-lg">
-                                                                                {
-                                                                                    activeBooking
-                                                                                        .shared_contacts
-                                                                                        .length
-                                                                                }
-                                                                            </span>
-                                                                        </div>
-
-                                                                        <div className="grid gap-4 md:grid-cols-2">
-                                                                            {activeBooking.shared_contacts.map(
-                                                                                (
-                                                                                    contact
-                                                                                ) => (
-                                                                                    <div
-                                                                                        key={
-                                                                                            contact.public_id
-                                                                                        }
-                                                                                        className="bg-white rounded-xl border border-green-200 p-5 shadow-sm"
-                                                                                    >
-                                                                                        <div className="flex items-center gap-4">
-                                                                                            <div className="flex-shrink-0">
-                                                                                                {contact
-                                                                                                    .organization
-                                                                                                    ?.organization_profile
-                                                                                                    ?.logo ? (
-                                                                                                    <img
-                                                                                                        src={`/storage/${contact.organization.organization_profile.logo}`}
-                                                                                                        alt={
-                                                                                                            contact
-                                                                                                                .organization
-                                                                                                                ?.name
-                                                                                                        }
-                                                                                                        className="w-12 h-12 rounded-xl object-cover border-2 border-green-200"
-                                                                                                    />
-                                                                                                ) : (
-                                                                                                    <div className="w-12 h-12 rounded-xl bg-green-100 border-2 border-green-200 flex items-center justify-center">
-                                                                                                        <Users className="h-6 w-6 text-green-600" />
-                                                                                                    </div>
-                                                                                                )}
-                                                                                            </div>
-                                                                                            <div className="flex-1 min-w-0">
-                                                                                                <h5 className="font-semibold text-gray-900">
-                                                                                                    {contact
-                                                                                                        .organization
-                                                                                                        ?.name ||
-                                                                                                        "Organization"}
-                                                                                                </h5>
-                                                                                                <p className="text-sm text-green-600 mt-1">
-                                                                                                    <CheckCircle2 className="h-4 w-4 inline mr-1" />
-                                                                                                    Access
-                                                                                                    granted{" "}
-                                                                                                    {new Date(
-                                                                                                        contact.approved_at
-                                                                                                    ).toLocaleDateString()}
-                                                                                                </p>
-                                                                                                {contact.message && (
-                                                                                                    <p className="text-xs text-gray-500 mt-2 line-clamp-2">
-                                                                                                        "
-                                                                                                        {
-                                                                                                            contact.message
-                                                                                                        }
-
-                                                                                                        "
-                                                                                                    </p>
-                                                                                                )}
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                )
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                )}
-
-                                                            {/* No Requests State */}
-                                                            {(!activeBooking.contact_requests ||
-                                                                activeBooking
-                                                                    .contact_requests
-                                                                    .length ===
-                                                                    0) &&
-                                                                (!activeBooking.shared_contacts ||
-                                                                    activeBooking
-                                                                        .shared_contacts
-                                                                        .length ===
-                                                                        0) && (
-                                                                    <div className="text-center py-8">
-                                                                        <div className="bg-blue-100 p-4 rounded-2xl inline-flex mb-4">
-                                                                            <CheckCircle2 className="h-8 w-8 text-blue-600" />
-                                                                        </div>
-                                                                        <h4 className="text-lg font-semibold text-gray-700 mb-2">
-                                                                            No
-                                                                            Active
-                                                                            Requests
-                                                                        </h4>
-                                                                        <p className="text-gray-500 max-w-md mx-auto">
-                                                                            You
-                                                                            don't
-                                                                            have
-                                                                            any
-                                                                            pending
-                                                                            contact
-                                                                            access
-                                                                            requests
-                                                                            for
-                                                                            this
-                                                                            booking.
-                                                                        </p>
-                                                                    </div>
-                                                                )}
-
                                                             {/* Privacy Notice */}
-                                                            <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
-                                                                <div className="flex items-start gap-3">
-                                                                    <Shield className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                                                            <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 rounded-lg sm:rounded-xl border border-blue-200">
+                                                                <div className="flex items-start gap-2 sm:gap-3">
+                                                                    <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 mt-0.5 flex-shrink-0" />
                                                                     <div>
-                                                                        <h5 className="font-semibold text-blue-800 text-sm mb-1">
+                                                                        <h5 className="font-semibold text-blue-800 text-xs sm:text-sm mb-1">
                                                                             Privacy
                                                                             &
                                                                             Data
                                                                             Protection
                                                                         </h5>
-                                                                        <p className="text-blue-700 text-sm leading-relaxed">
-                                                                            When
-                                                                            you
-                                                                            approve
-                                                                            a
-                                                                            contact
-                                                                            request,
-                                                                            the
-                                                                            organization
-                                                                            will
-                                                                            gain
-                                                                            access
-                                                                            to
-                                                                            your
+                                                                        <p className="text-blue-700 text-xs sm:text-sm leading-relaxed">
+                                                                            Your
                                                                             contact
                                                                             details
-                                                                            (email
-                                                                            and
-                                                                            phone
-                                                                            number)
-                                                                            for
-                                                                            project-related
-                                                                            communication.
-                                                                            Your
-                                                                            information
-                                                                            is
+                                                                            are
                                                                             protected
                                                                             under
                                                                             our
                                                                             privacy
-                                                                            policy
-                                                                            and
-                                                                            will
-                                                                            not
-                                                                            be
-                                                                            shared
-                                                                            with
-                                                                            third
-                                                                            parties.
+                                                                            policy.
                                                                         </p>
                                                                     </div>
                                                                 </div>
@@ -1269,108 +1097,102 @@ export default function Projects({ auth, payments, points, totalPoints }) {
 
                                                 {/* Project Summary Card */}
                                                 <div className="card bg-base-200 shadow-sm border border-base-300">
-                                                    <div className="card-body p-4">
-                                                        <h3 className="card-title text-xl font-semibold mb-4">
+                                                    <div className="card-body p-4 sm:p-6">
+                                                        <h3 className="card-title text-lg sm:text-xl font-semibold mb-3 sm:mb-4">
                                                             Project Summary
                                                         </h3>
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                            <div className="flex items-start gap-4">
-                                                                <div className="bg-primary/15 p-3 rounded-xl">
-                                                                    <MapPin className="h-6 w-6 text-primary" />
-                                                                </div>
-                                                                <div>
-                                                                    <h4 className="font-semibold mb-1">
-                                                                        Location
-                                                                    </h4>
-                                                                    <p className="text-base-content/80">
-                                                                        {activeBooking
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                                            {[
+                                                                {
+                                                                    icon: MapPin,
+                                                                    label: "Location",
+                                                                    value:
+                                                                        activeBooking
                                                                             .project
                                                                             ?.country ||
-                                                                            "Not specified"}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex items-start gap-4">
-                                                                <div className="bg-primary/15 p-3 rounded-xl">
-                                                                    <CalendarDays className="h-6 w-6 text-primary" />
-                                                                </div>
-                                                                <div>
-                                                                    <h4 className="font-semibold mb-1">
-                                                                        Dates
-                                                                    </h4>
-                                                                    <p className="text-base-content/80">
-                                                                        {new Date(
-                                                                            activeBooking.start_date
-                                                                        ).toLocaleDateString()}{" "}
-                                                                        -{" "}
-                                                                        {new Date(
-                                                                            activeBooking.end_date
-                                                                        ).toLocaleDateString()}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex items-start gap-4">
-                                                                <div className="bg-primary/15 p-3 rounded-xl">
-                                                                    <Users className="h-6 w-6 text-primary" />
-                                                                </div>
-                                                                <div>
-                                                                    <h4 className="font-semibold mb-1">
-                                                                        Group
-                                                                        Size
-                                                                    </h4>
-                                                                    <p className="text-base-content/80">
-                                                                        {
-                                                                            activeBooking.number_of_travellers
-                                                                        }{" "}
-                                                                        volunteer
-                                                                        {activeBooking.number_of_travellers !==
+                                                                        "Not specified",
+                                                                },
+                                                                {
+                                                                    icon: CalendarDays,
+                                                                    label: "Dates",
+                                                                    value: `${new Date(
+                                                                        activeBooking.start_date
+                                                                    ).toLocaleDateString()} - ${new Date(
+                                                                        activeBooking.end_date
+                                                                    ).toLocaleDateString()}`,
+                                                                },
+                                                                {
+                                                                    icon: Users,
+                                                                    label: "Group Size",
+                                                                    value: `${
+                                                                        activeBooking.number_of_travellers
+                                                                    } volunteer${
+                                                                        activeBooking.number_of_travellers !==
                                                                         1
                                                                             ? "s"
-                                                                            : ""}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex items-start gap-4">
-                                                                <div className="bg-primary/15 p-3 rounded-xl">
-                                                                    <Clock className="h-6 w-6 text-primary" />
-                                                                </div>
-                                                                <div>
-                                                                    <h4 className="font-semibold mb-1">
-                                                                        Duration
-                                                                    </h4>
-                                                                    <p className="text-base-content/80">
-                                                                        {calculateDuration(
-                                                                            activeBooking.start_date,
-                                                                            activeBooking.end_date
-                                                                        )}{" "}
-                                                                        days
-                                                                    </p>
-                                                                </div>
-                                                            </div>
+                                                                            : ""
+                                                                    }`,
+                                                                },
+                                                                {
+                                                                    icon: Clock,
+                                                                    label: "Duration",
+                                                                    value: `${calculateDuration(
+                                                                        activeBooking.start_date,
+                                                                        activeBooking.end_date
+                                                                    )} days`,
+                                                                },
+                                                            ].map(
+                                                                (
+                                                                    item,
+                                                                    index
+                                                                ) => (
+                                                                    <div
+                                                                        key={
+                                                                            index
+                                                                        }
+                                                                        className="flex items-start gap-3"
+                                                                    >
+                                                                        <div className="bg-primary/15 p-2 sm:p-3 rounded-lg sm:rounded-xl flex-shrink-0">
+                                                                            <item.icon className="h-4 w-4 sm:h-6 sm:w-6 text-primary" />
+                                                                        </div>
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <h4 className="font-semibold text-sm sm:text-base mb-1">
+                                                                                {
+                                                                                    item.label
+                                                                                }
+                                                                            </h4>
+                                                                            <p className="text-base-content/80 text-sm sm:text-base truncate">
+                                                                                {
+                                                                                    item.value
+                                                                                }
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                )
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
 
                                                 {/* Payment Information Card */}
-                                                {/* Payment Information Card */}
                                                 {activeBooking.project
                                                     .type_of_project ===
                                                     "Paid" && (
                                                     <div className="card bg-base-200 shadow-sm border border-base-300">
-                                                        <div className="card-body p-4">
-                                                            <h3 className="card-title text-xl font-semibold mb-6">
+                                                        <div className="card-body p-4 sm:p-6">
+                                                            <h3 className="card-title text-lg sm:text-xl font-semibold mb-4 sm:mb-6">
                                                                 Payment
                                                                 Information
                                                             </h3>
-                                                            <div className="space-y-6">
-                                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                            <div className="space-y-4 sm:space-y-6">
+                                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                                                                     <div className="card bg-base-100 shadow-sm border border-base-300">
-                                                                        <div className="card-body p-4 text-center">
-                                                                            <h4 className="text-sm font-medium text-base-content/70 mb-2">
+                                                                        <div className="card-body p-3 sm:p-4 text-center">
+                                                                            <h4 className="text-xs sm:text-sm font-medium text-base-content/70 mb-1 sm:mb-2">
                                                                                 Total
                                                                                 Amount
                                                                             </h4>
-                                                                            <p className="text-2xl font-bold text-primary">
+                                                                            <p className="text-lg sm:text-2xl font-bold text-primary">
                                                                                 $
                                                                                 {calculateTotalAmount(
                                                                                     activeBooking.start_date,
@@ -1392,15 +1214,15 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                                 : "bg-base-100"
                                                                         }`}
                                                                     >
-                                                                        <div className="card-body p-4 text-center">
-                                                                            <h4 className="text-sm font-medium text-base-content/70 mb-2">
+                                                                        <div className="card-body p-3 sm:p-4 text-center">
+                                                                            <h4 className="text-xs sm:text-sm font-medium text-base-content/70 mb-1 sm:mb-2">
                                                                                 Deposit
                                                                                 Fee{" "}
                                                                                 {hasPaidDeposit() &&
                                                                                     "(Paid)"}
                                                                             </h4>
                                                                             <p
-                                                                                className={`text-2xl font-bold ${
+                                                                                className={`text-lg sm:text-2xl font-bold ${
                                                                                     !hasPaidDeposit()
                                                                                         ? "text-warning"
                                                                                         : "text-success"
@@ -1410,13 +1232,10 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                                 {calculateDepositAmount().toLocaleString()}
                                                                             </p>
                                                                             {!hasPaidDeposit() && (
-                                                                                <p className="text-xs text-warning mt-2">
+                                                                                <p className="text-xs text-warning mt-1 sm:mt-2">
                                                                                     20%
                                                                                     deposit
                                                                                     required
-                                                                                    to
-                                                                                    confirm
-                                                                                    booking
                                                                                 </p>
                                                                             )}
                                                                         </div>
@@ -1427,14 +1246,14 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                         ?.length >
                                                                         0 && (
                                                                         <div className="card bg-base-100 shadow-sm border border-base-300">
-                                                                            <div className="card-body p-4 text-center">
-                                                                                <h4 className="text-sm font-medium text-base-content/70 mb-2">
+                                                                            <div className="card-body p-3 sm:p-4 text-center">
+                                                                                <h4 className="text-xs sm:text-sm font-medium text-base-content/70 mb-1 sm:mb-2">
                                                                                     {hasPaidDeposit()
                                                                                         ? "Remaining Balance"
                                                                                         : "Amount Paid"}
                                                                                 </h4>
                                                                                 <p
-                                                                                    className={`text-2xl font-bold ${
+                                                                                    className={`text-lg sm:text-2xl font-bold ${
                                                                                         hasPaidDeposit() &&
                                                                                         calculateRemainingBalance() >
                                                                                             0
@@ -1450,15 +1269,11 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                                 {hasPaidDeposit() &&
                                                                                     calculateRemainingBalance() >
                                                                                         0 && (
-                                                                                        <p className="text-xs text-warning mt-2">
+                                                                                        <p className="text-xs text-warning mt-1 sm:mt-2">
                                                                                             Balance
-                                                                                            must
-                                                                                            be
-                                                                                            paid
+                                                                                            due
                                                                                             before
-                                                                                            project
                                                                                             start
-                                                                                            date
                                                                                         </p>
                                                                                     )}
                                                                             </div>
@@ -1466,80 +1281,17 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                     )}
                                                                 </div>
 
-                                                                {activeBooking
-                                                                    ?.payments
-                                                                    ?.length >
-                                                                    0 && (
-                                                                    <div>
-                                                                        <h4 className="font-medium opacity-70 mb-2">
-                                                                            Payment
-                                                                            History
-                                                                        </h4>
-                                                                        <div className="space-y-2">
-                                                                            {activeBooking.payments.map(
-                                                                                (
-                                                                                    payment
-                                                                                ) => (
-                                                                                    <div
-                                                                                        key={
-                                                                                            payment.public_id
-                                                                                        }
-                                                                                        className="card bg-base-100"
-                                                                                    >
-                                                                                        <div className="card-body p-3">
-                                                                                            <div className="flex justify-between items-center">
-                                                                                                <div>
-                                                                                                    <p className="font-medium">
-                                                                                                        $
-                                                                                                        {
-                                                                                                            payment.amount
-                                                                                                        }
-                                                                                                    </p>
-                                                                                                    <p className="text-xs opacity-60 mt-1">
-                                                                                                        {new Date(
-                                                                                                            payment.created_at
-                                                                                                        ).toLocaleDateString()}
-                                                                                                    </p>
-                                                                                                </div>
-                                                                                                <span
-                                                                                                    className={`badge ${
-                                                                                                        payment.status ===
-                                                                                                        "succeeded"
-                                                                                                            ? "badge-success"
-                                                                                                            : payment.status ===
-                                                                                                              "pending"
-                                                                                                            ? "badge-warning"
-                                                                                                            : payment.status ===
-                                                                                                              "deposit_paid"
-                                                                                                            ? "badge-primary"
-                                                                                                            : "badge-error"
-                                                                                                    }`}
-                                                                                                >
-                                                                                                    {payment.status ===
-                                                                                                    "deposit_paid"
-                                                                                                        ? "Deposit Paid"
-                                                                                                        : payment.status}
-                                                                                                </span>
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                )
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                )}
-
-                                                                {/* Payment Options - Full Width Section */}
+                                                                {/* Payment Options */}
                                                                 {shouldShowPayPalButton && (
-                                                                    <div className="border-t pt-6">
-                                                                        <h4 className="font-semibold text-lg mb-4 text-center">
+                                                                    <div className="border-t pt-4 sm:pt-6">
+                                                                        <h4 className="font-semibold text-base sm:text-lg mb-3 sm:mb-4 text-center">
                                                                             Complete
                                                                             Your
                                                                             Payment
                                                                         </h4>
-                                                                        <div className="flex flex-col gap-4">
-                                                                            {/* PayPal Button - Full Width */}
-                                                                            <div className="paypal-button-container w-full">
+                                                                        <div className="space-y-3 sm:space-y-4">
+                                                                            {/* PayPal Button */}
+                                                                            <div className="paypal-button-container">
                                                                                 <PayPalScriptProvider
                                                                                     options={{
                                                                                         "client-id":
@@ -1553,14 +1305,14 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                                             "card,venmo",
                                                                                         "disable-funding":
                                                                                             "",
-                                                                                        "data-page-type":
-                                                                                            "product",
                                                                                     }}
                                                                                 >
                                                                                     <PayPalButtons
                                                                                         style={{
                                                                                             layout: "vertical",
-                                                                                            height: 48,
+                                                                                            height: isMobile
+                                                                                                ? 40
+                                                                                                : 48,
                                                                                             color: "blue",
                                                                                             shape: "rect",
                                                                                             label: "checkout",
@@ -1586,12 +1338,12 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                                 </PayPalScriptProvider>
                                                                             </div>
 
-                                                                            {/* Points Payment Option - Full Width */}
+                                                                            {/* Points Payment Option */}
                                                                             {activeBooking
                                                                                 .project
                                                                                 .point_exchange ===
                                                                                 1 && (
-                                                                                <div className="w-full">
+                                                                                <div>
                                                                                     {hasPaidDeposit() &&
                                                                                         !pointsPaymentSuccess &&
                                                                                         !hasPointsTransaction(
@@ -1603,7 +1355,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                                                         true
                                                                                                     )
                                                                                                 }
-                                                                                                className="btn btn-primary w-full h-12 text-lg"
+                                                                                                className="btn btn-primary w-full h-10 sm:h-12 text-sm sm:text-base"
                                                                                             >
                                                                                                 💎
                                                                                                 Pay
@@ -1621,41 +1373,24 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                         </div>
                                                                     </div>
                                                                 )}
-
-                                                                {hasPointsTransaction(
-                                                                    activeBooking
-                                                                ) && (
-                                                                    <div className="alert alert-info">
-                                                                        <CheckCircle2 className="h-5 w-5" />
-                                                                        <span>
-                                                                            This
-                                                                            booking
-                                                                            has
-                                                                            been
-                                                                            paid
-                                                                            with
-                                                                            points
-                                                                            exchange
-                                                                        </span>
-                                                                    </div>
-                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
                                                 )}
+
                                                 {/* Project Description Card */}
                                                 <div className="card bg-base-200 shadow-sm border border-base-300">
-                                                    <div className="card-body p-4">
-                                                        <h3 className="card-title text-xl font-semibold mb-4">
+                                                    <div className="card-body p-4 sm:p-6">
+                                                        <h3 className="card-title text-lg sm:text-xl font-semibold mb-3 sm:mb-4">
                                                             Project Details
                                                         </h3>
-                                                        <p className="text-base-content/80 mb-6 leading-relaxed">
+                                                        <p className="text-base-content/80 mb-4 sm:mb-6 leading-relaxed text-sm sm:text-base">
                                                             {activeBooking
                                                                 .project
                                                                 ?.short_description ||
                                                                 "No description available."}
                                                         </p>
-                                                        <div className="flex flex-wrap gap-3">
+                                                        <div className="flex flex-wrap gap-2 sm:gap-3">
                                                             {activeBooking.can_send_reminder && (
                                                                 <button
                                                                     onClick={() =>
@@ -1669,22 +1404,22 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                                                             )
                                                                         )
                                                                     }
-                                                                    className="btn btn-outline btn-primary"
+                                                                    className="btn btn-outline btn-primary btn-sm sm:btn-md"
                                                                 >
                                                                     Send{" "}
                                                                     {
                                                                         activeBooking.reminder_stage
                                                                     }{" "}
                                                                     Reminder
-                                                                    <ArrowRight className="w-4 h-4 ml-2" />
+                                                                    <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 ml-1 sm:ml-2" />
                                                                 </button>
                                                             )}
                                                             <Link
                                                                 href={`/volunteer-programs/${activeBooking.project?.slug}`}
-                                                                className="btn btn-primary"
+                                                                className="btn btn-primary btn-sm sm:btn-md"
                                                             >
                                                                 View Full
-                                                                Project Details
+                                                                Details
                                                             </Link>
 
                                                             {activeBooking.booking_status ===
@@ -1702,15 +1437,15 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                         </div>
                                     </>
                                 ) : (
-                                    <div className="flex items-center justify-center p-12 min-h-[400px]">
+                                    <div className="flex items-center justify-center p-8 sm:p-12 min-h-[300px] sm:min-h-[400px]">
                                         <div className="text-center">
-                                            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-base-200 mb-4">
-                                                <CalendarDays className="h-8 w-8 opacity-70" />
+                                            <div className="mx-auto flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-base-200 mb-4">
+                                                <CalendarDays className="h-6 w-6 sm:h-8 sm:w-8 opacity-70" />
                                             </div>
-                                            <h3 className="text-xl font-medium mb-2">
+                                            <h3 className="text-lg sm:text-xl font-medium mb-2">
                                                 Select a project
                                             </h3>
-                                            <p className="text-base-content/70">
+                                            <p className="text-base-content/70 text-sm sm:text-base">
                                                 Choose a project from the list
                                                 to view details
                                             </p>
@@ -1725,7 +1460,7 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                 {/* Message Modal */}
                 {showMessageModal && activeBooking && (
                     <div className="modal modal-open">
-                        <div className="modal-box">
+                        <div className="modal-box mx-4 max-w-full sm:max-w-lg">
                             <h3 className="font-bold text-lg mb-4">
                                 Message Project Owner
                             </h3>
@@ -1738,19 +1473,19 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                         setMessageContent(e.target.value)
                                     }
                                 />
-                                <div className="modal-action">
+                                <div className="modal-action flex-col sm:flex-row gap-2">
                                     <button
                                         type="button"
                                         onClick={() =>
                                             setShowMessageModal(false)
                                         }
-                                        className="btn btn-ghost"
+                                        className="btn btn-ghost w-full sm:w-auto"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
-                                        className="btn btn-primary"
+                                        className="btn btn-primary w-full sm:w-auto"
                                         disabled={processing}
                                     >
                                         {processing
@@ -1766,18 +1501,14 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                 {/* Points Payment Modal */}
                 {showPointsPaymentModal && (
                     <div className="modal modal-open">
-                        <div className="modal-box">
+                        <div className="modal-box mx-4 max-w-full sm:max-w-md">
                             <h3 className="font-bold text-lg mb-4">
                                 Pay with Points
                             </h3>
-                            <p className="mb-4">
+                            <p className="mb-4 text-sm sm:text-base">
                                 You're about to pay $
-                                {calculateRemainingBalance().toLocaleString()}
-                                using your points. This will use{" "}
-                                {Math.ceil(
-                                    calculateRemainingBalance() / 0.5
-                                )}{" "}
-                                points.
+                                {calculateRemainingBalance().toLocaleString()}{" "}
+                                using your points.
                             </p>
                             <p className="text-sm text-base-content/70 mb-4">
                                 Current points balance: {pointsState.balance}
@@ -1787,20 +1518,20 @@ export default function Projects({ auth, payments, points, totalPoints }) {
                                     {pointsState.error}
                                 </p>
                             )}
-                            <div className="modal-action">
+                            <div className="modal-action flex-col sm:flex-row gap-2">
                                 <button
                                     type="button"
                                     onClick={() =>
                                         setShowPointsPaymentModal(false)
                                     }
-                                    className="btn btn-ghost"
+                                    className="btn btn-ghost w-full sm:w-auto"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="button"
                                     onClick={handlePayWithPoints}
-                                    className="btn btn-primary"
+                                    className="btn btn-primary w-full sm:w-auto"
                                     disabled={pointsState.isLoading}
                                 >
                                     {pointsState.isLoading

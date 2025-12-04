@@ -308,6 +308,13 @@ Route::prefix('volunteer')->middleware(['check.role:Volunteer', 'auth'])->group(
         ->name('volunteer.sponsorship-applications.submit');
 
     Route::post('/sponsorship-applications/update', [VolunteerController::class, 'updateSponsorshipApplication'])->name('volunteer.sponsorship-applications.update');
+
+    Route::get('/settings', [VolunteerController::class, 'settings'])->name('volunteer.settings');
+    Route::post('/settings/change-password', [VolunteerController::class, 'changePassword'])->name('volunteer.settings.change-password');
+    Route::post('/settings/update-email', [VolunteerController::class, 'updateEmail'])->name('volunteer.settings.update-email');
+    Route::post('/settings/update-notifications', [VolunteerController::class, 'updateNotificationPreferences'])->name('volunteer.settings.update-notifications');
+    Route::post('/settings/deactivate-account', [VolunteerController::class, 'deactivateAccount'])->name('volunteer.settings.deactivate-account');
+    Route::post('/settings/reactivate-account', [VolunteerController::class, 'reactivateAccount'])->name('volunteer.settings.reactivate-account');
 });
 
 // Organization Routes

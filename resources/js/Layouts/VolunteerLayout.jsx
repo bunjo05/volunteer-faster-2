@@ -4,7 +4,7 @@ import SidebarLink from "@/Components/SidebarLink";
 import FloatingConversation from "@/Components/FloatingConversation";
 import PlatformReview from "@/Components/PlatformReview";
 import NotificationBell from "@/Components/NotificationBell";
-
+import { Cog6ToothIcon } from "@heroicons/react/24/solid";
 import {
     Home,
     FolderKanban,
@@ -79,8 +79,7 @@ export default function VolunteerLayout({ children, auth, points }) {
                 </div>
 
                 {/* User Profile & Points */}
-                <div className="p-6 border-b border-slate-100 bg-gradient-to-b from-white to-slate-50/50">
-                    {/* Points Display */}
+                {/* <div className="p-6 border-b border-slate-100 bg-gradient-to-b from-white to-slate-50/50">
                     <div className="bg-gradient-to-r from-amber-500 to-amber-600 rounded-2xl p-4 text-white shadow-lg">
                         <div className="flex items-center justify-between">
                             <div>
@@ -100,7 +99,7 @@ export default function VolunteerLayout({ children, auth, points }) {
                             <span>Earn more by volunteering</span>
                         </div>
                     </div>
-                </div>
+                </div> */}
 
                 {/* Navigation */}
                 <nav className="flex-1 px-4 py-6 space-y-2">
@@ -130,9 +129,9 @@ export default function VolunteerLayout({ children, auth, points }) {
                     >
                         <Star className="w-5 h-5 mr-3" />
                         My Points
-                        <span className="ml-auto bg-amber-500 text-white text-xs font-medium rounded-full px-2 py-1">
+                        {/* <span className="ml-auto bg-amber-500 text-white text-xs font-medium rounded-full px-2 py-1">
                             {totalPoints}
-                        </span>
+                        </span> */}
                     </SidebarLink>
                     <SidebarLink
                         href={route("volunteer.sponsorships")}
@@ -153,8 +152,19 @@ export default function VolunteerLayout({ children, auth, points }) {
                         className="group flex items-center w-full px-4 py-3 text-left rounded-xl hover:bg-white hover:text-slate-700 transition-all duration-200 text-slate-600 hover:shadow-sm"
                     >
                         <User className="w-5 h-5 mr-3" />
-                        Profile & Settings
+                        Profile
                     </SidebarLink>
+
+                    <SidebarLink
+                        href={route("volunteer.settings")}
+                        icon={Cog6ToothIcon} // Import from heroicons
+                        className="group flex items-center w-full px-4 py-3 text-left rounded-xl hover:bg-white hover:text-slate-700 transition-all duration-200 text-slate-600 hover:shadow-sm"
+                    >
+                        <Cog6ToothIcon className="w-5 h-5 mr-3" />
+                        Account Settings
+                    </SidebarLink>
+
+                    {/* volunteer.settings */}
                     <Link
                         href={route("logout")}
                         method="post"

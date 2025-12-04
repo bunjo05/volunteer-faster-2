@@ -31,6 +31,7 @@ use Illuminate\Support\Facades\Log;
 use App\Mail\ProjectReviewRequested;
 use App\Models\VolunteerSponsorship;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\VolunteerProfileUpdated;
 use App\Models\VolunteerVerification;
@@ -123,24 +124,40 @@ class VolunteerController extends Controller
     {
         $user = Auth::user();
 
-        // Get total earned points (credits)
-        $earnedOtherPoints = PointTransaction::where('user_public_id', $user->public_id)
-            ->where('type', 'credit')
-            ->sum('points');
+        if (!$user) {
+            \Log::warning('No user in getTotalPoints');
+            return 0;
+        }
 
-        $earnedVolunteerPoints = VolunteerPoint::where('user_public_id', $user->public_id)
-            ->sum('points_earned');
+        try {
+            // Get total earned points (credits)
+            $earnedOtherPoints = PointTransaction::where('user_public_id', $user->public_id)
+                ->where('type', 'credit')
+                ->sum('points');
 
-        $earnedPoints = $earnedOtherPoints + $earnedVolunteerPoints;
+            $earnedVolunteerPoints = VolunteerPoint::where('user_public_id', $user->public_id)
+                ->sum('points_earned');
 
-        // Get total spent points (debits)
-        $spentPoints = PointTransaction::where('user_public_id', $user->public_id)
-            ->where('type', 'debit')
-            ->sum('points');
+            $earnedPoints = (int)($earnedOtherPoints + $earnedVolunteerPoints);
 
-        // $totalPoints = $earnedPoints - $spentPoints;
+            // Get total spent points (debits)
+            $spentPoints = (int)PointTransaction::where('user_public_id', $user->public_id)
+                ->where('type', 'debit')
+                ->sum('points');
 
-        return $earnedPoints - $spentPoints;
+            Log::info('Points calculation for user ' . $user->id, [
+                'earnedOtherPoints' => $earnedOtherPoints,
+                'earnedVolunteerPoints' => $earnedVolunteerPoints,
+                'earnedPoints' => $earnedPoints,
+                'spentPoints' => $spentPoints,
+                'total' => max(0, $earnedPoints - $spentPoints)
+            ]);
+
+            return max(0, $earnedPoints - $spentPoints);
+        } catch (\Exception $e) {
+            Log::error('Error calculating total points: ' . $e->getMessage());
+            return 0;
+        }
     }
 
     public function index()
@@ -918,45 +935,56 @@ class VolunteerController extends Controller
             ->map(function ($transaction) {
                 return [
                     'id' => $transaction->public_id,
-                    'source' => 'transaction', // identify type
                     'type' => $transaction->type,
-                    'points' => $transaction->points,
+                    'points' => (int) $transaction->points,
                     'description' => $transaction->description,
-                    'created_at' => $transaction->created_at,
-                    'booking' => $transaction->booking,
+                    'created_at' => $transaction->created_at->toISOString(),
+                    'booking' => $transaction->booking ? [
+                        'project' => $transaction->booking->project ? [
+                            'title' => $transaction->booking->project->title,
+                            'public_id' => $transaction->booking->project->public_id,
+                        ] : null,
+                    ] : null,
                 ];
             });
 
         // Get volunteer points
-        $volunteerPoints = VolunteerPoint::where('user_public_id', $user->public_id)
+        $volunteerPoints = VolunteerPoint::with(['booking.project'])
+            ->where('user_public_id', $user->public_id)
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($vp) {
                 return [
                     'id' => $vp->public_id,
-                    'booking' => $vp->booking, // identify type
                     'type' => 'credit',
-                    'points' => $vp->points_earned,
+                    'points' => (int) $vp->points_earned,
                     'description' => $vp->notes ?? 'Points earned through volunteering',
-                    'created_at' => $vp->created_at,
+                    'created_at' => $vp->created_at->toISOString(),
+                    'booking' => $vp->booking ? [
+                        'project' => $vp->booking->project ? [
+                            'title' => $vp->booking->project->title,
+                            'public_id' => $vp->booking->project->public_id,
+                        ] : null,
+                    ] : null,
                 ];
             });
 
-        // Merge and sort by date (descending)
-        $history = $transactions
-            ->merge($volunteerPoints)
+        // Merge both sources
+        $history = $transactions->merge($volunteerPoints)
             ->sortByDesc('created_at')
-            ->values(); // reindex
+            ->values()
+            ->all();
+
+        // Calculate total points
+        $totalPoints = $this->getTotalPoints();
 
         return inertia('Volunteers/Points', [
             'auth' => [
-                'user' => $user->toArray(),
+                'user' => $user->toArray(), // Return FULL user object like organization does
             ],
-            'points' => [
-                'total' => $this->getTotalPoints(),
-                'history' => $history,
-            ],
-            'timestamp' => now()->timestamp // Add this to bust cache
+            'totalPoints' => $totalPoints, // Flat structure like organization
+            'pointsHistory' => $history,   // Flat structure like organization
+            'timestamp' => now()->timestamp
         ]);
     }
 
@@ -1581,5 +1609,144 @@ class VolunteerController extends Controller
         }
 
         return $filteredMessage;
+    }
+
+    // Add these methods to VolunteerController class
+
+    public function settings()
+    {
+        $user = Auth::user();
+
+        return inertia('Volunteers/Settings', [
+            'auth' => [
+                'user' => $user->only(['id', 'public_id', 'name', 'email', 'role', 'created_at', 'last_login_at']),
+            ],
+        ]);
+    }
+
+    public function changePassword(Request $request)
+    {
+        $validated = $request->validate([
+            'current_password' => ['required', 'current_password'],
+            'password' => ['required', 'confirmed', 'min:8'],
+        ]);
+
+        $user = Auth::user();
+        $user->update([
+            'password' => Hash::make($validated['password']),
+        ]);
+
+        return back()->with('success', 'Password updated successfully!');
+    }
+
+    public function updateEmail(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . Auth::id()],
+            'current_password' => ['required', 'current_password'],
+        ]);
+
+        $user = Auth::user();
+        $oldEmail = $user->email;
+
+        $user->update([
+            'email' => $validated['email'],
+            'email_verified_at' => null, // Require email verification for new email
+        ]);
+
+        // Send email verification notification
+        $user->sendEmailVerificationNotification();
+
+        // Log the email change
+        activity()
+            ->performedOn($user)
+            ->withProperties(['old_email' => $oldEmail, 'new_email' => $validated['email']])
+            ->log('email_changed');
+
+        return back()->with('success', 'Email updated successfully! Please verify your new email address.');
+    }
+
+    public function updateNotificationPreferences(Request $request)
+    {
+        $validated = $request->validate([
+            'email_notifications' => 'boolean',
+            'push_notifications' => 'boolean',
+            'booking_updates' => 'boolean',
+            'message_alerts' => 'boolean',
+            'newsletter' => 'boolean',
+            'promotional_emails' => 'boolean',
+        ]);
+
+        $user = Auth::user();
+
+        // Store notification preferences in user meta or a separate table
+        $user->notificationPreferences()->updateOrCreate(
+            ['user_id' => $user->id],
+            $validated
+        );
+
+        return back()->with('success', 'Notification preferences updated!');
+    }
+
+    public function deactivateAccount(Request $request)
+    {
+        $request->validate([
+            'password' => ['required', 'current_password'],
+        ]);
+
+        $user = Auth::user();
+
+        // Soft delete or mark as inactive
+        $user->update([
+            'deactivated_at' => now(),
+            'is_active' => false,
+        ]);
+
+        // Log out the user
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect('/')->with('success', 'Your account has been deactivated.');
+    }
+
+    public function reactivateAccount(Request $request)
+    {
+        $user = Auth::user();
+
+        if ($user->deactivated_at) {
+            $user->update([
+                'deactivated_at' => null,
+                'is_active' => true,
+            ]);
+
+            return back()->with('success', 'Account reactivated successfully!');
+        }
+
+        return back()->with('error', 'Account is already active.');
+    }
+
+    public function downloadData(Request $request)
+    {
+        $user = Auth::user();
+
+        // Gather all user data
+        $data = [
+            'profile' => $user->toArray(),
+            'volunteer_profile' => $user->volunteerProfile ? $user->volunteerProfile->toArray() : null,
+            'bookings' => $user->bookings->toArray(),
+            'messages' => $user->messages->toArray(),
+            'points' => $user->pointTransactions->toArray(),
+            'sponsorships' => $user->sponsorships->toArray(),
+        ];
+
+        // Create a JSON file
+        $filename = 'volunteerfaster-data-' . $user->public_id . '-' . now()->format('Y-m-d') . '.json';
+
+        return response()->streamDownload(function () use ($data) {
+            echo json_encode($data, JSON_PRETTY_PRINT);
+        }, $filename, [
+            'Content-Type' => 'application/json',
+        ]);
     }
 }
