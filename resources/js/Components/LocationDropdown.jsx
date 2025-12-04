@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 
-// Free APIs - no key required
+// Free API - countriesnow.space
 const API_BASE = "https://countriesnow.space/api/v0.1";
-// Alternative: https://restcountries.com/v3.1
 
 export default function LocationDropdown({
     selectedCountry = null,
@@ -28,34 +27,42 @@ export default function LocationDropdown({
     useEffect(() => {
         setLoading((prev) => ({ ...prev, countries: true }));
 
-        // Option 1: Using countriesnow.space API
+        // Using countriesnow.space API
         fetch(`${API_BASE}/countries`)
             .then((res) => res.json())
             .then((data) => {
-                if (data.data) {
-                    setCountries(
-                        data.data.map((country) => ({
-                            name: country.country,
-                            isoCode: country.iso2 || country.iso3 || "",
-                        }))
-                    );
+                if (data && data.data) {
+                    const formattedCountries = data.data.map((country) => ({
+                        name: country.country,
+                        isoCode:
+                            country.iso2 || country.iso3 || country.country,
+                    }));
+                    setCountries(formattedCountries);
+                } else {
+                    // Fallback: Minimal country list
+                    const fallbackCountries = [
+                        { name: "United States", isoCode: "US" },
+                        { name: "United Kingdom", isoCode: "GB" },
+                        { name: "Canada", isoCode: "CA" },
+                        { name: "Australia", isoCode: "AU" },
+                        { name: "India", isoCode: "IN" },
+                    ];
+                    setCountries(fallbackCountries);
                 }
                 setLoading((prev) => ({ ...prev, countries: false }));
             })
             .catch((error) => {
                 console.error("Error loading countries:", error);
-                setLoading((prev) => ({ ...prev, countries: false }));
-
-                // Fallback: Minimal country list
+                // Fallback on error
                 const fallbackCountries = [
                     { name: "United States", isoCode: "US" },
                     { name: "United Kingdom", isoCode: "GB" },
                     { name: "Canada", isoCode: "CA" },
                     { name: "Australia", isoCode: "AU" },
                     { name: "India", isoCode: "IN" },
-                    // Add more as needed
                 ];
                 setCountries(fallbackCountries);
+                setLoading((prev) => ({ ...prev, countries: false }));
             });
     }, []);
 
@@ -77,13 +84,14 @@ export default function LocationDropdown({
             })
                 .then((res) => res.json())
                 .then((data) => {
-                    if (data.data && data.data.states) {
-                        setStates(
-                            data.data.states.map((state) => ({
+                    if (data && data.data && data.data.states) {
+                        const formattedStates = data.data.states.map(
+                            (state) => ({
                                 name: state.name,
-                                isoCode: state.state_code || "",
-                            }))
+                                isoCode: state.state_code || state.name,
+                            })
                         );
+                        setStates(formattedStates);
                     }
                     setLoading((prev) => ({ ...prev, states: false }));
                 })
@@ -91,6 +99,9 @@ export default function LocationDropdown({
                     console.error("Error loading states:", error);
                     setLoading((prev) => ({ ...prev, states: false }));
                 });
+        } else {
+            setStates([]);
+            setCities([]);
         }
     }, [selectedCountry]);
 
@@ -111,12 +122,11 @@ export default function LocationDropdown({
             })
                 .then((res) => res.json())
                 .then((data) => {
-                    if (data.data) {
-                        setCities(
-                            data.data.map((city) => ({
-                                name: city,
-                            }))
-                        );
+                    if (data && data.data) {
+                        const formattedCities = data.data.map((city) => ({
+                            name: city,
+                        }));
+                        setCities(formattedCities);
                     }
                     setLoading((prev) => ({ ...prev, cities: false }));
                 })
@@ -124,6 +134,8 @@ export default function LocationDropdown({
                     console.error("Error loading cities:", error);
                     setLoading((prev) => ({ ...prev, cities: false }));
                 });
+        } else {
+            setCities([]);
         }
     }, [selectedCountry, selectedState]);
 
@@ -139,6 +151,7 @@ export default function LocationDropdown({
         onCityChange("");
     };
 
+    // Ensure we're returning valid JSX
     return (
         <div className="space-y-4">
             <div>
@@ -159,9 +172,9 @@ export default function LocationDropdown({
                             Loading countries...
                         </option>
                     )}
-                    {countries.map((country) => (
+                    {countries.map((country, index) => (
                         <option
-                            key={`${country.isoCode}-${country.name}`}
+                            key={`${country.isoCode}-${country.name}-${index}`}
                             value={country.name}
                         >
                             {country.name}
@@ -194,9 +207,9 @@ export default function LocationDropdown({
                                 Loading states...
                             </option>
                         )}
-                        {states.map((state) => (
+                        {states.map((state, index) => (
                             <option
-                                key={`${state.isoCode}-${state.name}`}
+                                key={`${state.isoCode}-${state.name}-${index}`}
                                 value={state.name}
                             >
                                 {state.name}
