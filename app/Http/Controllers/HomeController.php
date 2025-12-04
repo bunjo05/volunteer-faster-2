@@ -196,16 +196,16 @@ class HomeController extends Controller
 
     public function about()
     {
-        return inertia('Home/About');
+        return inertia('About');
     }
 
     public function privacyPolicy()
     {
-        return inertia('Home/PrivacyPolicy');
+        return inertia('Privacy');
     }
     public function termsAndConditions()
     {
-        return inertia('Home/TermsAndConditions');
+        return inertia('Terms');
     }
     public function faq()
     {

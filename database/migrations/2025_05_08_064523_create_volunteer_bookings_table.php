@@ -22,6 +22,7 @@ return new class extends Migration
             $table->string('end_date');
             $table->string('number_of_travellers');
             $table->enum('booking_status', allowed: ['Pending', 'Cancelled', 'Approved', 'Rejected', 'Completed'])->default('Pending');
+            $table->text('completed_feedback')->nullable();
             $table->timestamps();
         });
     }

@@ -19,6 +19,10 @@ import {
     Eye,
     Phone,
     MapPin as MapPinIcon,
+    MessageSquare,
+    Star,
+    Menu,
+    ChevronLeft,
 } from "lucide-react";
 
 import { Dialog } from "@headlessui/react";
@@ -42,6 +46,29 @@ export default function Bookings({ bookings: initialBookings, auth }) {
     const [volunteerContactDetails, setVolunteerContactDetails] =
         useState(null);
 
+    // Add state for completed feedback modal
+    const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+    const [feedback, setFeedback] = useState("");
+    const [feedbackError, setFeedbackError] = useState("");
+
+    // Add state for mobile sidebar
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+
+    // Check for mobile screen size
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 1024);
+        };
+
+        checkMobile();
+        window.addEventListener("resize", checkMobile);
+
+        return () => {
+            window.removeEventListener("resize", checkMobile);
+        };
+    }, []);
+
     const openVolunteerModal = (volunteer) => {
         setSelectedVolunteer(volunteer);
         setIsVolunteerModalOpen(true);
@@ -62,6 +89,22 @@ export default function Bookings({ bookings: initialBookings, auth }) {
     const closeContactModal = () => {
         setIsContactModalOpen(false);
         setVolunteerContactDetails(null);
+    };
+
+    // Function to open feedback modal
+    const openFeedbackModal = (bookingId) => {
+        setSelectedBookingId(bookingId);
+        setSelectedStatus("Completed");
+        setFeedback("");
+        setFeedbackError("");
+        setIsFeedbackModalOpen(true);
+    };
+
+    // Function to close feedback modal
+    const closeFeedbackModal = () => {
+        setIsFeedbackModalOpen(false);
+        setFeedback("");
+        setFeedbackError("");
     };
 
     const statusColors = {
@@ -89,7 +132,6 @@ export default function Bookings({ bookings: initialBookings, auth }) {
 
         const data = {
             booking_status: selectedStatus,
-            // Include a flag to trigger email when status is Completed
             send_completion_email: selectedStatus === "Completed",
         };
 
@@ -123,8 +165,76 @@ export default function Bookings({ bookings: initialBookings, auth }) {
         );
     };
 
+    // Function to submit feedback and update status
+    const submitFeedbackAndUpdateStatus = async () => {
+        if (!feedback.trim()) {
+            setFeedbackError(
+                "Please provide feedback before completing the booking."
+            );
+            return;
+        }
+
+        if (feedback.length < 10) {
+            setFeedbackError("Feedback must be at least 10 characters long.");
+            return;
+        }
+
+        const data = {
+            booking_status: "Completed",
+            completed_feedback: feedback.trim(),
+            send_completion_email: true,
+        };
+
+        router.put(
+            `/organization/bookings/${selectedBookingId}/update-status`,
+            data,
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    const updatedBookings = bookings.map((booking) =>
+                        booking.public_id === selectedBookingId
+                            ? {
+                                  ...booking,
+                                  booking_status: "Completed",
+                                  completed_feedback: feedback.trim(),
+                              }
+                            : booking
+                    );
+                    setBookings(updatedBookings);
+
+                    if (activeBooking?.public_id === selectedBookingId) {
+                        setActiveBooking((prev) => ({
+                            ...prev,
+                            booking_status: "Completed",
+                            completed_feedback: feedback.trim(),
+                        }));
+                    }
+
+                    closeFeedbackModal();
+
+                    // Show success message
+                    alert("Booking marked as completed with feedback!");
+                },
+                onError: (errors) => {
+                    console.error(
+                        "Error updating status with feedback:",
+                        errors
+                    );
+                    setFeedbackError(
+                        errors?.completed_feedback?.[0] ||
+                            "Failed to update status. Please try again."
+                    );
+                },
+            }
+        );
+    };
+
     const handleUpdateStatus = (bookingId, newStatus) => {
-        openConfirmationDialog(bookingId, newStatus);
+        if (newStatus === "Completed") {
+            openFeedbackModal(bookingId);
+        } else {
+            openConfirmationDialog(bookingId, newStatus);
+        }
     };
 
     const calculateDuration = (startDate, endDate) => {
@@ -295,6 +405,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
 
         return hasPending;
     };
+
     // Updated function to handle contact requests with booking_public_id
     const handleContactRequest = async (
         volunteerPublicId,
@@ -387,31 +498,89 @@ export default function Bookings({ bookings: initialBookings, auth }) {
         return status;
     };
 
-    // Debug function to log current state
-    const debugContactState = () => {
-        console.log("=== CONTACT STATE DEBUG ===");
-        console.log("Active Booking:", activeBooking?.public_id);
-        console.log("Volunteer:", activeBooking?.volunteer?.public_id);
-        console.log("Organization:", auth.user.public_id);
-        console.log("Shared Contacts:", sharedContacts);
-        console.log("hasApprovedContact:", hasApprovedContact());
-        console.log("hasPendingContactRequest:", hasPendingContactRequest());
-        console.log("getContactStatus:", getContactStatus());
-        console.log("Contact Request Status:", contactRequestStatus);
-        console.log("Contact Error:", contactError);
-        console.log("===========================");
-    };
-
-    // Call debug on render for troubleshooting
-    useEffect(() => {
-        if (activeBooking) {
-            debugContactState();
-        }
-    }, [activeBooking, sharedContacts, contactRequestStatus]);
-
     return (
         <OrganizationLayout auth={auth}>
             <Head title="Volunteer Bookings" />
+
+            {/* Completed Feedback Modal */}
+            <Dialog
+                open={isFeedbackModalOpen}
+                onClose={closeFeedbackModal}
+                className="relative z-50"
+            >
+                <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+                <div className="fixed inset-0 flex items-center justify-center p-4">
+                    <Dialog.Panel className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl mx-4">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="flex items-center justify-center h-10 w-10 rounded-full bg-indigo-100 text-indigo-600">
+                                <MessageSquare className="w-5 h-5" />
+                            </div>
+                            <Dialog.Title className="text-lg font-medium text-gray-900">
+                                Complete Booking with Feedback
+                            </Dialog.Title>
+                        </div>
+
+                        <Dialog.Description className="mt-2 text-sm text-gray-600">
+                            Please provide feedback for the volunteer's
+                            performance. This feedback will be:
+                            <ul className="mt-2 space-y-1 text-sm text-gray-500">
+                                <li className="flex items-center gap-2">
+                                    <Check className="w-4 h-4 text-green-500" />
+                                    Stored in the database
+                                </li>
+                                <li className="flex items-center gap-2">
+                                    <Check className="w-4 h-4 text-green-500" />
+                                    Displayed on the volunteer's certificate
+                                </li>
+                                <li className="flex items-center gap-2">
+                                    <Check className="w-4 h-4 text-green-500" />
+                                    Shared with the volunteer
+                                </li>
+                            </ul>
+                        </Dialog.Description>
+
+                        <div className="mt-4">
+                            <label
+                                htmlFor="feedback"
+                                className="block text-sm font-medium text-gray-700 mb-2"
+                            >
+                                Your Feedback
+                            </label>
+                            <textarea
+                                id="feedback"
+                                value={feedback}
+                                onChange={(e) => setFeedback(e.target.value)}
+                                rows={4}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                placeholder="Share your thoughts about the volunteer's performance, contribution, and overall experience..."
+                            />
+                            {feedbackError && (
+                                <p className="mt-1 text-sm text-red-600">
+                                    {feedbackError}
+                                </p>
+                            )}
+                            <div className="mt-1 text-xs text-gray-500">
+                                Minimum 10 characters required
+                            </div>
+                        </div>
+
+                        <div className="mt-6 flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3">
+                            <button
+                                onClick={closeFeedbackModal}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={submitFeedbackAndUpdateStatus}
+                                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            >
+                                Submit Feedback & Complete
+                            </button>
+                        </div>
+                    </Dialog.Panel>
+                </div>
+            </Dialog>
 
             {/* Confirmation Dialog */}
             <Dialog
@@ -421,7 +590,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
             >
                 <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
                 <div className="fixed inset-0 flex items-center justify-center p-4">
-                    <Dialog.Panel className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+                    <Dialog.Panel className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl mx-4">
                         <Dialog.Title className="text-lg font-medium text-gray-900">
                             Confirm Status Update
                         </Dialog.Title>
@@ -434,7 +603,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                             ?
                         </Dialog.Description>
 
-                        <div className="mt-4 flex justify-end space-x-3">
+                        <div className="mt-4 flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3">
                             <button
                                 onClick={closeDialog}
                                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -460,17 +629,17 @@ export default function Bookings({ bookings: initialBookings, auth }) {
             >
                 <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
                 <div className="fixed inset-0 flex items-center justify-center p-4">
-                    <Dialog.Panel className="w-full max-w-md rounded-xl bg-white shadow-xl">
+                    <Dialog.Panel className="w-full max-w-md rounded-xl bg-white shadow-xl mx-4 max-h-[90vh] overflow-y-auto">
                         <div className="p-6">
                             <div className="flex justify-between items-start mb-6">
-                                <Dialog.Title className="text-2xl font-bold text-gray-900">
+                                <Dialog.Title className="text-xl sm:text-2xl font-bold text-gray-900">
                                     Volunteer Contact Details
                                 </Dialog.Title>
                                 <button
                                     onClick={closeContactModal}
                                     className="text-gray-500 hover:text-gray-700"
                                 >
-                                    <X className="h-6 w-6" />
+                                    <X className="h-5 w-5 sm:h-6 sm:w-6" />
                                 </button>
                             </div>
 
@@ -487,16 +656,16 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                     alt={
                                                         volunteerContactDetails.name
                                                     }
-                                                    className="w-16 h-16 rounded-full object-cover border-2 border-blue-200"
+                                                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-blue-200"
                                                 />
                                             ) : (
-                                                <div className="w-16 h-16 rounded-full bg-blue-100 border-2 border-blue-200 flex items-center justify-center">
-                                                    <User className="h-8 w-8 text-blue-600" />
+                                                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-blue-100 border-2 border-blue-200 flex items-center justify-center">
+                                                    <User className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
                                                 </div>
                                             )}
                                         </div>
                                         <div>
-                                            <h3 className="text-xl font-semibold text-gray-900">
+                                            <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
                                                 {volunteerContactDetails.name}
                                             </h3>
                                             {volunteerContactDetails
@@ -524,7 +693,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
 
                                     {/* Contact Information */}
                                     <div className="bg-gray-50 rounded-lg p-4">
-                                        <h4 className="text-lg font-semibold text-gray-800 mb-4">
+                                        <h4 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">
                                             Contact Information
                                         </h4>
 
@@ -534,11 +703,11 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                 <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                                                     <Mail className="h-4 w-4 text-blue-600" />
                                                 </div>
-                                                <div>
-                                                    <p className="text-sm font-medium text-gray-500">
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-xs sm:text-sm font-medium text-gray-500">
                                                         Email
                                                     </p>
-                                                    <p className="text-gray-900 font-medium">
+                                                    <p className="text-gray-900 font-medium text-sm sm:text-base truncate">
                                                         {
                                                             volunteerContactDetails.email
                                                         }
@@ -553,11 +722,11 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                     <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                                                         <Phone className="h-4 w-4 text-green-600" />
                                                     </div>
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-500">
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-xs sm:text-sm font-medium text-gray-500">
                                                             Phone
                                                         </p>
-                                                        <p className="text-gray-900 font-medium">
+                                                        <p className="text-gray-900 font-medium text-sm sm:text-base">
                                                             {
                                                                 volunteerContactDetails
                                                                     .volunteer_profile
@@ -575,11 +744,11 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                     <div className="flex-shrink-0 w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
                                                         <MapPinIcon className="h-4 w-4 text-purple-600" />
                                                     </div>
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-500">
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-xs sm:text-sm font-medium text-gray-500">
                                                             Location
                                                         </p>
-                                                        <p className="text-gray-900 font-medium">
+                                                        <p className="text-gray-900 font-medium text-sm sm:text-base">
                                                             {
                                                                 volunteerContactDetails
                                                                     .volunteer_profile
@@ -600,15 +769,15 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                     {volunteerContactDetails.volunteer_profile
                                         ?.nok && (
                                         <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
-                                            <h4 className="text-lg font-semibold text-amber-800 mb-3">
+                                            <h4 className="text-base sm:text-lg font-semibold text-amber-800 mb-3">
                                                 Emergency Contact
                                             </h4>
                                             <div className="space-y-2">
                                                 <div>
-                                                    <p className="text-sm font-medium text-amber-700">
+                                                    <p className="text-xs sm:text-sm font-medium text-amber-700">
                                                         Next of Kin
                                                     </p>
-                                                    <p className="text-amber-900 font-medium">
+                                                    <p className="text-amber-900 font-medium text-sm sm:text-base">
                                                         {
                                                             volunteerContactDetails
                                                                 .volunteer_profile
@@ -620,10 +789,10 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                     .volunteer_profile
                                                     .nok_relation && (
                                                     <div>
-                                                        <p className="text-sm font-medium text-amber-700">
+                                                        <p className="text-xs sm:text-sm font-medium text-amber-700">
                                                             Relationship
                                                         </p>
-                                                        <p className="text-amber-900">
+                                                        <p className="text-amber-900 text-sm sm:text-base">
                                                             {
                                                                 volunteerContactDetails
                                                                     .volunteer_profile
@@ -636,10 +805,10 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                     .volunteer_profile
                                                     .nok_phone && (
                                                     <div>
-                                                        <p className="text-sm font-medium text-amber-700">
+                                                        <p className="text-xs sm:text-sm font-medium text-amber-700">
                                                             Emergency Phone
                                                         </p>
-                                                        <p className="text-amber-900 font-medium">
+                                                        <p className="text-amber-900 font-medium text-sm sm:text-base">
                                                             {
                                                                 volunteerContactDetails
                                                                     .volunteer_profile
@@ -654,7 +823,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
 
                                     {/* Note */}
                                     <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                                        <p className="text-sm text-blue-700">
+                                        <p className="text-xs sm:text-sm text-blue-700">
                                             <strong>Note:</strong> This contact
                                             information is shared for
                                             project-related communication only.
@@ -668,19 +837,33 @@ export default function Bookings({ bookings: initialBookings, auth }) {
             </Dialog>
 
             <section className="bg-gray-50 min-h-screen">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                    <div className="mb-8">
-                        <h1 className="text-3xl font-bold text-gray-900">
-                            Volunteer Bookings
-                        </h1>
-                        <p className="mt-2 text-gray-600">
-                            View and manage all volunteer bookings for your
-                            projects
-                        </p>
-                    </div>
+                <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8">
+                    {/* Mobile Header with Toggle Button */}
+                    {isMobile && (
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h1 className="text-xl font-bold text-gray-900">
+                                    Volunteer Bookings
+                                </h1>
+                                <p className="text-sm text-gray-600">
+                                    View and manage bookings
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                                className="lg:hidden p-2 rounded-lg bg-white border border-gray-300 shadow-sm"
+                            >
+                                {isSidebarOpen ? (
+                                    <X className="h-5 w-5" />
+                                ) : (
+                                    <Menu className="h-5 w-5" />
+                                )}
+                            </button>
+                        </div>
+                    )}
 
                     {bookings.length === 0 ? (
-                        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-8 text-center">
+                        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 sm:p-8 text-center">
                             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600 mb-4">
                                 <CalendarDays className="h-6 w-6" />
                             </div>
@@ -692,16 +875,41 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                             </p>
                         </div>
                     ) : (
-                        <div className="flex flex-col lg:flex-row gap-6">
+                        <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
+                            {/* Mobile Sidebar Overlay */}
+                            {isMobile && isSidebarOpen && (
+                                <div
+                                    className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+                                    onClick={() => setIsSidebarOpen(false)}
+                                />
+                            )}
+
                             {/* Left sidebar - Volunteers list */}
-                            <div className="w-full lg:w-1/3 bg-white rounded-xl shadow-md border border-gray-200 flex flex-col">
-                                <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
+                            <div
+                                className={`w-full lg:w-1/3 bg-white rounded-xl shadow-md border border-gray-200 flex flex-col ${
+                                    isMobile && isSidebarOpen
+                                        ? "fixed left-0 top-0 h-full w-80 z-50 shadow-2xl"
+                                        : isMobile && !isSidebarOpen
+                                        ? "hidden"
+                                        : ""
+                                }`}
+                            >
+                                <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl flex justify-between items-center">
                                     <h3 className="font-semibold text-lg text-gray-800">
                                         Volunteers ({bookings.length})
                                     </h3>
+                                    {isMobile && (
+                                        <button
+                                            onClick={() =>
+                                                setIsSidebarOpen(false)
+                                            }
+                                            className="lg:hidden p-1"
+                                        >
+                                            <X className="h-5 w-5" />
+                                        </button>
+                                    )}
                                 </div>
-                                {/* MODIFIED: Set fixed height to quarter of screen with overflow */}
-                                <div className="h-[70vh] overflow-y-auto">
+                                <div className="h-[70vh] lg:h-auto lg:flex-1 overflow-y-auto">
                                     {bookings.map((booking) => (
                                         <div
                                             key={booking.public_id}
@@ -711,18 +919,21 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                     ? "bg-blue-50 border-l-4 border-blue-500"
                                                     : "hover:bg-gray-50"
                                             }`}
-                                            onClick={() =>
-                                                setActiveBooking(booking)
-                                            }
+                                            onClick={() => {
+                                                setActiveBooking(booking);
+                                                if (isMobile) {
+                                                    setIsSidebarOpen(false);
+                                                }
+                                            }}
                                         >
                                             <div className="flex justify-between items-center">
-                                                <div className="flex items-center">
+                                                <div className="flex items-center min-w-0 flex-1">
                                                     <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-3">
                                                         <User className="h-5 w-5" />
                                                     </div>
-                                                    <div>
-                                                        <div className="flex items-center">
-                                                            <h4 className="font-medium text-gray-900 group-hover:text-blue-600">
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex items-center flex-wrap">
+                                                            <h4 className="font-medium text-gray-900 group-hover:text-blue-600 truncate">
                                                                 {
                                                                     booking
                                                                         .volunteer
@@ -730,7 +941,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                 }
                                                             </h4>
                                                             {booking.has_points_payment && (
-                                                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 shrink-0">
                                                                     <DollarSign className="w-3 h-3 mr-1" />
                                                                     {
                                                                         booking.points_amount
@@ -740,7 +951,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                             )}
                                                         </div>
                                                         <div className="flex items-center gap-2 mt-1">
-                                                            <span className="text-sm text-gray-500">
+                                                            <span className="text-sm text-gray-500 truncate">
                                                                 {
                                                                     booking
                                                                         .project
@@ -748,7 +959,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                 }
                                                             </span>
                                                             <span
-                                                                className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+                                                                className={`px-2 py-0.5 text-xs font-semibold rounded-full flex-shrink-0 ${
                                                                     statusColors[
                                                                         booking
                                                                             .booking_status
@@ -764,7 +975,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                     </div>
                                                 </div>
                                                 <ChevronRight
-                                                    className={`w-5 h-5 text-gray-400 group-hover:text-blue-500 ${
+                                                    className={`w-5 h-5 text-gray-400 group-hover:text-blue-500 flex-shrink-0 ${
                                                         activeBooking?.public_id ===
                                                         booking.public_id
                                                             ? "text-blue-500"
@@ -778,18 +989,43 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                             </div>
 
                             {/* Right side - Booking details */}
-                            <div className="w-full lg:w-2/3 bg-white rounded-xl shadow-md border border-gray-200 flex flex-col h-[80vh] overflow-y-auto">
+                            <div className="w-full lg:w-2/3 bg-white rounded-xl shadow-md border border-gray-200 flex flex-col min-h-[80vh] lg:h-[80vh] overflow-hidden">
                                 {activeBooking ? (
                                     <>
-                                        <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl flex gap-2 items-center">
-                                            <h2 className="text-xl font-bold text-gray-800">
+                                        {/* Mobile back button */}
+                                        {isMobile && !isSidebarOpen && (
+                                            <button
+                                                onClick={() =>
+                                                    setIsSidebarOpen(true)
+                                                }
+                                                className="lg:hidden p-4 border-b border-gray-200 bg-gray-50 flex items-center text-sm font-medium text-gray-700"
+                                            >
+                                                <ChevronLeft className="h-4 w-4 mr-2" />
+                                                Back to Volunteers List
+                                            </button>
+                                        )}
+
+                                        <div className="p-3 sm:p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl flex flex-col sm:flex-row sm:gap-2 items-start sm:items-center">
+                                            <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 sm:mb-0">
                                                 Booking Details
                                             </h2>
-                                            <ArrowBigRight className="text-gray-400" />
-                                            <div>
+                                            <div className="hidden sm:flex items-center">
+                                                <ArrowBigRight className="text-gray-400 mx-2" />
                                                 <Link
                                                     href={`/volunteer-programs/${activeBooking.project.slug}`}
-                                                    className="text-blue-600 font-bold text-xl hover:text-blue-800 hover:underline"
+                                                    className="text-blue-600 font-bold text-lg sm:text-xl hover:text-blue-800 hover:underline truncate"
+                                                >
+                                                    {
+                                                        activeBooking.project
+                                                            .title
+                                                    }
+                                                </Link>
+                                            </div>
+                                            {/* Mobile project title */}
+                                            <div className="sm:hidden w-full">
+                                                <Link
+                                                    href={`/volunteer-programs/${activeBooking.project.slug}`}
+                                                    className="text-blue-600 font-medium text-sm hover:text-blue-800 hover:underline truncate block"
                                                 >
                                                     {
                                                         activeBooking.project
@@ -798,30 +1034,30 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                 </Link>
                                             </div>
                                         </div>
-                                        <div className="flex-1 overflow-y-auto p-6">
-                                            <div className="grid grid-cols-1 gap-3">
+                                        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+                                            <div className="grid grid-cols-1 gap-3 sm:gap-4">
                                                 {/* Volunteer Details */}
-                                                <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
+                                                <div className="bg-white p-4 sm:p-5 rounded-lg shadow-sm border border-gray-200">
                                                     <div className="flex items-center mb-4">
                                                         <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-blue-50 text-blue-600 mr-3">
                                                             <User className="w-5 h-5" />
                                                         </div>
-                                                        <h3 className="text-lg font-semibold text-gray-800">
+                                                        <h3 className="text-base sm:text-lg font-semibold text-gray-800">
                                                             Volunteer
                                                             Information
                                                         </h3>
                                                     </div>
 
-                                                    <div className="flex items-start gap-4 p-3 bg-gray-50 rounded-lg">
+                                                    <div className="flex items-start gap-3 sm:gap-4 p-3 bg-gray-50 rounded-lg">
                                                         <div className="flex-shrink-0">
-                                                            <div className="flex items-center justify-center h-14 w-14 rounded-xl bg-blue-100 text-blue-600">
-                                                                <User className="w-6 h-6" />
+                                                            <div className="flex items-center justify-center h-12 w-12 sm:h-14 sm:w-14 rounded-xl bg-blue-100 text-blue-600">
+                                                                <User className="w-5 h-5 sm:w-6 sm:h-6" />
                                                             </div>
                                                         </div>
 
                                                         <div className="flex-1 min-w-0 space-y-2">
                                                             <div className="flex items-center flex-wrap gap-2">
-                                                                <h4 className="text-lg font-medium text-gray-900">
+                                                                <h4 className="text-base sm:text-lg font-medium text-gray-900 truncate">
                                                                     {
                                                                         activeBooking
                                                                             .volunteer
@@ -834,7 +1070,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                     .volunteer_profile
                                                                     ?.verification_status ===
                                                                     "Approved" && (
-                                                                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 rounded-full px-3 py-1 border border-emerald-100">
+                                                                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 rounded-full px-3 py-1 border border-emerald-100 shrink-0">
                                                                         <svg
                                                                             xmlns="http://www.w3.org/2000/svg"
                                                                             className="h-3.5 w-3.5 flex-shrink-0"
@@ -855,12 +1091,12 @@ export default function Bookings({ bookings: initialBookings, auth }) {
 
                                                             {hasDepositPaid() && (
                                                                 <div className="space-y-1">
-                                                                    <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                                                        <h3 className="text-lg font-semibold text-blue-800 mb-2">
+                                                                    <div className="mt-4 sm:mt-6 bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                                                                        <h3 className="text-base sm:text-lg font-semibold text-blue-800 mb-2">
                                                                             Contact
                                                                             Volunteer
                                                                         </h3>
-                                                                        <p className="text-sm text-blue-600 mb-3">
+                                                                        <p className="text-xs sm:text-sm text-blue-600 mb-3">
                                                                             {getContactStatus() ===
                                                                             "approved"
                                                                                 ? "You have access to this volunteer's contact information"
@@ -872,7 +1108,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
 
                                                                         {contactError && (
                                                                             <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-3">
-                                                                                <p className="text-red-700 text-sm">
+                                                                                <p className="text-red-700 text-xs sm:text-sm">
                                                                                     {
                                                                                         contactError
                                                                                     }
@@ -881,7 +1117,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                                     onClick={
                                                                                         fetchSharedContacts
                                                                                     }
-                                                                                    className="text-red-600 hover:text-red-800 text-sm underline mt-1"
+                                                                                    className="text-red-600 hover:text-red-800 text-xs sm:text-sm underline mt-1"
                                                                                 >
                                                                                     Try
                                                                                     again
@@ -902,7 +1138,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                                         activeBooking.volunteer
                                                                                     )
                                                                                 }
-                                                                                className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                                                                                className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm sm:text-base w-full"
                                                                             >
                                                                                 <Eye className="w-4 h-4 mr-2" />
                                                                                 View
@@ -913,7 +1149,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                           "pending" ? (
                                                                             // Show Pending Request message - HIDE the Request button
                                                                             <div className="bg-amber-50 p-3 rounded-md border border-amber-200">
-                                                                                <p className="text-amber-700 text-sm flex items-center">
+                                                                                <p className="text-amber-700 text-xs sm:text-sm flex items-center">
                                                                                     <Clock className="w-4 h-4 mr-2" />
                                                                                     Contact
                                                                                     request
@@ -939,7 +1175,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                                 disabled={
                                                                                     contactRequestStatus.loading
                                                                                 }
-                                                                                className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                                                                                className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors text-sm sm:text-base w-full"
                                                                             >
                                                                                 {contactRequestStatus.loading ? (
                                                                                     <span className="loading loading-spinner"></span>
@@ -957,7 +1193,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                         {contactRequestStatus.message &&
                                                                             getContactStatus() ===
                                                                                 "none" && (
-                                                                                <p className="text-red-600 text-sm mt-2">
+                                                                                <p className="text-red-600 text-xs sm:text-sm mt-2">
                                                                                     {
                                                                                         contactRequestStatus.message
                                                                                     }
@@ -988,22 +1224,22 @@ export default function Bookings({ bookings: initialBookings, auth }) {
 
                                                 {/* Booking Details */}
                                                 <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                                                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4 flex items-center">
+                                                    <h3 className="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4 flex items-center">
                                                         <CalendarDays className="w-4 h-4 mr-2" />
                                                         Booking Details
                                                     </h3>
 
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                    <div className="grid grid-cols-1 gap-3">
                                                         {/* Dates */}
-                                                        <div className="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                                                            <div className="flex-shrink-0 flex items-center justify-center h-11 w-11 rounded-xl bg-blue-100 text-blue-600">
-                                                                <CalendarDays className="w-5 h-5" />
+                                                        <div className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                                                            <div className="flex-shrink-0 flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-blue-100 text-blue-600">
+                                                                <CalendarDays className="w-4 h-4 sm:w-5 sm:h-5" />
                                                             </div>
                                                             <div className="flex-1 min-w-0">
-                                                                <h4 className="font-medium text-gray-700 mb-1">
+                                                                <h4 className="font-medium text-gray-700 mb-1 text-sm">
                                                                     Dates
                                                                 </h4>
-                                                                <p className="text-gray-600 truncate">
+                                                                <p className="text-gray-600 text-sm truncate">
                                                                     {new Date(
                                                                         activeBooking.start_date
                                                                     ).toLocaleDateString(
@@ -1030,15 +1266,15 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                         </div>
 
                                                         {/* Duration */}
-                                                        <div className="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                                                            <div className="flex-shrink-0 flex items-center justify-center h-11 w-11 rounded-xl bg-blue-100 text-blue-600">
-                                                                <Clock className="w-5 h-5" />
+                                                        <div className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                                                            <div className="flex-shrink-0 flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-blue-100 text-blue-600">
+                                                                <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
                                                             </div>
                                                             <div className="flex-1">
-                                                                <h4 className="font-medium text-gray-700 mb-1">
+                                                                <h4 className="font-medium text-gray-700 mb-1 text-sm">
                                                                     Duration
                                                                 </h4>
-                                                                <p className="text-gray-600">
+                                                                <p className="text-gray-600 text-sm">
                                                                     {calculateDuration(
                                                                         activeBooking.start_date,
                                                                         activeBooking.end_date
@@ -1049,16 +1285,16 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                         </div>
 
                                                         {/* Number of Volunteers */}
-                                                        <div className="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                                                            <div className="flex-shrink-0 flex items-center justify-center h-11 w-11 rounded-xl bg-blue-100 text-blue-600">
-                                                                <Users className="w-5 h-5" />
+                                                        <div className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                                                            <div className="flex-shrink-0 flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-blue-100 text-blue-600">
+                                                                <Users className="w-4 h-4 sm:w-5 sm:h-5" />
                                                             </div>
                                                             <div className="flex-1">
-                                                                <h4 className="font-medium text-gray-700 mb-1">
+                                                                <h4 className="font-medium text-gray-700 mb-1 text-sm">
                                                                     Number of
                                                                     Volunteers
                                                                 </h4>
-                                                                <p className="text-gray-600">
+                                                                <p className="text-gray-600 text-sm">
                                                                     {
                                                                         activeBooking.number_of_travellers
                                                                     }{" "}
@@ -1071,12 +1307,12 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                         </div>
 
                                                         {/* Status */}
-                                                        <div className="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                                                            <div className="flex-shrink-0 flex items-center justify-center h-11 w-11 rounded-xl bg-blue-100 text-blue-600">
-                                                                <Badge className="w-5 h-5" />
+                                                        <div className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                                                            <div className="flex-shrink-0 flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-blue-100 text-blue-600">
+                                                                <Badge className="w-4 h-4 sm:w-5 sm:h-5" />
                                                             </div>
                                                             <div className="flex-1">
-                                                                <h4 className="font-medium text-gray-700 mb-1">
+                                                                <h4 className="font-medium text-gray-700 mb-1 text-sm">
                                                                     Status
                                                                 </h4>
                                                                 <span
@@ -1101,22 +1337,22 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                 {activeBooking.type_of_project ===
                                                     "Paid" && (
                                                     <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                                                        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
+                                                        <h3 className="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
                                                             Payment Information
                                                         </h3>
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
                                                             {/* Total Amount */}
-                                                            <div className="bg-gray-50 p-4 rounded-lg">
+                                                            <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
                                                                 <div className="flex items-center gap-3">
-                                                                    <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
-                                                                        <DollarSign className="w-4 h-4" />
+                                                                    <div className="flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
+                                                                        <DollarSign className="w-3 h-3 sm:w-4 sm:h-4" />
                                                                     </div>
                                                                     <div>
-                                                                        <h4 className="text-sm font-medium text-gray-500">
+                                                                        <h4 className="text-xs sm:text-sm font-medium text-gray-500">
                                                                             Total
                                                                             Amount
                                                                         </h4>
-                                                                        <p className="text-lg font-semibold text-gray-800">
+                                                                        <p className="text-base sm:text-lg font-semibold text-gray-800">
                                                                             $
                                                                             {calculateTotalAmount(
                                                                                 activeBooking.start_date,
@@ -1134,7 +1370,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
 
                                                             {/* Amount Paid / Deposit Due */}
                                                             <div
-                                                                className={`p-4 rounded-lg ${
+                                                                className={`p-3 sm:p-4 rounded-lg ${
                                                                     hasDepositPaid()
                                                                         ? "bg-gray-50"
                                                                         : "bg-red-50"
@@ -1142,22 +1378,22 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                             >
                                                                 <div className="flex items-center gap-3">
                                                                     <div
-                                                                        className={`flex items-center justify-center h-10 w-10 rounded-full ${
+                                                                        className={`flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 rounded-full ${
                                                                             hasDepositPaid()
                                                                                 ? "bg-blue-100 text-blue-600"
                                                                                 : "bg-red-100 text-red-600"
                                                                         } flex-shrink-0`}
                                                                     >
-                                                                        <DollarSign className="w-4 h-4" />
+                                                                        <DollarSign className="w-3 h-3 sm:w-4 sm:h-4" />
                                                                     </div>
                                                                     <div>
-                                                                        <h4 className="text-sm font-medium text-gray-500">
+                                                                        <h4 className="text-xs sm:text-sm font-medium text-gray-500">
                                                                             {hasDepositPaid()
                                                                                 ? "Amount Paid"
                                                                                 : "Deposit Amount to be paid"}
                                                                         </h4>
                                                                         <p
-                                                                            className={`text-lg font-semibold ${
+                                                                            className={`text-base sm:text-lg font-semibold ${
                                                                                 hasDepositPaid()
                                                                                     ? "text-gray-800"
                                                                                     : "text-red-800"
@@ -1184,17 +1420,17 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                             </div>
 
                                                             {/* Balance Due */}
-                                                            <div className="bg-gray-50 p-4 rounded-lg">
+                                                            <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
                                                                 <div className="flex items-center gap-3">
-                                                                    <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
-                                                                        <DollarSign className="w-4 h-4" />
+                                                                    <div className="flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
+                                                                        <DollarSign className="w-3 h-3 sm:w-4 sm:h-4" />
                                                                     </div>
                                                                     <div>
-                                                                        <h4 className="text-sm font-medium text-gray-500">
+                                                                        <h4 className="text-xs sm:text-sm font-medium text-gray-500">
                                                                             Balance
                                                                             Due
                                                                         </h4>
-                                                                        <p className="text-lg font-semibold text-gray-800">
+                                                                        <p className="text-base sm:text-lg font-semibold text-gray-800">
                                                                             $
                                                                             {calculateRemainingBalance().toLocaleString()}
                                                                         </p>
@@ -1203,13 +1439,13 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                             </div>
 
                                                             {/* Deposit Status */}
-                                                            <div className="bg-gray-50 p-4 rounded-lg">
+                                                            <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
                                                                 <div className="flex items-center gap-3">
-                                                                    <div className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
-                                                                        <DollarSign className="w-4 h-4" />
+                                                                    <div className="flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
+                                                                        <DollarSign className="w-3 h-3 sm:w-4 sm:h-4" />
                                                                     </div>
                                                                     <div>
-                                                                        <h4 className="text-sm font-medium text-gray-500">
+                                                                        <h4 className="text-xs sm:text-sm font-medium text-gray-500">
                                                                             Deposit
                                                                             Status
                                                                         </h4>
@@ -1235,17 +1471,17 @@ export default function Bookings({ bookings: initialBookings, auth }) {
 
                                                         {/* Point Payment Status - Only shown if paid with points */}
                                                         {activeBooking.has_points_payment && (
-                                                            <div className="bg-gray-50 p-4 rounded-lg">
+                                                            <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
                                                                 <div className="flex items-center gap-3">
-                                                                    <div className="flex items-center justify-center h-10 w-10 rounded-full bg-purple-100 text-purple-600 flex-shrink-0">
-                                                                        <DollarSign className="w-4 h-4" />
+                                                                    <div className="flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-purple-100 text-purple-600 flex-shrink-0">
+                                                                        <DollarSign className="w-3 h-3 sm:w-4 sm:h-4" />
                                                                     </div>
                                                                     <div>
-                                                                        <h4 className="text-sm font-medium text-gray-500">
+                                                                        <h4 className="text-xs sm:text-sm font-medium text-gray-500">
                                                                             Point
                                                                             Payment
                                                                         </h4>
-                                                                        <div className="flex items-center gap-2">
+                                                                        <div className="flex flex-wrap gap-2">
                                                                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                                                                                 <Check className="w-3 h-3 mr-1" />
                                                                                 Paid
@@ -1279,14 +1515,15 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                         {activeBooking?.payments
                                                             ?.length > 0 && (
                                                             <div>
-                                                                <h4 className="font-medium text-gray-700 mb-3">
+                                                                <h4 className="font-medium text-gray-700 mb-3 text-sm sm:text-base">
                                                                     Payment
                                                                     History
                                                                 </h4>
                                                                 <div className="space-y-3">
                                                                     {activeBooking.payments.map(
                                                                         (
-                                                                            payment
+                                                                            payment,
+                                                                            index
                                                                         ) => (
                                                                             <div
                                                                                 key={
@@ -1294,11 +1531,11 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                                     payment.public_id ||
                                                                                     `payment-${index}`
                                                                                 }
-                                                                                className="bg-gray-50 p-4 rounded-lg border border-gray-200"
+                                                                                className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200"
                                                                             >
                                                                                 <div className="flex justify-between items-center">
                                                                                     <div>
-                                                                                        <p className="font-semibold text-gray-800">
+                                                                                        <p className="font-semibold text-gray-800 text-sm sm:text-base">
                                                                                             $
                                                                                             {
                                                                                                 payment.amount
@@ -1355,10 +1592,43 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                     </div>
                                                 )}
 
+                                                {/* Display completed feedback if booking is completed */}
+                                                {activeBooking.booking_status ===
+                                                    "Completed" &&
+                                                    activeBooking.completed_feedback && (
+                                                        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                                                            <div className="flex items-center gap-3 mb-4">
+                                                                <div className="flex items-center justify-center h-10 w-10 rounded-full bg-green-100 text-green-600">
+                                                                    <Star className="w-5 h-5" />
+                                                                </div>
+                                                                <div>
+                                                                    <h3 className="text-base sm:text-lg font-semibold text-gray-800">
+                                                                        Completed
+                                                                        Feedback
+                                                                    </h3>
+                                                                    <p className="text-xs sm:text-sm text-gray-500">
+                                                                        Provided
+                                                                        on{" "}
+                                                                        {new Date(
+                                                                            activeBooking.updated_at
+                                                                        ).toLocaleDateString()}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
+                                                                <p className="text-gray-700 whitespace-pre-line text-sm sm:text-base">
+                                                                    {
+                                                                        activeBooking.completed_feedback
+                                                                    }
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
                                                 {activeBooking.booking_status !==
                                                     "Completed" && (
                                                     <div className="bg-white rounded-lg border border-gray-200 p-4">
-                                                        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                                                        <h3 className="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
                                                             Update Booking
                                                             Status
                                                         </h3>
@@ -1450,7 +1720,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                             disabled={
                                                                                 isActive
                                                                             }
-                                                                            className={`px-3 py-1.5 text-sm font-medium rounded-full transition-colors flex items-center ${
+                                                                            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-full transition-colors flex items-center ${
                                                                                 isActive
                                                                                     ? `${statusColors[value]} border border-blue-300 cursor-not-allowed opacity-75`
                                                                                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -1467,124 +1737,13 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                                 }
                                                             )}
                                                         </div>
-
-                                                        {/* Enhanced Confirmation Dialog */}
-                                                        <Dialog
-                                                            open={isDialogOpen}
-                                                            onClose={
-                                                                closeDialog
-                                                            }
-                                                            className="relative z-50"
-                                                        >
-                                                            <div
-                                                                className="fixed inset-0 bg-black/30"
-                                                                aria-hidden="true"
-                                                            />
-                                                            <div className="fixed inset-0 flex items-center justify-center p-4">
-                                                                <Dialog.Panel className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-                                                                    <div className="flex items-center gap-3 mb-4">
-                                                                        {selectedStatus ===
-                                                                            "Pending" && (
-                                                                            <Clock className="w-8 h-8 text-amber-500" />
-                                                                        )}
-                                                                        {selectedStatus ===
-                                                                            "Approved" && (
-                                                                            <Check className="w-8 h-8 text-emerald-500" />
-                                                                        )}
-                                                                        {selectedStatus ===
-                                                                            "Cancelled" && (
-                                                                            <Ban className="w-8 h-8 text-rose-500" />
-                                                                        )}
-                                                                        {selectedStatus ===
-                                                                            "Completed" && (
-                                                                            <Check className="w-8 h-8 text-indigo-500" />
-                                                                        )}
-                                                                        {selectedStatus ===
-                                                                            "Rejected" && (
-                                                                            <X className="w-8 h-8 text-red-500" />
-                                                                        )}
-
-                                                                        <Dialog.Title className="text-lg font-medium text-gray-900">
-                                                                            Confirm
-                                                                            Status
-                                                                            Update
-                                                                        </Dialog.Title>
-                                                                    </div>
-
-                                                                    <Dialog.Description className="mt-2 text-sm text-gray-600">
-                                                                        Are you
-                                                                        sure you
-                                                                        want to
-                                                                        change
-                                                                        the
-                                                                        booking
-                                                                        status
-                                                                        to{" "}
-                                                                        <span className="font-semibold">
-                                                                            {
-                                                                                selectedStatus
-                                                                            }
-                                                                        </span>
-                                                                        ?
-                                                                        {[
-                                                                            "Cancelled",
-                                                                            "Rejected",
-                                                                        ].includes(
-                                                                            selectedStatus
-                                                                        ) && (
-                                                                            <p className="mt-2 text-sm text-rose-600">
-                                                                                This
-                                                                                action
-                                                                                cannot
-                                                                                be
-                                                                                undone.
-                                                                            </p>
-                                                                        )}
-                                                                    </Dialog.Description>
-
-                                                                    <div className="mt-6 flex justify-end space-x-3">
-                                                                        <button
-                                                                            onClick={
-                                                                                closeDialog
-                                                                            }
-                                                                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                                                        >
-                                                                            Cancel
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={
-                                                                                confirmStatusUpdate
-                                                                            }
-                                                                            className={`px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-                                                                                selectedStatus ===
-                                                                                "Approved"
-                                                                                    ? "bg-emerald-600 hover:bg-emerald-700"
-                                                                                    : selectedStatus ===
-                                                                                      "Cancelled"
-                                                                                    ? "bg-rose-600 hover:bg-rose-700"
-                                                                                    : selectedStatus ===
-                                                                                      "Completed"
-                                                                                    ? "bg-indigo-600 hover:bg-indigo-700"
-                                                                                    : selectedStatus ===
-                                                                                      "Rejected"
-                                                                                    ? "bg-red-600 hover:bg-red-700"
-                                                                                    : "bg-amber-600 hover:bg-amber-700"
-                                                                            }`}
-                                                                        >
-                                                                            Confirm
-                                                                            Update
-                                                                        </button>
-                                                                    </div>
-                                                                </Dialog.Panel>
-                                                            </div>
-                                                        </Dialog>
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
                                     </>
                                 ) : (
-                                    <div className="h-full flex items-center justify-center p-12">
+                                    <div className="h-full flex items-center justify-center p-6 sm:p-12">
                                         <div className="text-center">
                                             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400 mb-4">
                                                 <User className="h-6 w-6" />
@@ -1596,6 +1755,16 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                 Choose a volunteer from the list
                                                 to view details
                                             </p>
+                                            {isMobile && (
+                                                <button
+                                                    onClick={() =>
+                                                        setIsSidebarOpen(true)
+                                                    }
+                                                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+                                                >
+                                                    View Volunteers List
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -1613,18 +1782,18 @@ export default function Bookings({ bookings: initialBookings, auth }) {
             >
                 <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
                 <div className="fixed inset-0 flex items-center justify-center p-4">
-                    <Dialog.Panel className="w-full max-w-2xl rounded-xl bg-white shadow-xl max-h-[90vh] overflow-y-auto">
+                    <Dialog.Panel className="w-full max-w-2xl rounded-xl bg-white shadow-xl max-h-[90vh] overflow-y-auto mx-4">
                         {selectedVolunteer && (
-                            <div className="p-6">
+                            <div className="p-4 sm:p-6">
                                 <div className="flex justify-between items-start mb-6">
-                                    <Dialog.Title className="text-2xl font-bold text-gray-900">
+                                    <Dialog.Title className="text-xl sm:text-2xl font-bold text-gray-900">
                                         Volunteer Details
                                     </Dialog.Title>
                                     <button
                                         onClick={closeVolunteerModal}
                                         className="text-gray-500 hover:text-gray-700"
                                     >
-                                        <X className="h-6 w-6" />
+                                        <X className="h-5 w-5 sm:h-6 sm:w-6" />
                                     </button>
                                 </div>
 
@@ -1641,16 +1810,16 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                         : "/no-profile-pic.jpg"
                                                 }
                                                 alt={selectedVolunteer.name}
-                                                className="w-32 h-32 rounded-full object-cover border-4 border-white shadow mb-4"
+                                                className="w-24 h-24 sm:w-32 sm:h-32 rounded-full object-cover border-4 border-white shadow mb-4"
                                             />
                                             {selectedVolunteer.volunteer_profile
                                                 ?.verification_status ===
                                                 "Approved" && (
-                                                <div className="absolute top-0 right-[155px] md:right-10 bg-white rounded-full p-1 shadow-md">
-                                                    <VerifiedBadge className="h-5 w-5" />
+                                                <div className="absolute top-0 right-16 md:right-10 bg-white rounded-full p-1 shadow-md">
+                                                    <VerifiedBadge className="h-4 w-4 sm:h-5 sm:w-5" />
                                                 </div>
                                             )}
-                                            <h3 className="text-xl font-semibold text-gray-900 mt-2">
+                                            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mt-2 text-center">
                                                 {selectedVolunteer.name}
                                             </h3>
                                         </div>
@@ -1724,7 +1893,7 @@ export default function Bookings({ bookings: initialBookings, auth }) {
                                                         (skill, index) => (
                                                             <span
                                                                 key={index}
-                                                                className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                                                                className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
                                                             >
                                                                 {skill}
                                                             </span>

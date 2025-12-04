@@ -55,12 +55,12 @@ export default function GeneralPages({ children, auth }) {
                         >
                             Corporate Impact Sponsorship
                         </Link>
-                        <Link
+                        {/* <Link
                             href={route("guide")}
                             className="text-base-content hover:text-primary font-medium"
                         >
                             Volunteer Guide
-                        </Link>
+                        </Link> */}
                     </nav>
 
                     {/* Auth Links */}

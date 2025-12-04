@@ -222,11 +222,19 @@ class OrganizationController extends Controller
     {
         $validated = $request->validate([
             'booking_status' => 'required|string|in:Pending,Approved,Rejected,Cancelled,Completed',
+            'completed_feedback' => 'required_if:booking_status,Completed|string|min:10|max:1000',
             'send_completion_email' => 'sometimes|boolean'
         ]);
 
         $previousStatus = $booking->booking_status;
-        $booking->update(['booking_status' => $validated['booking_status']]);
+
+        // Update with feedback if provided
+        $updateData = ['booking_status' => $validated['booking_status']];
+        if (isset($validated['completed_feedback'])) {
+            $updateData['completed_feedback'] = $validated['completed_feedback'];
+        }
+
+        $booking->update($updateData);
 
         // Award points if status changed to Completed
         if ($validated['booking_status'] === 'Completed' && $previousStatus !== 'Completed') {
@@ -235,6 +243,12 @@ class OrganizationController extends Controller
 
             // Add notification
             NotificationService::notifyBookingCompleted($booking);
+
+            // Update volunteer points in their profile
+            if ($booking->user->volunteer_profile) {
+                $totalPoints = $booking->user->volunteer_profile->points_earned + $pointsService->calculatePointsForBooking($booking);
+                $booking->user->volunteer_profile()->update(['points_earned' => $totalPoints]);
+            }
         } elseif ($validated['booking_status'] === 'Cancelled' && $previousStatus !== 'Cancelled') {
             NotificationService::notifyBookingCancelled($booking);
         } elseif ($validated['booking_status'] === 'Rejected' && $previousStatus !== 'Rejected') {
@@ -243,13 +257,8 @@ class OrganizationController extends Controller
             NotificationService::notifyBookingApproved($booking);
         }
 
-
-        // NotificationService::notifyBookingCompleted($booking);
-
         // Send completion email if status is Completed and flag is set
         if ($validated['booking_status'] === 'Completed' && ($request->send_completion_email ?? false)) {
-            // Load the necessary relationships
-
             $booking->load(['user', 'project.user']);
             Mail::to($booking->user->email)
                 ->send(new BookingCompleted($booking));

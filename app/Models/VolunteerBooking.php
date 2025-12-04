@@ -14,7 +14,8 @@ class VolunteerBooking extends Model
         'start_date',
         'end_date',
         'number_of_travellers',
-        'booking_status'
+        'booking_status',
+        'completed_feedback',
     ];
 
     protected static function boot()

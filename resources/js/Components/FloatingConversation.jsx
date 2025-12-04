@@ -51,6 +51,10 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
         height: typeof window !== "undefined" ? window.innerHeight : 0,
     });
 
+    // State for showing max chat limit notification
+    const [showMaxLimitNotification, setShowMaxLimitNotification] =
+        useState(false);
+
     // Get user role safely
     const userRole = auth?.user?.role || "Volunteer"; // Default to Volunteer if not available
 
@@ -93,8 +97,6 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
             ) {
                 if (onClose) {
                     onClose();
-                } else {
-                    setIsOpen(false);
                 }
             }
         };
@@ -516,8 +518,15 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
 
         // Start silent polling at a faster rate (every 1 second) for active chat
         silentPollingInterval.current = setInterval(() => {
-            if (activeChat?.sender?.id && !chat.isMinimized) {
-                silentBackgroundPoll().catch(console.debug);
+            if (activeChat?.sender?.id) {
+                // Check if active chat is not minimized
+                const isMinimized = openChats.find(
+                    (chat) => chat.sender.id === activeChat.sender.id
+                )?.isMinimized;
+
+                if (!isMinimized) {
+                    silentBackgroundPoll().catch(console.debug);
+                }
             }
         }, 1000);
     };
@@ -599,6 +608,14 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
             .includes(searchTerm.toLowerCase())
     );
 
+    const showMaxLimitMessage = () => {
+        setShowMaxLimitNotification(true);
+        // Auto-hide after 3 seconds
+        setTimeout(() => {
+            setShowMaxLimitNotification(false);
+        }, 3000);
+    };
+
     const startChat = (conversation) => {
         const existingChatIndex = openChats.findIndex(
             (chat) => chat.sender.id === conversation.sender.id
@@ -629,10 +646,16 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
         let newOpenChats = [...openChats];
 
         if (newOpenChats.length >= maxChatWindows) {
+            // Show notification when user tries to exceed the limit
+            showMaxLimitMessage();
+
             if (isMobile) {
+                // On mobile, replace the current chat
                 newOpenChats = [];
             } else {
-                newOpenChats = newOpenChats.slice(1);
+                // On tablet/desktop, don't allow opening new chat
+                // User needs to close one first
+                return;
             }
         }
 
@@ -1111,24 +1134,7 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                                         conversation.sender.id
                                             ? "bg-blue-50 border-blue-200"
                                             : ""
-                                    } ${
-                                        openChats.length >= maxChatWindows &&
-                                        !openChats.find(
-                                            (chat) =>
-                                                chat.sender.id ===
-                                                conversation.sender.id
-                                        )
-                                            ? "opacity-50 cursor-not-allowed"
-                                            : ""
                                     }`}
-                                    disabled={
-                                        openChats.length >= maxChatWindows &&
-                                        !openChats.find(
-                                            (chat) =>
-                                                chat.sender.id ===
-                                                conversation.sender.id
-                                        )
-                                    }
                                 >
                                     <div className="flex space-x-3">
                                         <div className="flex-shrink-0 relative">
@@ -1169,19 +1175,6 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                                                 </span>
                                             </div>
                                         )}
-
-                                        {openChats.length >= maxChatWindows &&
-                                            !openChats.find(
-                                                (chat) =>
-                                                    chat.sender.id ===
-                                                    conversation.sender.id
-                                            ) && (
-                                                <div className="flex-shrink-0">
-                                                    <span className="bg-gray-500 text-white text-xs rounded-full px-2 py-1">
-                                                        Max
-                                                    </span>
-                                                </div>
-                                            )}
                                     </div>
                                 </button>
                             ))
@@ -1509,9 +1502,9 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                 />
             )}
 
-            {/* Responsive max limit notification */}
-            {openChats.length >= maxChatWindows && (
-                <div className="fixed bottom-16 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 text-sm max-w-xs text-center">
+            {/* Responsive max limit notification - Only shows when triggered */}
+            {showMaxLimitNotification && (
+                <div className="fixed bottom-16 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 text-sm max-w-xs text-center animate-fadeIn">
                     {isMobile
                         ? "Only 1 chat allowed on mobile. New chats replace current ones."
                         : isTablet
@@ -1519,6 +1512,23 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                         : "Maximum of 3 chats reached. Close one to open another."}
                 </div>
             )}
+
+            {/* Add inline CSS for fadeIn animation */}
+            <style>{`
+                @keyframes fadeIn {
+                    from {
+                        opacity: 0;
+                        transform: translateX(-50%) translateY(10px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateX(-50%) translateY(0);
+                    }
+                }
+                .animate-fadeIn {
+                    animation: fadeIn 0.3s ease-out;
+                }
+            `}</style>
         </>
     );
 }
