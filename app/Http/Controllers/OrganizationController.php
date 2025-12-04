@@ -20,6 +20,7 @@ use App\Models\VolunteerBooking;
 use App\Models\OrganizationProfile;
 use App\Mail\ProjectReviewRequested;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\Storage;
@@ -120,6 +121,16 @@ class OrganizationController extends Controller
             ->latest()
             ->get();
 
+        // Get organization profile
+        $organizationProfile = OrganizationProfile::where('user_public_id', $user->public_id)->first();
+
+        // Get organization verification status
+        $organizationVerification = null;
+        if ($organizationProfile) {
+            $organizationVerification = OrganizationVerification::where('organization_profile_id', $organizationProfile->id)->first();
+        }
+
+
         return inertia('Organizations/Dashboard', [
             'projectsCount' => $projects->count(),
             'projectStatusCount' => [
@@ -129,8 +140,10 @@ class OrganizationController extends Controller
                 'completed' => $projects->where('status', 'Completed')->count(),
                 'cancelled' => $projects->where('status', 'Cancelled')->count(),
             ],
-            'messagesCount' => 0, // Add this if you have messages
-            'recentMessages' => [], // Add this if you have messages
+            'organizationProfile' => $organizationProfile,
+            'organizationVerification' => $organizationVerification,
+            'messagesCount' => 0,
+            'recentMessages' => [],
         ]);
     }
 
@@ -689,9 +702,28 @@ class OrganizationController extends Controller
 
     public function requestReview($projectPublicId)
     {
+        $user = Auth::user();
+
+        // Check if user account is active (is_active === 1)
+        if ($user->is_active !== 1 && $user->is_active !== true) {
+            return back()->with('error', 'Your account is deactivated. You cannot request reviews until you reactivate your account.');
+        }
+
+        // Check if user status is "Active"
+        if ($user->status !== 'Active') {
+            $errorMessage = match ($user->status) {
+                'Pending' => 'Your account is pending approval. You cannot request reviews until your account is approved.',
+                'Suspended' => 'Your account has been suspended. You cannot request reviews.',
+                'Rejected' => 'Your account registration was rejected. You cannot request reviews.',
+                default => 'Your account is not active. You cannot request reviews until your account is activated.',
+            };
+
+            return back()->with('error', $errorMessage);
+        }
+
         $project = Project::where('public_id', $projectPublicId)->first();
 
-        if (!$project || $project->user_public_id !== Auth::user()->public_id) {
+        if (!$project || $project->user_public_id !== $user->public_id) {
             return back()->with('error', 'Unauthorized.');
         }
 
@@ -719,12 +751,42 @@ class OrganizationController extends Controller
     }
     public function storeProject(Request $request, $slug = null)
     {
+        $user = Auth::user();
+
+        // Check if user account is active (is_active === 1)
+        if ($user->is_active !== 1 && $user->is_active !== true) {
+            return redirect()->back()->withErrors([
+                'account' => 'Your account is deactivated. You cannot create or update projects until you reactivate your account.'
+            ])->withInput();
+        }
+
+        // Check if user status is "Active"
+        if ($user->status !== 'Active') {
+            $errorMessage = match ($user->status) {
+                'Pending' => 'Your account is pending approval. You cannot create or update projects until your account is approved.',
+                'Suspended' => 'Your account has been suspended. You cannot create or update projects.',
+                'Rejected' => 'Your account registration was rejected. You cannot create or update projects.',
+                default => 'Your account is not active. You cannot create or update projects until your account is activated.',
+            };
+
+            return redirect()->back()->withErrors([
+                'account' => $errorMessage
+            ])->withInput();
+        }
+
+        // Check if organization profile exists (only for new projects)
+        if (!$slug && !$user->organization) {
+            return redirect()->back()->withErrors([
+                'profile' => 'Please complete your organization profile before creating projects.'
+            ])->withInput();
+        }
+
         // Determine if we're creating or updating
         $isEdit = $slug !== null;
 
         if ($isEdit) {
             $project = Project::where('slug', $slug)
-                ->where('user_public_id', Auth::user()->public_id)
+                ->where('user_public_id', $user->public_id)
                 ->firstOrFail();
         } else {
             $project = new Project();
@@ -794,10 +856,9 @@ class OrganizationController extends Controller
             $data['slug'] = $project->slug;
         }
 
-        $data = $request->validate($rules);
         $data['skills'] = $request->input('skills', []);
 
-        $data['user_public_id'] = Auth::user()->public_id;
+        $data['user_public_id'] = $user->public_id;
 
         // NEW LOGIC: If editing and project was rejected, change status to Pending and reset request_for_approval
         if ($isEdit && $project->status === 'Rejected') {
@@ -889,8 +950,31 @@ class OrganizationController extends Controller
 
     public function updateProject(Request $request, $slug)
     {
+        $user = Auth::user();
+
+        // Check if user account is active (is_active === 1)
+        if ($user->is_active !== 1 && $user->is_active !== true) {
+            return redirect()->back()->withErrors([
+                'account' => 'Your account is deactivated. You cannot update projects until you reactivate your account.'
+            ])->withInput();
+        }
+
+        // Check if user status is "Active"
+        if ($user->status !== 'Active') {
+            $errorMessage = match ($user->status) {
+                'Pending' => 'Your account is pending approval. You cannot update projects until your account is approved.',
+                'Suspended' => 'Your account has been suspended. You cannot update projects.',
+                'Rejected' => 'Your account registration was rejected. You cannot update projects.',
+                default => 'Your account is not active. You cannot update projects until your account is activated.',
+            };
+
+            return redirect()->back()->withErrors([
+                'account' => $errorMessage
+            ])->withInput();
+        }
+
         $project = Project::where('slug', $slug)
-            ->where('user_public_id', Auth::user()->public_id)
+            ->where('user_public_id', $user->public_id)
             ->firstOrFail();
 
         $data = $request->validate([
@@ -1298,5 +1382,162 @@ class OrganizationController extends Controller
         return Inertia::render('Organizations/VolunteerProfile', [
             'volunteer' => $volunteer,
         ]);
+    }
+
+    // In OrganizationController.php - add these methods
+
+    public function settings()
+    {
+        $user = Auth::user();
+
+        return Inertia::render('Organizations/Settings', [
+            'auth' => [
+                'user' => $user,
+            ],
+            'organizationProfile' => $user->organization,
+        ]);
+    }
+
+    public function changePassword(Request $request)
+    {
+        $user = Auth::user();
+
+        $request->validate([
+            'current_password' => 'required|current_password',
+            'new_password' => 'required|min:8|confirmed|different:current_password',
+            'new_password_confirmation' => 'required',
+        ], [
+            'current_password.current_password' => 'The current password is incorrect.',
+            'new_password.different' => 'New password must be different from current password.',
+        ]);
+
+        // Update password
+        $user->password = Hash::make($request->new_password);
+        $user->save();
+
+        return back()->with('success', 'Password updated successfully.');
+    }
+
+    public function deactivateAccount(Request $request)
+    {
+        $user = Auth::user();
+
+        $request->validate([
+            'password' => 'required|current_password',
+            'reason' => 'required|string|max:500',
+            'confirm' => 'required|accepted',
+        ], [
+            'confirm.accepted' => 'You must confirm that you want to deactivate your account.',
+        ]);
+
+        // Log the deactivation request
+        Log::info('Organization account deactivation request', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'reason' => $request->reason,
+            'deactivated_at' => now(),
+        ]);
+
+        // Soft delete the user account
+        $user->update([
+            'is_active' => 0,
+            'deactivated_at' => now(),
+            'deactivation_reason' => $request->reason,
+        ]);
+
+        // Logout the user
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('home')->with('info', 'Your account has been deactivated. You can reactivate it within 30 days by logging in.');
+    }
+
+    public function updateEmail(Request $request)
+    {
+        $user = Auth::user();
+
+        $request->validate([
+            'current_password' => 'required|current_password',
+            'new_email' => 'required|email|unique:users,email,' . $user->id,
+        ]);
+
+        // Update email
+        $oldEmail = $user->email;
+        $user->email = $request->new_email;
+        $user->email_verified_at = null; // Require re-verification
+        $user->save();
+
+        // Send verification email
+        $user->sendEmailVerificationNotification();
+
+        // Log the email change
+        Log::info('Organization email change', [
+            'user_id' => $user->id,
+            'old_email' => $oldEmail,
+            'new_email' => $request->new_email,
+            'changed_at' => now(),
+        ]);
+
+        return back()->with('success', 'Email updated successfully. Please check your new email for verification.');
+    }
+
+    public function updateNotificationPreferences(Request $request)
+    {
+        $user = Auth::user();
+
+        $request->validate([
+            'email_notifications' => 'boolean',
+            'booking_notifications' => 'boolean',
+            'message_notifications' => 'boolean',
+            'newsletter' => 'boolean',
+        ]);
+
+        // Update notification preferences
+        $user->notificationPreferences()->updateOrCreate(
+            ['user_id' => $user->id],
+            [
+                'email_notifications' => $request->email_notifications ?? true,
+                'booking_notifications' => $request->booking_notifications ?? true,
+                'message_notifications' => $request->message_notifications ?? true,
+                'newsletter' => $request->newsletter ?? false,
+            ]
+        );
+
+        return back()->with('success', 'Notification preferences updated successfully.');
+    }
+
+    // Add this method to your OrganizationController
+    public function reactivateAccount(Request $request)
+    {
+        $user = Auth::user();
+
+        $request->validate([
+            'password' => 'required|current_password',
+        ]);
+
+        // Check if user can be reactivated (within 30 days)
+        $deactivatedAt = $user->deactivated_at;
+        if ($deactivatedAt && $deactivatedAt->diffInDays(now()) > 30) {
+            return back()->withErrors([
+                'password' => 'Your account cannot be reactivated after 30 days of deactivation.'
+            ]);
+        }
+
+        // Reactivate the user account
+        $user->update([
+            'is_active' => 1,
+            'deactivated_at' => null,
+            'deactivation_reason' => null,
+        ]);
+
+        // Log the reactivation
+        Log::info('Organization account reactivated', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'reactivated_at' => now(),
+        ]);
+
+        return back()->with('success', 'Your account has been reactivated successfully.');
     }
 }

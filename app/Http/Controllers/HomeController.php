@@ -123,6 +123,7 @@ class HomeController extends Controller
             ->latest()
             ->get();
 
+
         return inertia('Projects/Projects', [
             'projects' => $projects,
         ]);

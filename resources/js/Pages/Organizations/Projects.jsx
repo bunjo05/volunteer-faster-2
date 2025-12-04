@@ -28,6 +28,12 @@ export default function Projects({
     const isPending = userStatus === "Pending";
     const isSuspended = userStatus === "Suspended";
     const hasProfile = !!organizationProfile;
+
+    // Add check for is_active from auth
+    const isAccountActive =
+        auth?.user?.is_active === 1 || auth?.user?.is_active === true;
+    const isAccountDeactivated = !isAccountActive;
+
     const [showFeatureModal, setShowFeatureModal] = useState(false);
     const [selectedProject, setSelectedProject] = useState(null);
     const [selectedPlan, setSelectedPlan] = useState(null);
@@ -47,7 +53,10 @@ export default function Projects({
     const { post } = useForm();
 
     let tooltipMessage = "";
-    if (isPending) {
+    if (isAccountDeactivated) {
+        tooltipMessage =
+            "You can't create a project because your account is deactivated. Please reactivate your account.";
+    } else if (isPending) {
         tooltipMessage =
             "You can't create a project until your account is Approved.";
     } else if (isSuspended) {
@@ -57,6 +66,15 @@ export default function Projects({
         tooltipMessage =
             "Please complete your organization profile before creating projects.";
     }
+
+    // Function to determine if the Create Project button should be disabled
+    const canCreateProject = () => {
+        // Check in order of priority:
+        // 1. Account must be active (is_active === 1)
+        // 2. User status must be "Active"
+        // 3. Organization profile must exist
+        return isAccountActive && isActive && hasProfile;
+    };
 
     useEffect(() => {
         const flash = props?.flash;
@@ -491,8 +509,34 @@ export default function Projects({
                     </div>
                 )}
 
+                {/* Account Deactivated Badge */}
+                {isAccountDeactivated && (
+                    <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 rounded-md shadow-sm">
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                <AlertCircle className="h-5 w-5 text-red-400" />
+                            </div>
+                            <div className="ml-3">
+                                <p className="text-sm text-red-700">
+                                    Your account has been deactivated. You
+                                    cannot create new projects until you
+                                    reactivate your account.
+                                </p>
+                                <div className="mt-2">
+                                    <Link
+                                        href={route("organization.settings")}
+                                        className="text-sm font-medium text-red-700 hover:text-red-600"
+                                    >
+                                        Go to Settings to Reactivate →
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Organization Profile Not Filled Badge */}
-                {!hasProfile && isPending && (
+                {!hasProfile && isActive && isAccountActive && (
                     <div className="mb-6 p-4 bg-blue-50 border-l-4 border-blue-400 rounded-md shadow-sm">
                         <div className="flex">
                             <div className="flex-shrink-0">
@@ -526,23 +570,73 @@ export default function Projects({
                     </div>
                 )}
 
+                {/* Account Pending Badge */}
+                {isPending && isAccountActive && (
+                    <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-md shadow-sm">
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                <Clock className="h-5 w-5 text-yellow-400" />
+                            </div>
+                            <div className="ml-3">
+                                <p className="text-sm text-yellow-700">
+                                    Your account is pending approval. You cannot
+                                    create new projects until your account is
+                                    approved.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Account Suspended Badge */}
+                {isSuspended && isAccountActive && (
+                    <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 rounded-md shadow-sm">
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                <AlertCircle className="h-5 w-5 text-red-400" />
+                            </div>
+                            <div className="ml-3">
+                                <p className="text-sm text-red-700">
+                                    Your account has been suspended. You cannot
+                                    create new projects.
+                                </p>
+                                <div className="mt-2">
+                                    <Link
+                                        href={route("organization.support")}
+                                        className="text-sm font-medium text-red-700 hover:text-red-600"
+                                    >
+                                        Contact Support →
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="max-w-7xl mx-auto">
                     <div className="flex justify-between items-center mb-8">
                         <h1 className="text-3xl font-bold text-gray-800">
                             Projects
                         </h1>
-                        <div
-                            title={isActive && hasProfile ? "" : tooltipMessage}
-                        >
+                        <div title={canCreateProject() ? "" : tooltipMessage}>
                             <Link
-                                disabled={!(isActive && hasProfile)}
-                                href={route("organization.projects.create")}
+                                disabled={!canCreateProject()}
+                                href={
+                                    canCreateProject()
+                                        ? route("organization.projects.create")
+                                        : "#"
+                                }
                                 className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-md shadow transition duration-200
                                 ${
-                                    isActive && hasProfile
+                                    canCreateProject()
                                         ? "bg-blue-600 hover:bg-blue-700 text-white"
                                         : "bg-gray-300 text-gray-500 cursor-not-allowed"
                                 }`}
+                                onClick={(e) => {
+                                    if (!canCreateProject()) {
+                                        e.preventDefault();
+                                    }
+                                }}
                             >
                                 <Plus className="w-4 h-4" />
                                 New Project
@@ -686,7 +780,9 @@ export default function Projects({
                                         ? "All your projects are currently approved or active."
                                         : activeTab === "expired"
                                         ? "Your featured projects are all currently active."
-                                        : "Create your first project to get started."}
+                                        : canCreateProject()
+                                        ? "Create your first project to get started."
+                                        : "Complete the requirements to create projects."}
                                 </p>
                             </div>
                         ) : (

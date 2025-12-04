@@ -213,13 +213,13 @@ export default function VolunteerLayout({ children, auth, points }) {
                                 aria-label="Messages"
                             >
                                 <MessageSquare className="w-5 h-5 text-slate-600 group-hover:text-slate-700" />
-                                <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center font-medium">
+                                {/* <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center font-medium">
                                     3
-                                </span>
+                                </span> */}
                             </button>
 
                             {/* User Profile */}
-                            <div className="dropdown dropdown-end">
+                            {/* <div className="dropdown dropdown-end">
                                 <div
                                     tabIndex={0}
                                     role="button"
@@ -273,7 +273,7 @@ export default function VolunteerLayout({ children, auth, points }) {
                                         </Link>
                                     </li>
                                 </ul>
-                            </div>
+                            </div> */}
                         </div>
                     </div>
                 </header>

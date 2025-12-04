@@ -1116,12 +1116,12 @@ export default function FloatingConversation({ auth, isOpen, onClose }) {
                                         <X className="w-4 h-4 text-gray-600" />
                                     </button>
                                 )}
-                                <button className="p-1 hover:bg-gray-100 rounded transition-colors">
+                                {/* <button className="p-1 hover:bg-gray-100 rounded transition-colors">
                                     <Video className="w-4 h-4 text-gray-600" />
                                 </button>
                                 <button className="p-1 hover:bg-gray-100 rounded transition-colors">
                                     <MoreVertical className="w-4 h-4 text-gray-600" />
-                                </button>
+                                </button> */}
                             </div>
                         </div>
 

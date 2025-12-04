@@ -173,6 +173,7 @@ class VolunteerController extends Controller
                 ];
             });
 
+
         return inertia('Volunteers/Dashboard', [
             'auth' => [
                 'user' => $user->toArray() + ['points' => $totalPoints],

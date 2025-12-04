@@ -481,6 +481,8 @@ export default function ProjectForm({
         processing,
         setError,
         clearErrors,
+        recentlySuccessful,
+        isDirty,
     } = useForm({
         title: project?.title || "",
         slug: project?.slug || "",
@@ -533,6 +535,9 @@ export default function ProjectForm({
         })) || []
     );
     const [stepsWithErrors, setStepsWithErrors] = useState([]);
+
+    // NEW: State to store account/profiled-related errors
+    const [accountErrors, setAccountErrors] = useState([]);
 
     const months = [
         "January",
@@ -631,6 +636,14 @@ export default function ProjectForm({
         { label: "Media & Dates", fields: ["gallery_images", "start_date"] },
     ];
 
+    // NEW: Function to extract account/profile related errors from errors object
+    const extractAccountErrors = (errorsObj) => {
+        const accountErrorKeys = ["account", "profile"];
+        return Object.keys(errorsObj)
+            .filter((key) => accountErrorKeys.includes(key))
+            .map((key) => errorsObj[key]);
+    };
+
     useEffect(() => {
         const currentStepFields = steps[step - 1].fields;
         const hasCurrentStepErrors = currentStepFields.some(
@@ -641,6 +654,16 @@ export default function ProjectForm({
             setStepsWithErrors((prev) => prev.filter((s) => s !== step));
         }
     }, [data, step, errors]);
+
+    // NEW: Update account errors when errors change
+    useEffect(() => {
+        const accountErrs = extractAccountErrors(errors);
+        if (accountErrs.length > 0) {
+            setAccountErrors(accountErrs);
+        } else {
+            setAccountErrors([]);
+        }
+    }, [errors]);
 
     useEffect(() => {
         if (isEdit && project) {
@@ -884,11 +907,27 @@ export default function ProjectForm({
                 data: formData,
                 forceFormData: true,
                 preserveScroll: true,
+                onError: (errors) => {
+                    // Account errors will be handled by the useEffect above
+                    console.log("Form errors:", errors);
+                },
+                onSuccess: () => {
+                    // Clear any existing account errors on success
+                    setAccountErrors([]);
+                },
             });
         } else {
             post(route("organization.projects.store"), {
                 data: formData,
                 forceFormData: true,
+                onError: (errors) => {
+                    // Account errors will be handled by the useEffect above
+                    console.log("Form errors:", errors);
+                },
+                onSuccess: () => {
+                    // Clear any existing account errors on success
+                    setAccountErrors([]);
+                },
             });
         }
     };
@@ -989,6 +1028,57 @@ export default function ProjectForm({
                     {isEdit ? "Edit Project" : "Create New Project"}
                 </h1>
 
+                {/* NEW: Account/Profile Error Alert */}
+                {accountErrors.length > 0 && (
+                    <div className="alert alert-error mb-6">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="stroke-current shrink-0 h-6 w-6"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                        </svg>
+                        <div className="w-full">
+                            <h3 className="font-bold">Account Error</h3>
+                            <ul className="list-disc list-inside">
+                                {accountErrors.map((error, index) => (
+                                    <li key={index}>{error}</li>
+                                ))}
+                            </ul>
+                            <div className="mt-4">
+                                {errors.account &&
+                                    errors.account.includes("deactivated") && (
+                                        <a
+                                            href={route(
+                                                "organization.settings"
+                                            )}
+                                            className="btn btn-sm btn-outline btn-error"
+                                        >
+                                            Go to Settings to Reactivate Account
+                                        </a>
+                                    )}
+                                {errors.profile &&
+                                    errors.profile.includes(
+                                        "complete your organization profile"
+                                    ) && (
+                                        <a
+                                            href={route("organization.profile")}
+                                            className="btn btn-sm btn-outline btn-error"
+                                        >
+                                            Go to Profile
+                                        </a>
+                                    )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Daisy UI Breadcrumb for Steps */}
                 <div className="mb-8">
                     <div className="text-sm breadcrumbs">
@@ -1027,7 +1117,7 @@ export default function ProjectForm({
                     ></progress>
                 </div>
 
-                {stepsWithErrors.length > 0 && (
+                {stepsWithErrors.length > 0 && !accountErrors.length > 0 && (
                     <div className="alert alert-error mb-6">
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -1057,523 +1147,603 @@ export default function ProjectForm({
                     </div>
                 )}
 
-                <form
-                    onSubmit={handleSubmit}
-                    encType="multipart/form-data"
-                    className="space-y-6"
-                >
-                    {/* Step 1: Basic Information */}
-                    {step === 1 && (
-                        <>
-                            <FormInput
-                                label="Title"
-                                name="title"
-                                value={data.title}
-                                onChange={(e) => {
-                                    const titleValue = e.target.value;
-                                    setData("title", titleValue);
-                                    setData(
-                                        "slug",
-                                        titleValue
-                                            .toLowerCase()
-                                            .trim()
-                                            .replace(/[^a-z0-9 -]/g, "")
-                                            .replace(/\s+/g, "-")
-                                            .replace(/-+/g, "-")
-                                    );
-                                }}
-                                error={errors.title}
-                            />
-
-                            <FormInput
-                                label="Slug"
-                                name="slug"
-                                value={data.slug}
-                                onChange={(e) =>
-                                    setData("slug", e.target.value)
-                                }
-                                readOnly
-                                error={errors.slug}
-                            />
-
-                            <FormFileInput
-                                label="Featured Image"
-                                name="featured_image"
-                                onChange={handleFeaturedImageChange}
-                                accept=".jpg,.jpeg,.png,.gif,.webp"
-                                error={errors.featured_image}
-                            />
-
-                            {previewImage && (
-                                <div className="mt-2">
-                                    <label className="label">
-                                        <span className="label-text">
-                                            Preview:
-                                        </span>
-                                    </label>
-                                    <ImagePreview
-                                        src={previewImage}
-                                        onRemove={removeFeaturedImage}
-                                    />
-                                </div>
-                            )}
-
-                            <FormSelect
-                                label="Category"
-                                name="category_id"
-                                value={data.category_id}
-                                onChange={(e) => {
-                                    setData("category_id", e.target.value);
-                                    setSelectedCategory(e.target.value);
-                                }}
-                                options={[
-                                    { value: "", label: "Select Category" },
-                                    ...categories.map((cat) => ({
-                                        value: cat.id,
-                                        label: cat.name,
-                                    })),
-                                ]}
-                                error={errors.category_id}
-                            />
-
-                            <FormSelect
-                                label="Subcategory"
-                                name="subcategory_id"
-                                value={data.subcategory_id}
-                                onChange={(e) =>
-                                    setData("subcategory_id", e.target.value)
-                                }
-                                options={[
-                                    { value: "", label: "Select Subcategory" },
-                                    ...(selectedCategoryData?.subcategories?.map(
-                                        (sub) => ({
-                                            value: sub.id,
-                                            label: sub.name,
-                                        })
-                                    ) || []),
-                                ]}
-                                error={errors.subcategory_id}
-                            />
-                        </>
-                    )}
-
-                    {/* Step 2: Project Details */}
-                    {step === 2 && (
-                        <>
-                            <LocationDropdown
-                                selectedCountry={data.country || null}
-                                selectedState={data.state || null}
-                                selectedCity={data.city || null}
-                                onCountryChange={(value) => {
-                                    setData("country", value);
-                                    setData("state", "");
-                                    setData("city", "");
-                                    clearErrors("country");
-                                }}
-                                onStateChange={(value) => {
-                                    setData("state", value);
-                                    setData("city", "");
-                                    clearErrors("state");
-                                }}
-                                onCityChange={(value) => {
-                                    setData("city", value);
-                                    clearErrors("city");
-                                }}
-                                isEditing={isEditing}
-                                errors={errors}
-                            />
-                            {showError("country")}
-                            {showError("state")}
-                            {showError("city")}
-
-                            <VolunteerSkillsDropdown
-                                label="Required Skills"
-                                multiple={true}
-                                onSkillsChange={(skills) =>
-                                    setData("skills", skills)
-                                }
-                                initialSelectedSkills={data.skills || []}
-                                required={false}
-                                maxHeight="300px"
-                            />
-
-                            <FormTextarea
-                                label="Short Description"
-                                name="short_description"
-                                value={data.short_description}
-                                onChange={handleShortDescriptionChange}
-                                error={errors.short_description}
-                                maxLength={500}
-                            />
-                            <div
-                                className={`text-sm mb-4 ${
-                                    charCount === 499
-                                        ? "text-error"
-                                        : "text-base-content/70"
-                                }`}
-                            >
-                                {charCount}/500 characters{" "}
-                                {charCount === 499 && " - Maximum reached"}
-                            </div>
-                            <FormTextarea
-                                label="Detailed Description"
-                                name="detailed_description"
-                                value={data.detailed_description}
-                                onChange={(e) =>
-                                    setData(
-                                        "detailed_description",
-                                        e.target.value
-                                    )
-                                }
-                                rows={5}
-                                error={errors.detailed_description}
-                            />
-                        </>
-                    )}
-
-                    {/* Step 3: Duration & Routine */}
-                    {step === 3 && (
-                        <>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Only show form if there are no account errors */}
+                {accountErrors.length === 0 ? (
+                    <form
+                        onSubmit={handleSubmit}
+                        encType="multipart/form-data"
+                        className="space-y-6"
+                    >
+                        {/* Step 1: Basic Information */}
+                        {step === 1 && (
+                            <>
                                 <FormInput
-                                    label="Minimum Stay"
-                                    name="min_duration"
-                                    type="number"
-                                    value={data.min_duration}
-                                    onChange={(e) =>
-                                        setData("min_duration", e.target.value)
-                                    }
-                                    error={errors.min_duration}
+                                    label="Title"
+                                    name="title"
+                                    value={data.title}
+                                    onChange={(e) => {
+                                        const titleValue = e.target.value;
+                                        setData("title", titleValue);
+                                        setData(
+                                            "slug",
+                                            titleValue
+                                                .toLowerCase()
+                                                .trim()
+                                                .replace(/[^a-z0-9 -]/g, "")
+                                                .replace(/\s+/g, "-")
+                                                .replace(/-+/g, "-")
+                                        );
+                                    }}
+                                    error={errors.title}
                                 />
 
                                 <FormInput
-                                    label="Maximum Stay"
-                                    name="max_duration"
-                                    type="number"
-                                    value={data.max_duration}
+                                    label="Slug"
+                                    name="slug"
+                                    value={data.slug}
                                     onChange={(e) =>
-                                        setData("max_duration", e.target.value)
+                                        setData("slug", e.target.value)
                                     }
-                                    error={errors.max_duration}
+                                    readOnly
+                                    error={errors.slug}
                                 />
-                            </div>
 
-                            <FormSelect
-                                label="Duration Type"
-                                name="duration_type"
-                                value={data.duration_type}
-                                onChange={(e) =>
-                                    setData("duration_type", e.target.value)
-                                }
-                                options={[
-                                    { value: "Days", label: "Days" },
-                                    { value: "Weeks", label: "Weeks" },
-                                    { value: "Months", label: "Months" },
-                                ]}
-                                error={errors.duration_type}
-                            />
+                                <FormFileInput
+                                    label="Featured Image"
+                                    name="featured_image"
+                                    onChange={handleFeaturedImageChange}
+                                    accept=".jpg,.jpeg,.png,.gif,.webp"
+                                    error={errors.featured_image}
+                                />
 
-                            <FormTextarea
-                                label="Daily Routine"
-                                name="daily_routine"
-                                value={data.daily_routine}
-                                maxLength={MAX_VALUES}
-                                onChange={(e) =>
-                                    setData("daily_routine", e.target.value)
-                                }
-                                rows={4}
-                                error={errors.daily_routine}
-                            />
-                        </>
-                    )}
+                                {previewImage && (
+                                    <div className="mt-2">
+                                        <label className="label">
+                                            <span className="label-text">
+                                                Preview:
+                                            </span>
+                                        </label>
+                                        <ImagePreview
+                                            src={previewImage}
+                                            onRemove={removeFeaturedImage}
+                                        />
+                                    </div>
+                                )}
 
-                    {/* Step 4: Pricing & Availability */}
-                    {step === 4 && (
-                        <>
-                            <FormSelect
-                                label="Project Type"
-                                name="type_of_project"
-                                value={data.type_of_project}
-                                onChange={(e) => {
-                                    setData("type_of_project", e.target.value);
-                                    if (e.target.value === "Free") {
-                                        setData("fees", "");
-                                        setData("includes", []);
-                                        setData("excludes", []);
-                                        setData("category_of_charge", "");
+                                <FormSelect
+                                    label="Category"
+                                    name="category_id"
+                                    value={data.category_id}
+                                    onChange={(e) => {
+                                        setData("category_id", e.target.value);
+                                        setSelectedCategory(e.target.value);
+                                    }}
+                                    options={[
+                                        { value: "", label: "Select Category" },
+                                        ...categories.map((cat) => ({
+                                            value: cat.id,
+                                            label: cat.name,
+                                        })),
+                                    ]}
+                                    error={errors.category_id}
+                                />
+
+                                <FormSelect
+                                    label="Subcategory"
+                                    name="subcategory_id"
+                                    value={data.subcategory_id}
+                                    onChange={(e) =>
+                                        setData(
+                                            "subcategory_id",
+                                            e.target.value
+                                        )
                                     }
-                                }}
-                                options={[
-                                    { value: "Free", label: "Free" },
-                                    { value: "Paid", label: "Paid" },
-                                ]}
-                                error={errors.type_of_project}
-                            />
-
-                            {data.type_of_project === "Paid" && (
-                                <>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <FormInput
-                                            label="Fees"
-                                            name="fees"
-                                            type="number"
-                                            value={data.fees}
-                                            onChange={(e) =>
-                                                setData("fees", e.target.value)
-                                            }
-                                            error={errors.fees}
-                                        />
-
-                                        <FormSelect
-                                            label="Category of Charge"
-                                            name="category_of_charge"
-                                            value={data.category_of_charge}
-                                            onChange={(e) =>
-                                                setData(
-                                                    "category_of_charge",
-                                                    e.target.value
-                                                )
-                                            }
-                                            options={[
-                                                {
-                                                    value: "Day",
-                                                    label: "Per Day",
-                                                },
-                                                {
-                                                    value: "Week",
-                                                    label: "Per Week",
-                                                },
-                                                {
-                                                    value: "Month",
-                                                    label: "Per Month",
-                                                },
-                                            ]}
-                                            error={errors.category_of_charge}
-                                        />
-                                    </div>
-                                    {/* NEW: Multi-select for includes */}
-                                    <EnhancedIncludesExcludesDropdown
-                                        label="Fees Includes"
-                                        name="includes"
-                                        value={data.includes}
-                                        onChange={(field, value) =>
-                                            setData(field, value)
-                                        }
-                                        options={includesOptions}
-                                        error={errors.includes}
-                                        placeholder="Select what's included..."
-                                        required={
-                                            data.type_of_project === "Paid"
-                                        }
-                                    />
-
-                                    <EnhancedIncludesExcludesDropdown
-                                        label="Fees Excludes"
-                                        name="excludes"
-                                        value={data.excludes}
-                                        onChange={(field, value) =>
-                                            setData(field, value)
-                                        }
-                                        options={excludesOptions}
-                                        error={errors.excludes}
-                                        placeholder="Select what's not included..."
-                                        required={
-                                            data.type_of_project === "Paid"
-                                        }
-                                    />
-                                    <FormCheckbox
-                                        label="Accept Points Exchange"
-                                        name="point_exchange"
-                                        checked={data.point_exchange}
-                                        onChange={(e) =>
-                                            setData(
-                                                "point_exchange",
-                                                e.target.checked
-                                            )
-                                        }
-                                    />
-                                </>
-                            )}
-
-                            <FormTextarea
-                                label="Activities"
-                                name="activities"
-                                value={data.activities}
-                                maxLength={SHORT_DESCRIPTION}
-                                onChange={(e) =>
-                                    setData("activities", e.target.value)
-                                }
-                                error={errors.activities}
-                            />
-
-                            <div className="mb-4">
-                                <label className="label">
-                                    <span className="label-text">
-                                        Suitable For
-                                    </span>
-                                </label>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    {suitableOptions.map((option) => (
-                                        <FormCheckbox
-                                            key={option}
-                                            label={option}
-                                            checked={data.suitable.includes(
-                                                option
-                                            )}
-                                            onChange={(e) =>
-                                                setData(
-                                                    "suitable",
-                                                    e.target.checked
-                                                        ? [
-                                                              ...data.suitable,
-                                                              option,
-                                                          ]
-                                                        : data.suitable.filter(
-                                                              (s) =>
-                                                                  s !== option
-                                                          )
-                                                )
-                                            }
-                                        />
-                                    ))}
-                                </div>
-                                {errors.suitable && (
-                                    <label className="label">
-                                        <span className="label-text-alt text-error">
-                                            {errors.suitable}
-                                        </span>
-                                    </label>
-                                )}
-                            </div>
-
-                            <div className="mb-4">
-                                <label className="label">
-                                    <span className="label-text">
-                                        Availability Months
-                                    </span>
-                                </label>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                                    {months.map((month) => (
-                                        <FormCheckbox
-                                            key={month}
-                                            label={month}
-                                            checked={data.availability_months.includes(
-                                                month
-                                            )}
-                                            onChange={(e) =>
-                                                setData(
-                                                    "availability_months",
-                                                    e.target.checked
-                                                        ? [
-                                                              ...data.availability_months,
-                                                              month,
-                                                          ]
-                                                        : data.availability_months.filter(
-                                                              (m) => m !== month
-                                                          )
-                                                )
-                                            }
-                                        />
-                                    ))}
-                                </div>
-                                {errors.availability_months && (
-                                    <label className="label">
-                                        <span className="label-text-alt text-error">
-                                            {errors.availability_months}
-                                        </span>
-                                    </label>
-                                )}
-                            </div>
-                        </>
-                    )}
-
-                    {/* Step 5: Media & Dates */}
-                    {step === 5 && (
-                        <>
-                            <FormFileInput
-                                label="Gallery Images"
-                                name="gallery_images"
-                                onChange={handleGalleryImageChange}
-                                accept=".jpg,.jpeg,.png,.gif,.webp"
-                                multiple
-                                error={errors.gallery_images}
-                            />
-
-                            {galleryPreviews.length > 0 && (
-                                <div className="mt-4">
-                                    <label className="label">
-                                        <span className="label-text">
-                                            Gallery Previews:
-                                        </span>
-                                    </label>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        {galleryPreviews.map(
-                                            (preview, index) => (
-                                                <ImagePreview
-                                                    key={index}
-                                                    src={preview.url}
-                                                    onRemove={() =>
-                                                        removeGalleryImage(
-                                                            index
-                                                        )
-                                                    }
-                                                    alt={`Gallery preview ${
-                                                        index + 1
-                                                    }`}
-                                                />
-                                            )
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            <FormInput
-                                label="Start Date"
-                                name="start_date"
-                                type="date"
-                                value={data.start_date}
-                                onChange={(e) =>
-                                    setData("start_date", e.target.value)
-                                }
-                                error={errors.start_date}
-                            />
-                        </>
-                    )}
-
-                    <div className="flex items-center justify-between pt-6">
-                        {step > 1 && (
-                            <button
-                                type="button"
-                                onClick={handlePrevStep}
-                                className="btn btn-ghost"
-                            >
-                                Back
-                            </button>
+                                    options={[
+                                        {
+                                            value: "",
+                                            label: "Select Subcategory",
+                                        },
+                                        ...(selectedCategoryData?.subcategories?.map(
+                                            (sub) => ({
+                                                value: sub.id,
+                                                label: sub.name,
+                                            })
+                                        ) || []),
+                                    ]}
+                                    error={errors.subcategory_id}
+                                />
+                            </>
                         )}
 
-                        <div className="ml-auto">
-                            {step === 5 ? (
-                                <button
-                                    type="submit"
-                                    disabled={processing}
-                                    className={`btn btn-primary ${
-                                        processing ? "loading" : ""
+                        {/* Step 2: Project Details */}
+                        {step === 2 && (
+                            <>
+                                <LocationDropdown
+                                    selectedCountry={data.country || null}
+                                    selectedState={data.state || null}
+                                    selectedCity={data.city || null}
+                                    onCountryChange={(value) => {
+                                        setData("country", value);
+                                        setData("state", "");
+                                        setData("city", "");
+                                        clearErrors("country");
+                                    }}
+                                    onStateChange={(value) => {
+                                        setData("state", value);
+                                        setData("city", "");
+                                        clearErrors("state");
+                                    }}
+                                    onCityChange={(value) => {
+                                        setData("city", value);
+                                        clearErrors("city");
+                                    }}
+                                    isEditing={isEditing}
+                                    errors={errors}
+                                />
+                                {showError("country")}
+                                {showError("state")}
+                                {showError("city")}
+
+                                <VolunteerSkillsDropdown
+                                    label="Required Skills"
+                                    multiple={true}
+                                    onSkillsChange={(skills) =>
+                                        setData("skills", skills)
+                                    }
+                                    initialSelectedSkills={data.skills || []}
+                                    required={false}
+                                    maxHeight="300px"
+                                />
+
+                                <FormTextarea
+                                    label="Short Description"
+                                    name="short_description"
+                                    value={data.short_description}
+                                    onChange={handleShortDescriptionChange}
+                                    error={errors.short_description}
+                                    maxLength={500}
+                                />
+                                <div
+                                    className={`text-sm mb-4 ${
+                                        charCount === 499
+                                            ? "text-error"
+                                            : "text-base-content/70"
                                     }`}
                                 >
-                                    {processing ? "" : "Submit Project"}
-                                </button>
-                            ) : (
+                                    {charCount}/500 characters{" "}
+                                    {charCount === 499 && " - Maximum reached"}
+                                </div>
+                                <FormTextarea
+                                    label="Detailed Description"
+                                    name="detailed_description"
+                                    value={data.detailed_description}
+                                    onChange={(e) =>
+                                        setData(
+                                            "detailed_description",
+                                            e.target.value
+                                        )
+                                    }
+                                    rows={5}
+                                    error={errors.detailed_description}
+                                />
+                            </>
+                        )}
+
+                        {/* Step 3: Duration & Routine */}
+                        {step === 3 && (
+                            <>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <FormInput
+                                        label="Minimum Stay"
+                                        name="min_duration"
+                                        type="number"
+                                        value={data.min_duration}
+                                        onChange={(e) =>
+                                            setData(
+                                                "min_duration",
+                                                e.target.value
+                                            )
+                                        }
+                                        error={errors.min_duration}
+                                    />
+
+                                    <FormInput
+                                        label="Maximum Stay"
+                                        name="max_duration"
+                                        type="number"
+                                        value={data.max_duration}
+                                        onChange={(e) =>
+                                            setData(
+                                                "max_duration",
+                                                e.target.value
+                                            )
+                                        }
+                                        error={errors.max_duration}
+                                    />
+                                </div>
+
+                                <FormSelect
+                                    label="Duration Type"
+                                    name="duration_type"
+                                    value={data.duration_type}
+                                    onChange={(e) =>
+                                        setData("duration_type", e.target.value)
+                                    }
+                                    options={[
+                                        { value: "Days", label: "Days" },
+                                        { value: "Weeks", label: "Weeks" },
+                                        { value: "Months", label: "Months" },
+                                    ]}
+                                    error={errors.duration_type}
+                                />
+
+                                <FormTextarea
+                                    label="Daily Routine"
+                                    name="daily_routine"
+                                    value={data.daily_routine}
+                                    maxLength={MAX_VALUES}
+                                    onChange={(e) =>
+                                        setData("daily_routine", e.target.value)
+                                    }
+                                    rows={4}
+                                    error={errors.daily_routine}
+                                />
+                            </>
+                        )}
+
+                        {/* Step 4: Pricing & Availability */}
+                        {step === 4 && (
+                            <>
+                                <FormSelect
+                                    label="Project Type"
+                                    name="type_of_project"
+                                    value={data.type_of_project}
+                                    onChange={(e) => {
+                                        setData(
+                                            "type_of_project",
+                                            e.target.value
+                                        );
+                                        if (e.target.value === "Free") {
+                                            setData("fees", "");
+                                            setData("includes", []);
+                                            setData("excludes", []);
+                                            setData("category_of_charge", "");
+                                        }
+                                    }}
+                                    options={[
+                                        { value: "Free", label: "Free" },
+                                        { value: "Paid", label: "Paid" },
+                                    ]}
+                                    error={errors.type_of_project}
+                                />
+
+                                {data.type_of_project === "Paid" && (
+                                    <>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <FormInput
+                                                label="Fees"
+                                                name="fees"
+                                                type="number"
+                                                value={data.fees}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        "fees",
+                                                        e.target.value
+                                                    )
+                                                }
+                                                error={errors.fees}
+                                            />
+
+                                            <FormSelect
+                                                label="Category of Charge"
+                                                name="category_of_charge"
+                                                value={data.category_of_charge}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        "category_of_charge",
+                                                        e.target.value
+                                                    )
+                                                }
+                                                options={[
+                                                    {
+                                                        value: "Day",
+                                                        label: "Per Day",
+                                                    },
+                                                    {
+                                                        value: "Week",
+                                                        label: "Per Week",
+                                                    },
+                                                    {
+                                                        value: "Month",
+                                                        label: "Per Month",
+                                                    },
+                                                ]}
+                                                error={
+                                                    errors.category_of_charge
+                                                }
+                                            />
+                                        </div>
+                                        {/* NEW: Multi-select for includes */}
+                                        <EnhancedIncludesExcludesDropdown
+                                            label="Fees Includes"
+                                            name="includes"
+                                            value={data.includes}
+                                            onChange={(field, value) =>
+                                                setData(field, value)
+                                            }
+                                            options={includesOptions}
+                                            error={errors.includes}
+                                            placeholder="Select what's included..."
+                                            required={
+                                                data.type_of_project === "Paid"
+                                            }
+                                        />
+
+                                        <EnhancedIncludesExcludesDropdown
+                                            label="Fees Excludes"
+                                            name="excludes"
+                                            value={data.excludes}
+                                            onChange={(field, value) =>
+                                                setData(field, value)
+                                            }
+                                            options={excludesOptions}
+                                            error={errors.excludes}
+                                            placeholder="Select what's not included..."
+                                            required={
+                                                data.type_of_project === "Paid"
+                                            }
+                                        />
+                                        <FormCheckbox
+                                            label="Accept Points Exchange"
+                                            name="point_exchange"
+                                            checked={data.point_exchange}
+                                            onChange={(e) =>
+                                                setData(
+                                                    "point_exchange",
+                                                    e.target.checked
+                                                )
+                                            }
+                                        />
+                                    </>
+                                )}
+
+                                <FormTextarea
+                                    label="Activities"
+                                    name="activities"
+                                    value={data.activities}
+                                    maxLength={SHORT_DESCRIPTION}
+                                    onChange={(e) =>
+                                        setData("activities", e.target.value)
+                                    }
+                                    error={errors.activities}
+                                />
+
+                                <div className="mb-4">
+                                    <label className="label">
+                                        <span className="label-text">
+                                            Suitable For
+                                        </span>
+                                    </label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {suitableOptions.map((option) => (
+                                            <FormCheckbox
+                                                key={option}
+                                                label={option}
+                                                checked={data.suitable.includes(
+                                                    option
+                                                )}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        "suitable",
+                                                        e.target.checked
+                                                            ? [
+                                                                  ...data.suitable,
+                                                                  option,
+                                                              ]
+                                                            : data.suitable.filter(
+                                                                  (s) =>
+                                                                      s !==
+                                                                      option
+                                                              )
+                                                    )
+                                                }
+                                            />
+                                        ))}
+                                    </div>
+                                    {errors.suitable && (
+                                        <label className="label">
+                                            <span className="label-text-alt text-error">
+                                                {errors.suitable}
+                                            </span>
+                                        </label>
+                                    )}
+                                </div>
+
+                                <div className="mb-4">
+                                    <label className="label">
+                                        <span className="label-text">
+                                            Availability Months
+                                        </span>
+                                    </label>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                                        {months.map((month) => (
+                                            <FormCheckbox
+                                                key={month}
+                                                label={month}
+                                                checked={data.availability_months.includes(
+                                                    month
+                                                )}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        "availability_months",
+                                                        e.target.checked
+                                                            ? [
+                                                                  ...data.availability_months,
+                                                                  month,
+                                                              ]
+                                                            : data.availability_months.filter(
+                                                                  (m) =>
+                                                                      m !==
+                                                                      month
+                                                              )
+                                                    )
+                                                }
+                                            />
+                                        ))}
+                                    </div>
+                                    {errors.availability_months && (
+                                        <label className="label">
+                                            <span className="label-text-alt text-error">
+                                                {errors.availability_months}
+                                            </span>
+                                        </label>
+                                    )}
+                                </div>
+                            </>
+                        )}
+
+                        {/* Step 5: Media & Dates */}
+                        {step === 5 && (
+                            <>
+                                <FormFileInput
+                                    label="Gallery Images"
+                                    name="gallery_images"
+                                    onChange={handleGalleryImageChange}
+                                    accept=".jpg,.jpeg,.png,.gif,.webp"
+                                    multiple
+                                    error={errors.gallery_images}
+                                />
+
+                                {galleryPreviews.length > 0 && (
+                                    <div className="mt-4">
+                                        <label className="label">
+                                            <span className="label-text">
+                                                Gallery Previews:
+                                            </span>
+                                        </label>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            {galleryPreviews.map(
+                                                (preview, index) => (
+                                                    <ImagePreview
+                                                        key={index}
+                                                        src={preview.url}
+                                                        onRemove={() =>
+                                                            removeGalleryImage(
+                                                                index
+                                                            )
+                                                        }
+                                                        alt={`Gallery preview ${
+                                                            index + 1
+                                                        }`}
+                                                    />
+                                                )
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <FormInput
+                                    label="Start Date"
+                                    name="start_date"
+                                    type="date"
+                                    value={data.start_date}
+                                    onChange={(e) =>
+                                        setData("start_date", e.target.value)
+                                    }
+                                    error={errors.start_date}
+                                />
+                            </>
+                        )}
+
+                        <div className="flex items-center justify-between pt-6">
+                            {step > 1 && (
                                 <button
                                     type="button"
-                                    onClick={(e) => handleNextStep(e)}
-                                    className="btn btn-primary"
+                                    onClick={handlePrevStep}
+                                    className="btn btn-ghost"
                                 >
-                                    Next
+                                    Back
                                 </button>
                             )}
+
+                            <div className="ml-auto">
+                                {step === 5 ? (
+                                    <button
+                                        type="submit"
+                                        disabled={processing}
+                                        className={`btn btn-primary ${
+                                            processing ? "loading" : ""
+                                        }`}
+                                    >
+                                        {processing ? "" : "Submit Project"}
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => handleNextStep(e)}
+                                        className="btn btn-primary"
+                                    >
+                                        Next
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </form>
+                ) : (
+                    // Show message when account errors prevent form submission
+                    <div className="text-center py-8">
+                        <div className="alert alert-error mb-4">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="stroke-current shrink-0 h-6 w-6"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="2"
+                                    d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                            </svg>
+                            <div>
+                                <h3 className="font-bold">Unable to Proceed</h3>
+                                <p>
+                                    Please resolve the account issues before
+                                    creating or editing projects.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="space-x-4">
+                            {errors.account &&
+                                errors.account.includes("deactivated") && (
+                                    <a
+                                        href={route("organization.settings")}
+                                        className="btn btn-error"
+                                    >
+                                        Go to Settings
+                                    </a>
+                                )}
+                            {errors.profile &&
+                                errors.profile.includes(
+                                    "complete your organization profile"
+                                ) && (
+                                    <a
+                                        href={route("organization.profile")}
+                                        className="btn btn-error"
+                                    >
+                                        Complete Profile
+                                    </a>
+                                )}
+                            <a
+                                href={route("organization.projects")}
+                                className="btn btn-ghost"
+                            >
+                                Back to Projects
+                            </a>
                         </div>
                     </div>
-                </form>
+                )}
             </div>
         </OrganizationLayout>
     );

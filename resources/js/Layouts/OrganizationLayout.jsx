@@ -21,6 +21,7 @@ import { Dialog, Transition } from "@headlessui/react";
 import SidebarLink from "@/Components/SidebarLink";
 import FloatingConversation from "@/Components/FloatingConversation";
 import FloatingChat from "@/Components/FloatingChat";
+import { Cog6ToothIcon } from "@heroicons/react/24/solid";
 
 export default function OrganizationLayout({ children, auth }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -263,7 +264,7 @@ export default function OrganizationLayout({ children, auth }) {
                                                     <FolderKanban className="w-5 h-5 mr-3" />
                                                     My Projects
                                                 </SidebarLink>
-                                                <SidebarLink
+                                                {/* <SidebarLink
                                                     href={route(
                                                         "organization.messages"
                                                     )}
@@ -276,7 +277,7 @@ export default function OrganizationLayout({ children, auth }) {
                                                     <span className="ml-auto bg-blue-500 text-white text-xs rounded-full px-2 py-1">
                                                         3
                                                     </span>
-                                                </SidebarLink>
+                                                </SidebarLink> */}
                                                 <SidebarLink
                                                     href={route(
                                                         "organization.bookings"
@@ -298,9 +299,9 @@ export default function OrganizationLayout({ children, auth }) {
                                                 >
                                                     <Star className="w-5 h-5 mr-3" />
                                                     Rewards
-                                                    <span className="ml-auto bg-amber-500 text-white text-xs rounded-full px-2 py-1">
+                                                    {/* <span className="ml-auto bg-amber-500 text-white text-xs rounded-full px-2 py-1">
                                                         1.2k
-                                                    </span>
+                                                    </span> */}
                                                 </SidebarLink>
                                             </nav>
 
@@ -353,7 +354,6 @@ export default function OrganizationLayout({ children, auth }) {
                         </div>
                     </div>
                 </div>
-
                 {/* User Profile */}
                 {/* <div className="p-6 border-b border-slate-100 bg-gradient-to-b from-white to-slate-50/50">
                     <div className="flex items-center space-x-4">
@@ -385,7 +385,6 @@ export default function OrganizationLayout({ children, auth }) {
                         </div>
                     </div>
                 </div> */}
-
                 {/* Navigation */}
                 <nav className="flex-1 px-4 py-6 space-y-2">
                     <SidebarLink
@@ -435,12 +434,11 @@ export default function OrganizationLayout({ children, auth }) {
                     >
                         <Star className="w-5 h-5 mr-3" />
                         Rewards
-                        <span className="ml-auto bg-amber-500 text-white text-xs font-medium rounded-full px-2 py-1 min-w-6 text-center">
+                        {/* <span className="ml-auto bg-amber-500 text-white text-xs font-medium rounded-full px-2 py-1 min-w-6 text-center">
                             1.2k
-                        </span>
+                        </span> */}
                     </SidebarLink>
                 </nav>
-
                 {/* Bottom Section */}
                 <div className="p-6 border-t border-slate-200 space-y-3 bg-slate-50/50">
                     <SidebarLink
@@ -449,8 +447,19 @@ export default function OrganizationLayout({ children, auth }) {
                         className="group flex items-center w-full px-4 py-3 text-left rounded-xl hover:bg-white hover:text-slate-700 transition-all duration-200 text-slate-600 hover:shadow-sm"
                     >
                         <User className="w-5 h-5 mr-3" />
-                        Profile & Settings
+                        Organization Info
                     </SidebarLink>
+
+                    {/* Add this new link */}
+                    <SidebarLink
+                        href={route("organization.settings")}
+                        icon={Cog6ToothIcon} // Import from heroicons
+                        className="group flex items-center w-full px-4 py-3 text-left rounded-xl hover:bg-white hover:text-slate-700 transition-all duration-200 text-slate-600 hover:shadow-sm"
+                    >
+                        <Cog6ToothIcon className="w-5 h-5 mr-3" />
+                        Account Settings
+                    </SidebarLink>
+
                     <Link
                         href={route("logout")}
                         method="post"
@@ -533,13 +542,13 @@ export default function OrganizationLayout({ children, auth }) {
                                 aria-label="Messages"
                             >
                                 <MessageSquare className="w-5 h-5 text-slate-600 group-hover:text-slate-700" />
-                                <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center font-medium">
+                                {/* <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center font-medium">
                                     3
-                                </span>
+                                </span> */}
                             </button>
 
                             {/* User Menu */}
-                            <div className="dropdown dropdown-end">
+                            {/* <div className="dropdown dropdown-end">
                                 <div
                                     tabIndex={0}
                                     role="button"
@@ -594,7 +603,7 @@ export default function OrganizationLayout({ children, auth }) {
                                         </Link>
                                     </li>
                                 </ul>
-                            </div>
+                            </div> */}
                         </div>
                     </div>
                 </header>

@@ -353,6 +353,14 @@ Route::prefix('organization')->middleware(['check.role:Organization', 'auth'])->
     Route::get('/paypal/featured/cancel', [FeaturedProjectController::class, 'paypalCancel'])
         ->name('paypal.featured.cancel');
 
+    Route::get('/settings', [OrganizationController::class, 'settings'])->name('organization.settings');
+    Route::post('/settings/change-password', [OrganizationController::class, 'changePassword'])->name('organization.settings.change-password');
+    Route::post('/settings/deactivate-account', [OrganizationController::class, 'deactivateAccount'])->name('organization.settings.deactivate-account');
+    Route::post('/settings/reactivate-account', [OrganizationController::class, 'reactivateAccount'])
+        ->name('organization.settings.reactivate-account');
+    Route::post('/settings/update-email', [OrganizationController::class, 'updateEmail'])->name('organization.settings.update-email');
+    Route::post('/settings/update-notifications', [OrganizationController::class, 'updateNotificationPreferences'])->name('organization.settings.update-notifications');
+
     // Verification
     Route::get('/{organization_profile}/verification', [OrganizationController::class, 'verification'])->name('organization.verification');
     Route::post('/{organization_profile}/verification', [OrganizationController::class, 'storeVerification'])->name('organization.verification.store');
