@@ -30,5 +30,37 @@ export default defineConfig(({ mode }) => {
                 VITE_REVERB_SCHEME: JSON.stringify(env.VITE_REVERB_SCHEME),
             },
         },
+        // ADD THESE OPTIONS:
+        build: {
+            rollupOptions: {
+                output: {
+                    manualChunks(id) {
+                        // Separate large location data into its own chunk
+                        if (id.includes("LocationDropdown")) {
+                            return "location-data";
+                        }
+
+                        // Separate vendor dependencies
+                        if (id.includes("node_modules")) {
+                            if (
+                                id.includes("react") ||
+                                id.includes("react-dom") ||
+                                id.includes("scheduler")
+                            ) {
+                                return "vendor-react";
+                            }
+                            if (id.includes("@inertiajs")) {
+                                return "vendor-inertia";
+                            }
+                            if (id.includes("lucide-react")) {
+                                return "vendor-icons";
+                            }
+                            return "vendor";
+                        }
+                    },
+                },
+            },
+            chunkSizeWarningLimit: 1000, // Temporarily increase to see other warnings
+        },
     };
 });
