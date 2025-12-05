@@ -10,6 +10,7 @@ export default function ViewIndividual({
     sponsorship,
     relatedSponsorships,
     fundedAllocations = {},
+    // auth,
 }) {
     const { props } = usePage();
     const { auth } = props;
@@ -679,7 +680,7 @@ export default function ViewIndividual({
 
     if (!sponsorship) {
         return (
-            <GeneralPages>
+            <GeneralPages auth={auth}>
                 <div className="min-h-screen flex items-center justify-center bg-gray-50">
                     <div className="text-center px-4">
                         <h1 className="text-3xl font-bold text-gray-900">
@@ -701,7 +702,7 @@ export default function ViewIndividual({
     }
 
     return (
-        <GeneralPages title="Sponsorship Details">
+        <GeneralPages auth={auth} title="Sponsorship Details">
             <div className="min-h-screen bg-gray-50 py-4 sm:py-8">
                 {/* Payment Processing Overlay */}
                 <PaymentProcessingOverlay />

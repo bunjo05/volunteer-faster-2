@@ -2,7 +2,7 @@ import GeneralPages from "@/Layouts/GeneralPages";
 import { Head, useForm } from "@inertiajs/react";
 import { useState } from "react";
 
-export default function Contact() {
+export default function Contact({ auth }) {
     const { data, setData, post, processing, errors } = useForm({
         name: "",
         email: "",
@@ -29,7 +29,7 @@ export default function Contact() {
     };
 
     return (
-        <GeneralPages>
+        <GeneralPages auth={auth} title="Contact Us">
             <Head title="Contact Us" />
 
             {/* Hero Section */}

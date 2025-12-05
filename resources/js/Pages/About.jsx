@@ -2,9 +2,9 @@ import GeneralPages from "@/Layouts/GeneralPages";
 import React from "react";
 import { Head } from "@inertiajs/react";
 
-export default function About() {
+export default function About({ auth }) {
     return (
-        <GeneralPages>
+        <GeneralPages auth={auth} title="About Us">
             <Head title="About Us" />
 
             {/* Hero Section */}
@@ -312,7 +312,7 @@ export default function About() {
                                 Become a Volunteer
                             </a>
                             <a
-                                href="/register-organization"
+                                href="/register"
                                 className="border-2 border-white text-white px-8 py-4 rounded-full font-bold hover:bg-white/10 transition-all hover:scale-105"
                             >
                                 Register Your Organization

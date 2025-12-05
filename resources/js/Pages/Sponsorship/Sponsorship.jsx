@@ -2,9 +2,13 @@ import GeneralPages from "@/Layouts/GeneralPages";
 import React from "react";
 import { motion } from "framer-motion";
 import { Link } from "@inertiajs/react";
-import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
+// import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 
-export default function Sponsorship({ sponsorships, successfulSponsorships }) {
+export default function Sponsorship({
+    sponsorships,
+    successfulSponsorships,
+    auth,
+}) {
     const formatName = (fullName) => {
         if (!fullName) return "Volunteer";
         const parts = fullName.trim().split(/\s+/);
@@ -155,7 +159,10 @@ export default function Sponsorship({ sponsorships, successfulSponsorships }) {
                             <motion.div
                                 initial={{ width: 0 }}
                                 animate={{ width: `${progress}%` }}
-                                transition={{ duration: 1, ease: "easeOut" }}
+                                transition={{
+                                    duration: 1,
+                                    ease: "easeOut",
+                                }}
                                 className={`h-1.5 rounded-full ${
                                     isSuccessful
                                         ? "bg-gradient-to-r from-green-500 to-emerald-600"
@@ -201,7 +208,7 @@ export default function Sponsorship({ sponsorships, successfulSponsorships }) {
     };
 
     return (
-        <GeneralPages title="Sponsorship Opportunities">
+        <GeneralPages title="Sponsorship Opportunities" auth={auth}>
             <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-10">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     {/* Header */}

@@ -1,6 +1,31 @@
 import GeneralPages from "@/Layouts/GeneralPages";
 import { Link } from "@inertiajs/react";
 import { useState } from "react";
+import {
+    Search,
+    Filter,
+    MapPin,
+    Clock,
+    Users,
+    Award,
+    Star,
+    Building,
+    Globe,
+    Calendar,
+    ChevronRight,
+    X,
+    TrendingUp,
+    Heart,
+    Target,
+    Shield,
+    Eye,
+    Briefcase,
+    DollarSign,
+    CheckCircle,
+    Sparkles,
+    Building2,
+    Navigation,
+} from "lucide-react";
 
 export default function Projects({
     projects: initialProjects,
@@ -16,6 +41,7 @@ export default function Projects({
         state: "",
         city: "",
     });
+    const [activeFilters, setActiveFilters] = useState([]);
 
     // Extract unique locations from projects
     const allCountries = [
@@ -33,7 +59,10 @@ export default function Projects({
         const matchesSearch =
             project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             project.short_description
-                .toLowerCase()
+                ?.toLowerCase()
+                .includes(searchTerm.toLowerCase()) ||
+            project.organization_profile?.name
+                ?.toLowerCase()
                 .includes(searchTerm.toLowerCase());
 
         const matchesCategory =
@@ -41,7 +70,7 @@ export default function Projects({
 
         const matchesPaymentType =
             !filters.type_of_project ||
-            project.type_of_project.toLowerCase() ===
+            project.type_of_project?.toLowerCase() ===
                 filters.type_of_project.toLowerCase();
 
         const matchesCountry =
@@ -71,223 +100,353 @@ export default function Projects({
     const organizationVerified =
         organization_verification?.status === "Approved";
 
+    const handleFilterChange = (key, value) => {
+        const newFilters = { ...filters, [key]: value };
+        if (key === "country") {
+            newFilters.state = "";
+            newFilters.city = "";
+        }
+        if (key === "state") {
+            newFilters.city = "";
+        }
+        setFilters(newFilters);
+
+        // Update active filters for display
+        if (value) {
+            setActiveFilters((prev) => [
+                ...prev.filter((f) => f.key !== key),
+                { key, value },
+            ]);
+        } else {
+            setActiveFilters((prev) => prev.filter((f) => f.key !== key));
+        }
+    };
+
+    const removeFilter = (key) => {
+        handleFilterChange(key, "");
+    };
+
+    const resetFilters = () => {
+        setSearchTerm("");
+        setFilters({
+            category: "",
+            type_of_project: "",
+            country: "",
+            state: "",
+            city: "",
+        });
+        setActiveFilters([]);
+    };
+
+    const getFilterLabel = (key, value) => {
+        const labels = {
+            category: `Category: ${value}`,
+            type_of_project: `Type: ${value === "paid" ? "Paid" : "Free"}`,
+            country: `Country: ${value}`,
+            state: `State: ${value}`,
+            city: `City: ${value}`,
+        };
+        return labels[key] || `${key}: ${value}`;
+    };
+
     return (
         <GeneralPages auth={auth}>
             {/* Hero Section */}
-            <div className="hero h-64 bg-gradient-to-r from-primary to-secondary text-primary-content">
-                <div className="hero-content text-center">
-                    <div className="max-w-2xl">
-                        <h1 className="text-4xl md:text-5xl font-bold mb-4">
-                            Discover Volunteer Opportunities
+            <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white">
+                <div className="absolute inset-0 bg-black/20" />
+                <div className="container relative mx-auto px-4 py-20 lg:py-24">
+                    <div className="max-w-3xl mx-auto text-center">
+                        <div className="inline-flex items-center justify-center w-20 h-20 bg-white/10 backdrop-blur-sm rounded-2xl mb-6">
+                            <Target className="w-10 h-10" />
+                        </div>
+                        <h1 className="text-4xl lg:text-5xl xl:text-6xl font-bold mb-6 leading-tight">
+                            Discover Impactful Volunteer Opportunities
                         </h1>
-                        <p className="text-lg opacity-90">
-                            Find meaningful projects that align with your
-                            passions and create lasting impact.
+                        <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
+                            Join meaningful projects that align with your
+                            passions, skills, and create lasting positive change
+                            worldwide.
                         </p>
+                        <div className="flex flex-wrap justify-center gap-3">
+                            <div className="flex items-center bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full">
+                                <Users className="w-4 h-4 mr-2" />
+                                <span>
+                                    {filteredProjects.length} Active Projects
+                                </span>
+                            </div>
+                            <div className="flex items-center bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full">
+                                <Globe className="w-4 h-4 mr-2" />
+                                <span>{allCountries.length} Countries</span>
+                            </div>
+                            <div className="flex items-center bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full">
+                                <Building2 className="w-4 h-4 mr-2" />
+                                <span>
+                                    {
+                                        new Set(
+                                            initialProjects.map(
+                                                (p) =>
+                                                    p.organization_profile?.id
+                                            )
+                                        ).size
+                                    }{" "}
+                                    Organizations
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
             {/* Search and Filter Section */}
-            <div className="sticky top-[70px] z-10 bg-base-100 shadow-sm">
-                <div className="container mx-auto p-6">
-                    <div className="flex flex-col md:flex-row gap-4 md:items-end">
-                        {/* Search Input */}
-                        <div className="flex-1">
-                            <label className="input input-bordered flex items-center gap-2">
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 16 16"
-                                    fill="currentColor"
-                                    className="w-4 h-4 opacity-70"
+            <div className="sticky top-[70px] z-40 bg-white shadow-lg">
+                <div className="container mx-auto px-4 py-6">
+                    {/* Main Search */}
+                    <div className="mb-6">
+                        <div className="relative">
+                            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                            <input
+                                type="text"
+                                className="w-full pl-12 pr-4 py-4 text-lg border-2 border-gray-200 rounded-2xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                                placeholder="Search for projects, organizations, or causes..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                            {searchTerm && (
+                                <button
+                                    onClick={() => setSearchTerm("")}
+                                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                                 >
-                                    <path
-                                        fillRule="evenodd"
-                                        d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"
-                                        clipRule="evenodd"
-                                    />
-                                </svg>
-                                <input
-                                    type="text"
-                                    className="grow"
-                                    placeholder="Search projects..."
-                                    value={searchTerm}
-                                    onChange={(e) =>
-                                        setSearchTerm(e.target.value)
-                                    }
-                                />
-                            </label>
+                                    <X className="w-5 h-5" />
+                                </button>
+                            )}
                         </div>
-
-                        {/* Category Filter */}
-                        <div className="w-full md:w-48">
-                            <select
-                                className="select select-bordered w-full"
-                                value={filters.category}
-                                onChange={(e) =>
-                                    setFilters({
-                                        ...filters,
-                                        category: e.target.value,
-                                    })
-                                }
-                            >
-                                <option value="">All Categories</option>
-                                {categories.map((category) => (
-                                    <option key={category} value={category}>
-                                        {category}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* Payment Type Filter */}
-                        <div className="w-full md:w-48">
-                            <select
-                                className="select select-bordered w-full"
-                                value={filters.type_of_project}
-                                onChange={(e) =>
-                                    setFilters({
-                                        ...filters,
-                                        type_of_project: e.target.value,
-                                    })
-                                }
-                            >
-                                <option value="">All Types</option>
-                                <option value="paid">Paid</option>
-                                <option value="free">Free</option>
-                            </select>
-                        </div>
-
-                        {/* Country Filter */}
-                        <div className="w-full md:w-48">
-                            <select
-                                className="select select-bordered w-full"
-                                value={filters.country}
-                                onChange={(e) =>
-                                    setFilters({
-                                        ...filters,
-                                        country: e.target.value,
-                                        state: "",
-                                        city: "",
-                                    })
-                                }
-                            >
-                                <option value="">All Countries</option>
-                                {allCountries.map((country) => (
-                                    <option key={country} value={country}>
-                                        {country}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* State Filter - only shown if a country is selected */}
-                        {filters.country && (
-                            <div className="w-full md:w-48">
-                                <select
-                                    className="select select-bordered w-full"
-                                    value={filters.state}
-                                    onChange={(e) =>
-                                        setFilters({
-                                            ...filters,
-                                            state: e.target.value,
-                                            city: "",
-                                        })
-                                    }
-                                >
-                                    <option value="">All States</option>
-                                    {allStates
-                                        .filter((state) =>
-                                            initialProjects.some(
-                                                (p) =>
-                                                    p.country ===
-                                                        filters.country &&
-                                                    p.state === state
-                                            )
-                                        )
-                                        .map((state) => (
-                                            <option key={state} value={state}>
-                                                {state}
-                                            </option>
-                                        ))}
-                                </select>
-                            </div>
-                        )}
-
-                        {/* City Filter - only shown if a state is selected */}
-                        {filters.state && (
-                            <div className="w-full md:w-48">
-                                <select
-                                    className="select select-bordered w-full"
-                                    value={filters.city}
-                                    onChange={(e) =>
-                                        setFilters({
-                                            ...filters,
-                                            city: e.target.value,
-                                        })
-                                    }
-                                >
-                                    <option value="">All Cities</option>
-                                    {allCities
-                                        .filter((city) =>
-                                            initialProjects.some(
-                                                (p) =>
-                                                    p.state === filters.state &&
-                                                    p.city === city
-                                            )
-                                        )
-                                        .map((city) => (
-                                            <option key={city} value={city}>
-                                                {city}
-                                            </option>
-                                        ))}
-                                </select>
-                            </div>
-                        )}
-
-                        {/* Reset Filters */}
-                        <button
-                            onClick={() => {
-                                setSearchTerm("");
-                                setFilters({
-                                    category: "",
-                                    type_of_project: "",
-                                    country: "",
-                                    state: "",
-                                    city: "",
-                                });
-                            }}
-                            className="btn btn-ghost"
-                        >
-                            Reset
-                        </button>
                     </div>
+
+                    {/* Filter Controls */}
+                    <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+                        <div className="flex items-center">
+                            <Filter className="w-5 h-5 text-gray-500 mr-2" />
+                            <span className="text-gray-700 font-medium">
+                                Filter by:
+                            </span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-3 flex-1">
+                            {/* Category Filter */}
+                            <div className="relative min-w-[200px]">
+                                <select
+                                    className="w-full pl-4 pr-10 py-3 bg-white border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none"
+                                    value={filters.category}
+                                    onChange={(e) =>
+                                        handleFilterChange(
+                                            "category",
+                                            e.target.value
+                                        )
+                                    }
+                                >
+                                    <option value="">All Categories</option>
+                                    {categories.map((category) => (
+                                        <option key={category} value={category}>
+                                            {category}
+                                        </option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                                    <ChevronRight className="w-5 h-5 text-gray-400 rotate-90" />
+                                </div>
+                            </div>
+
+                            {/* Payment Type Filter */}
+                            <div className="relative min-w-[180px]">
+                                <select
+                                    className="w-full pl-4 pr-10 py-3 bg-white border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none"
+                                    value={filters.type_of_project}
+                                    onChange={(e) =>
+                                        handleFilterChange(
+                                            "type_of_project",
+                                            e.target.value
+                                        )
+                                    }
+                                >
+                                    <option value="">Project Type</option>
+                                    <option value="paid">
+                                        Paid Opportunities
+                                    </option>
+                                    <option value="free">
+                                        Volunteer Positions
+                                    </option>
+                                </select>
+                                <DollarSign className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            </div>
+
+                            {/* Location Filters */}
+                            <div className="relative min-w-[200px]">
+                                <select
+                                    className="w-full pl-4 pr-10 py-3 bg-white border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none"
+                                    value={filters.country}
+                                    onChange={(e) =>
+                                        handleFilterChange(
+                                            "country",
+                                            e.target.value
+                                        )
+                                    }
+                                >
+                                    <option value="">Select Country</option>
+                                    {allCountries.map((country) => (
+                                        <option key={country} value={country}>
+                                            {country}
+                                        </option>
+                                    ))}
+                                </select>
+                                <Globe className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            </div>
+
+                            {filters.country && (
+                                <div className="relative min-w-[180px]">
+                                    <select
+                                        className="w-full pl-4 pr-10 py-3 bg-white border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none"
+                                        value={filters.state}
+                                        onChange={(e) =>
+                                            handleFilterChange(
+                                                "state",
+                                                e.target.value
+                                            )
+                                        }
+                                    >
+                                        <option value="">
+                                            Select State/Region
+                                        </option>
+                                        {allStates
+                                            .filter((state) =>
+                                                initialProjects.some(
+                                                    (p) =>
+                                                        p.country ===
+                                                            filters.country &&
+                                                        p.state === state
+                                                )
+                                            )
+                                            .map((state) => (
+                                                <option
+                                                    key={state}
+                                                    value={state}
+                                                >
+                                                    {state}
+                                                </option>
+                                            ))}
+                                    </select>
+                                    <Navigation className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                </div>
+                            )}
+
+                            {filters.state && (
+                                <div className="relative min-w-[180px]">
+                                    <select
+                                        className="w-full pl-4 pr-10 py-3 bg-white border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none"
+                                        value={filters.city}
+                                        onChange={(e) =>
+                                            handleFilterChange(
+                                                "city",
+                                                e.target.value
+                                            )
+                                        }
+                                    >
+                                        <option value="">Select City</option>
+                                        {allCities
+                                            .filter((city) =>
+                                                initialProjects.some(
+                                                    (p) =>
+                                                        p.state ===
+                                                            filters.state &&
+                                                        p.city === city
+                                                )
+                                            )
+                                            .map((city) => (
+                                                <option key={city} value={city}>
+                                                    {city}
+                                                </option>
+                                            ))}
+                                    </select>
+                                    <MapPin className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                </div>
+                            )}
+
+                            {/* Reset Filters Button */}
+                            {activeFilters.length > 0 && (
+                                <button
+                                    onClick={resetFilters}
+                                    className="px-4 py-3 text-gray-700 hover:text-blue-600 font-medium flex items-center gap-2"
+                                >
+                                    <X className="w-5 h-5" />
+                                    Clear All
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Active Filters Display */}
+                    {activeFilters.length > 0 && (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                            {activeFilters.map((filter) => (
+                                <div
+                                    key={filter.key}
+                                    className="inline-flex items-center bg-blue-50 text-blue-700 px-3 py-2 rounded-lg"
+                                >
+                                    <span className="text-sm font-medium">
+                                        {getFilterLabel(
+                                            filter.key,
+                                            filter.value
+                                        )}
+                                    </span>
+                                    <button
+                                        onClick={() => removeFilter(filter.key)}
+                                        className="ml-2 hover:text-blue-900"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Projects Grid */}
-            <div className="container mx-auto p-6">
-                {/* Results Count */}
-                <div className="mb-8">
-                    <p className="text-base-content/70">
-                        Showing{" "}
-                        <span className="font-semibold">
-                            {filteredProjects.length}
-                        </span>{" "}
-                        {filteredProjects.length === 1 ? "project" : "projects"}
-                    </p>
+            {/* Results and Projects Grid */}
+            <div className="container mx-auto px-4 py-8">
+                {/* Results Header */}
+                <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                            Available Opportunities
+                        </h2>
+                        <p className="text-gray-600">
+                            Found{" "}
+                            <span className="font-bold text-blue-600">
+                                {filteredProjects.length}
+                            </span>{" "}
+                            projects matching your criteria
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center text-gray-600">
+                            <Eye className="w-5 h-5 mr-2" />
+                            <span>
+                                Showing {filteredProjects.length} of{" "}
+                                {initialProjects.length} total
+                            </span>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Project Cards */}
-                <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-                    {filteredProjects.length > 0 ? (
-                        filteredProjects.map((project) => (
+                {/* Projects Grid */}
+                {filteredProjects.length > 0 ? (
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        {filteredProjects.map((project) => (
                             <div
                                 key={project.id}
-                                className="card bg-base-100 shadow-sm hover:shadow-md transition-all duration-300 group"
+                                className="group bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-2xl hover:border-blue-200 transition-all duration-300"
                             >
-                                {/* Image with badges */}
-                                <figure className="relative h-56 overflow-hidden">
+                                {/* Image Section */}
+                                <div className="relative h-56 overflow-hidden">
                                     <img
                                         src={
                                             project.featured_image
@@ -295,74 +454,92 @@ export default function Projects({
                                                 : "/images/placeholder.jpg"
                                         }
                                         alt={project.title}
-                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                     />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
 
-                                    {/* Organization Logo */}
+                                    {/* Organization Badge */}
                                     {project.organization_profile?.logo && (
-                                        <div className="absolute bottom-2 right-2 w-16 h-16 rounded-full bg-base-100 p-1 shadow-md border border-base-200">
-                                            <div className="avatar">
-                                                <div className="w-full rounded-full">
+                                        <div className="absolute bottom-3 right-3">
+                                            <div className="relative">
+                                                <div className="w-14 h-14 rounded-xl bg-white p-1.5 shadow-lg">
                                                     <img
                                                         src={`/storage/${project.organization_profile.logo}`}
-                                                        alt="Organization logo"
+                                                        alt={
+                                                            project
+                                                                .organization_profile
+                                                                .name
+                                                        }
+                                                        className="w-full h-full object-cover rounded-lg"
                                                     />
                                                 </div>
-                                            </div>
-                                            {/* Verification Badge */}
-                                            {project.organization_profile
-                                                .verification?.status ===
-                                                "Approved" && (
-                                                <div className="absolute -top-1 -right-1">
-                                                    <div className="badge badge-primary p-1">
-                                                        <svg
-                                                            xmlns="http://www.w3.org/2000/svg"
-                                                            className="h-4 w-4"
-                                                            viewBox="0 0 20 20"
-                                                            fill="currentColor"
-                                                        >
-                                                            <path
-                                                                fillRule="evenodd"
-                                                                d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                                                clipRule="evenodd"
-                                                            />
-                                                        </svg>
+                                                {project.organization_profile
+                                                    .verification?.status ===
+                                                    "Approved" && (
+                                                    <div className="absolute -top-2 -right-2">
+                                                        <div className="bg-green-500 text-white p-1 rounded-full">
+                                                            <Shield className="w-4 h-4" />
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            )}
+                                                )}
+                                            </div>
                                         </div>
                                     )}
 
-                                    {/* Payment Type Badge */}
-                                    <div className="absolute top-4 right-4">
+                                    {/* Project Type Badge */}
+                                    <div className="absolute top-4 left-4">
                                         <div
-                                            className={`badge ${
+                                            className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${
                                                 project.type_of_project ===
                                                 "Paid"
-                                                    ? "badge-secondary"
-                                                    : "badge-accent"
+                                                    ? "bg-green-100 text-green-800"
+                                                    : "bg-blue-100 text-blue-800"
                                             }`}
                                         >
-                                            {project.type_of_project === "Paid"
-                                                ? "Paid"
-                                                : "Free"}
+                                            {project.type_of_project ===
+                                            "Paid" ? (
+                                                <>
+                                                    <DollarSign className="w-4 h-4 mr-1" />
+                                                    Paid
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Heart className="w-4 h-4 mr-1" />
+                                                    Volunteer
+                                                </>
+                                            )}
                                         </div>
                                     </div>
 
                                     {/* Featured Badge */}
                                     {project.is_featured && (
-                                        <div className="absolute top-4 left-4">
-                                            <div className="badge badge-primary">
+                                        <div className="absolute top-4 right-4">
+                                            <div className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-full text-sm font-medium">
+                                                <Star className="w-4 h-4 mr-1" />
                                                 Featured
                                             </div>
                                         </div>
                                     )}
-                                </figure>
+                                </div>
 
-                                {/* Card Content */}
-                                <div className="card-body">
-                                    <h2 className="card-title group-hover:text-primary transition-colors">
+                                {/* Content Section */}
+                                <div className="p-6">
+                                    {/* Category Tags */}
+                                    <div className="flex flex-wrap gap-2 mb-3">
+                                        {project.category?.name && (
+                                            <span className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full">
+                                                {project.category.name}
+                                            </span>
+                                        )}
+                                        {project.subcategory?.name && (
+                                            <span className="inline-flex items-center px-3 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded-full">
+                                                {project.subcategory.name}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Title */}
+                                    <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-blue-600 transition-colors line-clamp-2">
                                         <Link
                                             href={route(
                                                 "projects.home.view",
@@ -372,127 +549,163 @@ export default function Projects({
                                         >
                                             {project.title}
                                         </Link>
-                                    </h2>
+                                    </h3>
 
-                                    {/* Category Tags */}
-                                    <div className="flex flex-wrap gap-2">
-                                        <div className="badge badge-outline">
-                                            {project.category?.name}
+                                    {/* Organization Name */}
+                                    {project.organization_profile?.name && (
+                                        <div className="flex items-center text-gray-600 mb-4">
+                                            <Building className="w-4 h-4 mr-2" />
+                                            <span className="text-sm font-medium">
+                                                {
+                                                    project.organization_profile
+                                                        .name
+                                                }
+                                            </span>
                                         </div>
-                                        {project.subcategory?.name && (
-                                            <div className="badge badge-outline">
-                                                {project.subcategory?.name}
-                                            </div>
-                                        )}
-                                    </div>
+                                    )}
 
                                     {/* Location */}
-                                    <div className="flex items-center text-sm text-base-content/70 mt-2">
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            className="h-4 w-4 mr-1"
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            stroke="currentColor"
-                                        >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth="2"
-                                                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                                            />
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth="2"
-                                                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                                            />
-                                        </svg>
-                                        {[
-                                            project.city,
-                                            project.state,
-                                            project.country,
-                                        ]
-                                            .filter(Boolean)
-                                            .join(", ") || "Multiple Locations"}
+                                    <div className="flex items-center text-gray-600 mb-4">
+                                        <MapPin className="w-4 h-4 mr-2 flex-shrink-0" />
+                                        <span className="text-sm truncate">
+                                            {[
+                                                project.city,
+                                                project.state,
+                                                project.country,
+                                            ]
+                                                .filter(Boolean)
+                                                .join(", ") ||
+                                                "Multiple Locations"}
+                                        </span>
                                     </div>
 
                                     {/* Description */}
-                                    <p className="text-base-content/80 line-clamp-3 my-4">
+                                    <p className="text-gray-700 mb-6 line-clamp-3 text-sm leading-relaxed">
                                         {project.short_description}
                                     </p>
 
-                                    {/* CTA */}
-                                    <div className="card-actions justify-end">
+                                    {/* Stats and CTA */}
+                                    <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                                        <div className="flex items-center gap-4 text-sm text-gray-500">
+                                            {project.duration && (
+                                                <div className="flex items-center">
+                                                    <Clock className="w-4 h-4 mr-1" />
+                                                    <span>
+                                                        {project.duration}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {project.volunteers_needed && (
+                                                <div className="flex items-center">
+                                                    <Users className="w-4 h-4 mr-1" />
+                                                    <span>
+                                                        {
+                                                            project.volunteers_needed
+                                                        }{" "}
+                                                        needed
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
                                         <Link
                                             href={route(
                                                 "projects.home.view",
                                                 project.slug
                                             )}
-                                            className="btn btn-primary btn-sm"
+                                            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-300 group/btn"
                                         >
                                             View Details
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                className="h-4 w-4 ml-1"
-                                                fill="none"
-                                                viewBox="0 0 24 24"
-                                                stroke="currentColor"
-                                            >
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth="2"
-                                                    d="M9 5l7 7-7 7"
-                                                />
-                                            </svg>
+                                            <ChevronRight className="w-4 h-4 ml-2 group-hover/btn:translate-x-1 transition-transform" />
                                         </Link>
                                     </div>
                                 </div>
                             </div>
-                        ))
-                    ) : (
-                        <div className="col-span-full text-center py-12">
-                            <div className="text-base-content/30 mb-4">
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    className="w-16 h-16 mx-auto"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="1.5"
-                                        d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                    />
-                                </svg>
+                        ))}
+                    </div>
+                ) : (
+                    /* No Results State */
+                    <div className="max-w-md mx-auto text-center py-16">
+                        <div className="mb-6">
+                            <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-full mb-4">
+                                <Target className="w-10 h-10 text-gray-400" />
                             </div>
-                            <h3 className="text-xl font-medium mb-2">
+                            <h3 className="text-2xl font-bold text-gray-900 mb-2">
                                 No projects found
                             </h3>
-                            <p className="text-base-content/70 mb-4">
-                                Try adjusting your search or filters
+                            <p className="text-gray-600 mb-6">
+                                Try adjusting your search criteria or filters to
+                                find more opportunities.
                             </p>
-                            <button
-                                onClick={() => {
-                                    setSearchTerm("");
-                                    setFilters({
-                                        category: "",
-                                        type_of_project: "",
-                                        country: "",
-                                        state: "",
-                                        city: "",
-                                    });
-                                }}
-                                className="btn btn-primary"
-                            >
-                                Reset Filters
-                            </button>
                         </div>
-                    )}
-                </div>
+                        <div className="space-y-4">
+                            <button
+                                onClick={resetFilters}
+                                className="w-full py-3 px-6 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300"
+                            >
+                                Clear All Filters
+                            </button>
+                            <div className="text-sm text-gray-500">
+                                Or browse{" "}
+                                <Link
+                                    href="/projects"
+                                    className="text-blue-600 hover:text-blue-800 font-medium"
+                                >
+                                    all projects
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Quick Tips Section */}
+                {filteredProjects.length > 0 && (
+                    <div className="mt-12 pt-8 border-t border-gray-200">
+                        <div className="flex items-center justify-center mb-6">
+                            <Sparkles className="w-6 h-6 text-blue-600 mr-3" />
+                            <h3 className="text-xl font-bold text-gray-900">
+                                Finding the Right Opportunity
+                            </h3>
+                        </div>
+                        <div className="grid md:grid-cols-3 gap-6">
+                            <div className="bg-blue-50 rounded-xl p-5">
+                                <div className="flex items-center mb-3">
+                                    <Briefcase className="w-5 h-5 text-blue-600 mr-3" />
+                                    <h4 className="font-semibold text-gray-900">
+                                        Match Your Skills
+                                    </h4>
+                                </div>
+                                <p className="text-gray-700 text-sm">
+                                    Look for projects that align with your
+                                    expertise and interests for maximum impact.
+                                </p>
+                            </div>
+                            <div className="bg-blue-50 rounded-xl p-5">
+                                <div className="flex items-center mb-3">
+                                    <CheckCircle className="w-5 h-5 text-blue-600 mr-3" />
+                                    <h4 className="font-semibold text-gray-900">
+                                        Verify Organizations
+                                    </h4>
+                                </div>
+                                <p className="text-gray-700 text-sm">
+                                    Check for verified organization badges to
+                                    ensure credibility and safety.
+                                </p>
+                            </div>
+                            <div className="bg-blue-50 rounded-xl p-5">
+                                <div className="flex items-center mb-3">
+                                    <Award className="w-5 h-5 text-blue-600 mr-3" />
+                                    <h4 className="font-semibold text-gray-900">
+                                        Earn Recognition
+                                    </h4>
+                                </div>
+                                <p className="text-gray-700 text-sm">
+                                    Complete projects to earn points and
+                                    certificates for your volunteer work.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </GeneralPages>
     );

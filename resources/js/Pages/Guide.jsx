@@ -1,147 +1,358 @@
 import GeneralPages from "@/Layouts/GeneralPages";
 import React from "react";
+import {
+    Compass,
+    Target,
+    BookOpen,
+    Lightbulb,
+    HelpCircle,
+    Clock,
+    Users,
+    Award,
+    CheckCircle,
+    Calendar,
+    MapPin,
+    MessageSquare,
+} from "lucide-react";
 
-export default function Guide() {
+const guideSections = [
+    {
+        id: 1,
+        title: "Getting Started",
+        icon: <Compass className="w-6 h-6" />,
+        color: "bg-blue-100 text-blue-600",
+        points: [
+            {
+                title: "Create Your Account",
+                description:
+                    "Sign up and complete your volunteer profile with skills, interests, and availability",
+                icon: <Users className="w-4 h-4" />,
+            },
+            {
+                title: "Browse Opportunities",
+                description:
+                    "Use filters to find opportunities matching your skills, location, and interests",
+                icon: <Target className="w-4 h-4" />,
+            },
+            {
+                title: "Apply & Connect",
+                description:
+                    "Submit applications or directly message organizations that interest you",
+                icon: <MessageSquare className="w-4 h-4" />,
+            },
+        ],
+    },
+    {
+        id: 2,
+        title: "Expectations & Responsibilities",
+        icon: <Target className="w-6 h-6" />,
+        color: "bg-purple-100 text-purple-600",
+        points: [
+            "Show up on time and communicate proactively with coordinators",
+            "Be respectful, inclusive, and professional in all interactions",
+            "Complete assigned tasks with care and diligence",
+            "Log your hours and submit feedback through the platform",
+        ],
+    },
+    {
+        id: 3,
+        title: "Volunteer Onboarding",
+        icon: <BookOpen className="w-6 h-6" />,
+        color: "bg-green-100 text-green-600",
+        description:
+            "Organizations typically provide training before you start:",
+        points: [
+            "Orientation meetings or video introductions",
+            "Background checks or identity verification",
+            "Health and safety guidelines specific to the role",
+            "Code of conduct and organizational expectations",
+        ],
+    },
+    {
+        id: 4,
+        title: "Tips for Success",
+        icon: <Lightbulb className="w-6 h-6" />,
+        color: "bg-amber-100 text-amber-600",
+        points: [
+            "Choose causes you're genuinely passionate about",
+            "Start with short-term tasks to learn and build confidence",
+            "Ask questions and seek regular feedback for improvement",
+            "Network with fellow volunteers and organization staff",
+            "Document your experience for future opportunities",
+        ],
+    },
+];
+
+const faqs = [
+    {
+        question: "Do I need experience to volunteer?",
+        answer: "Not at all! Many organizations welcome first-time volunteers and provide comprehensive training. Volunteer Faster also offers beginner-friendly opportunities marked with a 'First-Time Volunteer' badge.",
+        icon: <HelpCircle className="w-5 h-5" />,
+    },
+    {
+        question: "Can I volunteer remotely or virtually?",
+        answer: "Yes! We offer both in-person and remote/virtual opportunities. Use our location filter to find 'Remote' opportunities that you can participate in from anywhere.",
+        icon: <MapPin className="w-5 h-5" />,
+    },
+    {
+        question: "How do I track my volunteer hours?",
+        answer: "Use your Volunteer Dashboard to log completed tasks and hours. Organizations can verify your hours, building a credible volunteer record for certificates and future opportunities.",
+        icon: <Clock className="w-5 h-5" />,
+    },
+    {
+        question: "Will I receive a certificate or recognition?",
+        answer: "Yes! Most organizations offer certificates upon completion. Additionally, Volunteer Faster provides a Digital Certificate for all completed assignments, which you can showcase on your profile and professional networks.",
+        icon: <Award className="w-5 h-5" />,
+    },
+    {
+        question: "What's the typical time commitment?",
+        answer: "Opportunities range from one-time events (2-4 hours) to ongoing commitments (weekly/monthly). Each listing clearly states the expected time commitment so you can choose what fits your schedule.",
+        icon: <Calendar className="w-5 h-5" />,
+    },
+];
+
+export default function Guide({ auth }) {
     return (
-        <GeneralPages>
-            <div className="max-w-5xl mx-auto px-4 py-10">
-                <h1 className="text-3xl font-bold text-gray-800 mb-6">
-                    Volunteer Guide
-                </h1>
-
-                <p className="text-gray-700 mb-6">
-                    Welcome to <strong>Volunteer Faster</strong> — your hub for
-                    finding meaningful, impactful volunteer opportunities.
-                    Whether you're new to volunteering or an experienced
-                    changemaker, this guide will help you get the most out of
-                    your journey.
-                </p>
-
-                <section className="mb-10">
-                    <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                        1. Getting Started
-                    </h2>
-                    <ul className="list-disc pl-5 space-y-2 text-gray-700">
-                        <li>
-                            <strong>Create an account:</strong> Sign up and
-                            complete your volunteer profile.
-                        </li>
-                        <li>
-                            <strong>Browse programs:</strong> Use filters to
-                            search for opportunities that match your interests,
-                            skills, and availability.
-                        </li>
-                        <li>
-                            <strong>Apply to volunteer:</strong> Submit your
-                            application or directly connect with an
-                            organization.
-                        </li>
-                    </ul>
-                </section>
-
-                <section className="mb-10">
-                    <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                        2. Expectations & Responsibilities
-                    </h2>
-                    <ul className="list-disc pl-5 space-y-2 text-gray-700">
-                        <li>
-                            Show up on time and communicate proactively with
-                            coordinators.
-                        </li>
-                        <li>
-                            Be respectful, inclusive, and professional in all
-                            interactions.
-                        </li>
-                        <li>
-                            Complete your assigned tasks with care and
-                            diligence.
-                        </li>
-                        <li>
-                            Log your hours and submit feedback when prompted.
-                        </li>
-                    </ul>
-                </section>
-
-                <section className="mb-10">
-                    <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                        3. Volunteer Onboarding
-                    </h2>
-                    <p className="text-gray-700 mb-2">
-                        Many organizations offer training sessions before you
-                        start. This may include:
-                    </p>
-                    <ul className="list-disc pl-5 space-y-2 text-gray-700">
-                        <li>Orientation meetings or video introductions</li>
-                        <li>Background checks or identity verification</li>
-                        <li>Health and safety guidelines</li>
-                        <li>Code of conduct and expectations</li>
-                    </ul>
-                </section>
-
-                <section className="mb-10">
-                    <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                        4. Tips for a Great Experience
-                    </h2>
-                    <ul className="list-disc pl-5 space-y-2 text-gray-700">
-                        <li>Choose causes you're passionate about</li>
-                        <li>Start with short-term tasks to learn and grow</li>
-                        <li>Ask questions and seek feedback regularly</li>
-                        <li>Stay curious — learning is part of the process!</li>
-                    </ul>
-                </section>
-
-                <section className="mb-10">
-                    <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                        5. Frequently Asked Questions
-                    </h2>
-                    <div className="text-gray-700 space-y-4">
-                        <div>
-                            <strong>Do I need experience to volunteer?</strong>
-                            <p>
-                                Not at all! Many organizations welcome
-                                first-time volunteers and provide training.
-                            </p>
-                        </div>
-                        <div>
-                            <strong>Can I volunteer remotely?</strong>
-                            <p>
-                                Yes! We list both in-person and remote/virtual
-                                opportunities.
-                            </p>
-                        </div>
-                        {/* <div>
-                            <strong>How do I track my volunteer hours?</strong>
-                            <p>
-                                Use your dashboard to log completed tasks and
-                                hours. This helps build your volunteer record.
-                            </p>
-                        </div> */}
-                        <div>
-                            <strong>Will I receive a certificate?</strong>
-                            <p>
-                                Some programs offer digital certificates after
-                                completion. Check the opportunity details or
-                                contact the organizer.
-                            </p>
-                            <p>
-                                But <span>Volunteer Faster</span> shall provide
-                                you with a Digital Certificate upon completion
-                                of the volunteering assignment / period
-                            </p>
-                        </div>
+        <GeneralPages auth={auth} title="Volunteer Success Guide">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                {/* Hero Section */}
+                <div className="text-center mb-16">
+                    <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl mb-6">
+                        <Users className="w-10 h-10 text-blue-600" />
                     </div>
-                </section>
+                    <h1 className="text-4xl font-bold text-gray-900 mb-4">
+                        Volunteer Success Guide
+                    </h1>
+                    <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                        Your comprehensive roadmap to meaningful volunteering
+                        with{" "}
+                        <span className="font-bold text-blue-600">
+                            Volunteer Faster
+                        </span>
+                        . Whether you're new to volunteering or an experienced
+                        changemaker, this guide will help you maximize your
+                        impact and experience.
+                    </p>
+                    <div className="mt-8 flex flex-wrap justify-center gap-3">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-700">
+                            <CheckCircle className="w-4 h-4 mr-1" />{" "}
+                            Step-by-step guidance
+                        </span>
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-700">
+                            <Clock className="w-4 h-4 mr-1" /> Time-saving tips
+                        </span>
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-purple-100 text-purple-700">
+                            <Award className="w-4 h-4 mr-1" /> Certificate
+                            eligibility
+                        </span>
+                    </div>
+                </div>
 
-                <p className="text-gray-700">
-                    Still have questions?{" "}
-                    <a
-                        href={route("contact")}
-                        className="text-blue-600 hover:underline"
-                    >
-                        Contact us
-                    </a>{" "}
-                    and we’ll be happy to help.
-                </p>
+                {/* Quick Start Banner */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 mb-12">
+                    <div className="flex flex-col md:flex-row items-center justify-between">
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                                Ready to Start Your Journey?
+                            </h2>
+                            <p className="text-gray-700">
+                                Complete your profile in 5 minutes and discover
+                                opportunities matched to your skills.
+                            </p>
+                        </div>
+                        {/* <button className="mt-4 md:mt-0 px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                            Browse Opportunities
+                        </button> */}
+                    </div>
+                </div>
+
+                {/* Guide Sections */}
+                <div className="mb-16">
+                    <h2 className="text-3xl font-bold text-gray-900 mb-10 text-center">
+                        Your Volunteering Roadmap
+                    </h2>
+
+                    <div className="space-y-8">
+                        {guideSections.map((section, index) => (
+                            <div
+                                key={section.id}
+                                className="bg-white rounded-xl border border-gray-200 p-6 md:p-8 hover:shadow-lg transition-all duration-200"
+                            >
+                                <div className="flex items-start md:items-center mb-6">
+                                    <div
+                                        className={`${section.color} w-12 h-12 rounded-xl flex items-center justify-center mr-4 flex-shrink-0`}
+                                    >
+                                        {section.icon}
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center">
+                                            <span className="text-sm font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full mr-3">
+                                                Step {index + 1}
+                                            </span>
+                                            <h3 className="text-2xl font-bold text-gray-900">
+                                                {section.title}
+                                            </h3>
+                                        </div>
+                                        {section.description && (
+                                            <p className="text-gray-600 mt-2">
+                                                {section.description}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {section.points[0]?.title ? (
+                                    <div className="grid md:grid-cols-3 gap-6">
+                                        {section.points.map((point, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="bg-gray-50 rounded-lg p-4"
+                                            >
+                                                <div className="flex items-center mb-2">
+                                                    <div className="text-blue-500 mr-2">
+                                                        {point.icon}
+                                                    </div>
+                                                    <h4 className="font-semibold text-gray-900">
+                                                        {point.title}
+                                                    </h4>
+                                                </div>
+                                                <p className="text-gray-600 text-sm">
+                                                    {point.description}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <ul className="space-y-3 pl-2">
+                                        {section.points.map((point, idx) => (
+                                            <li
+                                                key={idx}
+                                                className="flex items-start"
+                                            >
+                                                <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center mr-3 mt-0.5 flex-shrink-0">
+                                                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                                </div>
+                                                <span className="text-gray-700">
+                                                    {point}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* FAQ Section */}
+                <div className="mb-16">
+                    <div className="text-center mb-10">
+                        <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-50 rounded-full mb-4">
+                            <HelpCircle className="w-8 h-8 text-indigo-600" />
+                        </div>
+                        <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                            Frequently Asked Questions
+                        </h2>
+                        <p className="text-gray-600 max-w-2xl mx-auto">
+                            Common questions answered to help you volunteer with
+                            confidence
+                        </p>
+                    </div>
+
+                    <div className="space-y-4">
+                        {faqs.map((faq, index) => (
+                            <div
+                                key={index}
+                                className="group bg-white border border-gray-200 rounded-xl p-6 hover:border-blue-300 transition-all duration-200"
+                            >
+                                <div className="flex items-start">
+                                    <div className="mr-4 text-blue-500 flex-shrink-0">
+                                        {faq.icon}
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors duration-200">
+                                            {faq.question}
+                                        </h3>
+                                        <p className="text-gray-700">
+                                            {faq.answer}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Certificate Section */}
+                <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl p-8 mb-12">
+                    <div className="flex flex-col md:flex-row items-center">
+                        <div className="md:w-2/3">
+                            <div className="flex items-center mb-3">
+                                <Award className="w-8 h-8 text-blue-600 mr-3" />
+                                <h3 className="text-2xl font-bold text-gray-900">
+                                    Earn Your Digital Certificate
+                                </h3>
+                            </div>
+                            <p className="text-gray-700 mb-4">
+                                Volunteer Faster provides official Digital
+                                Certificates for all completed volunteering
+                                assignments. Showcase your contributions on
+                                LinkedIn, resumes, and professional portfolios.
+                            </p>
+                            <ul className="space-y-2 text-gray-700">
+                                <li className="flex items-center">
+                                    <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                                    Automatically generated upon completion
+                                </li>
+                                <li className="flex items-center">
+                                    <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                                    Includes verification QR code
+                                </li>
+                                <li className="flex items-center">
+                                    <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                                    Downloadable PDF format
+                                </li>
+                            </ul>
+                        </div>
+                        {/* <div className="md:w-1/3 mt-6 md:mt-0 md:pl-8">
+                            <div className="bg-white rounded-xl p-6 shadow-lg text-center">
+                                <Award className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+                                <h4 className="font-bold text-gray-900 mb-1">
+                                    Certificate Sample
+                                </h4>
+                                <p className="text-sm text-gray-600 mb-4">
+                                    Verified & Shareable
+                                </p>
+                                <button className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                                    View Sample
+                                </button>
+                            </div>
+                        </div> */}
+                    </div>
+                </div>
+
+                {/* Call to Action */}
+                <div className="text-center border-t border-gray-200 pt-10">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                        Need Personalized Assistance?
+                    </h3>
+                    <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
+                        Our volunteer support team is here to help you find the
+                        perfect opportunity and answer any questions about your
+                        volunteering journey.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                        <a
+                            href={route("contact")}
+                            className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                        >
+                            Contact Support Team
+                        </a>
+                        {/* <button className="inline-flex items-center justify-center px-6 py-3 border-2 border-gray-300 text-gray-700 font-medium rounded-lg hover:border-blue-400 hover:text-blue-600 transition-colors duration-200">
+                            Download Full Guide (PDF)
+                        </button> */}
+                    </div>
+                </div>
             </div>
         </GeneralPages>
     );
