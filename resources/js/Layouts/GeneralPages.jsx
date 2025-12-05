@@ -236,7 +236,7 @@ export default function GeneralPages({ children, auth }) {
                                     route: "projects",
                                     label: "Volunteer Programs",
                                 },
-                                { route: "guide", label: "Volunteer Guide" },
+                                // { route: "guide", label: "Volunteer Guide" },
                                 { route: "about", label: "About Us" },
                                 { route: "contact", label: "Contact" },
                             ].map((item) => (
