@@ -185,50 +185,92 @@ export default function Home({ projects, auth, platformReviews, seo }) {
                 <meta name="title" content={pageSeo.title} />
                 <meta name="description" content={pageSeo.description} />
                 <meta name="keywords" content={pageSeo.keywords} />
-                <meta name="author" content="Volunteer Platform" />
+                <meta name="author" content="Volunteer Faster" />
                 <meta name="robots" content="index, follow" />
                 <meta name="language" content="English" />
 
-                {/* Open Graph / Facebook */}
+                {/* Open Graph / Facebook - Enhanced */}
                 <meta property="og:type" content={pageSeo.type} />
-                <meta property="og:url" content={pageSeo.url} />
+                <meta property="og:url" content={currentUrl} />
                 <meta property="og:title" content={pageSeo.title} />
                 <meta property="og:description" content={pageSeo.description} />
                 <meta property="og:image" content={fullImageUrl} />
-                <meta property="og:site_name" content="Volunteer Platform" />
-
-                {/* Twitter */}
-                <meta property="twitter:card" content="summary_large_image" />
-                <meta property="twitter:url" content={pageSeo.url} />
-                <meta property="twitter:title" content={pageSeo.title} />
+                <meta property="og:image:width" content="1200" />
+                <meta property="og:image:height" content="630" />
                 <meta
-                    property="twitter:description"
+                    property="og:image:alt"
+                    content="Volunteer Faster | Find meaningful volunteer opportunities"
+                />
+                <meta property="og:site_name" content="Volunteer Faster" />
+                <meta property="og:locale" content="en_US" />
+
+                {/* Additional OG tags for better sharing */}
+                <meta
+                    property="og:see_also"
+                    content="https://www.facebook.com/volunteerfaster"
+                />
+                <meta
+                    property="og:see_also"
+                    content="https://www.instagram.com/volunteerfaster"
+                />
+                <meta
+                    property="og:see_also"
+                    content="https://twitter.com/volunteerfaster"
+                />
+
+                {/* Twitter Card - Enhanced */}
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:url" content={currentUrl} />
+                <meta name="twitter:title" content={pageSeo.title} />
+                <meta
+                    name="twitter:description"
                     content={pageSeo.description}
                 />
-                <meta property="twitter:image" content={fullImageUrl} />
+                <meta name="twitter:image" content={fullImageUrl} />
+                <meta name="twitter:site" content="@volunteerfaster" />
+                <meta name="twitter:creator" content="@volunteerfaster" />
+                <meta
+                    name="twitter:image:alt"
+                    content="Volunteer Faster | Find meaningful volunteer opportunities"
+                />
 
                 {/* Additional Meta Tags */}
-                <link rel="canonical" href={pageSeo.url} />
+                <link rel="canonical" href={currentUrl} />
                 <meta
                     name="viewport"
                     content="width=device-width, initial-scale=1.0"
                 />
 
-                {/* Structured Data for SEO */}
+                {/* Structured Data for SEO - Enhanced */}
                 <script type="application/ld+json">
                     {JSON.stringify({
                         "@context": "https://schema.org",
-                        "@type": "WebSite",
-                        name: "Volunteer Platform",
-                        url: pageSeo.url,
+                        "@type": "Organization",
+                        name: "Volunteer Faster",
+                        url: appUrl,
+                        logo: `${appUrl}/logo.png`,
                         description: pageSeo.description,
+                        sameAs: [
+                            "https://www.facebook.com/volunteerfaster",
+                            "https://twitter.com/volunteerfaster",
+                            "https://www.instagram.com/volunteerfaster",
+                            "https://www.linkedin.com/company/volunteerfaster",
+                        ],
+                    })}
+                </script>
+
+                {/* Additional schema for WebPage */}
+                <script type="application/ld+json">
+                    {JSON.stringify({
+                        "@context": "https://schema.org",
+                        "@type": "WebPage",
+                        name: pageSeo.title,
+                        description: pageSeo.description,
+                        url: currentUrl,
                         publisher: {
                             "@type": "Organization",
-                            name: "Volunteer Platform",
-                            logo: {
-                                "@type": "ImageObject",
-                                url: `${appUrl}/logo.png`,
-                            },
+                            name: "Volunteer Faster",
+                            logo: `${appUrl}/logo.png`,
                         },
                     })}
                 </script>
