@@ -368,7 +368,7 @@ export default function Community({ auth }) {
 
                             <Link
                                 className="inline-flex items-center px-6 py-3 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors duration-200"
-                                href="/terms"
+                                href={route("terms.conditions")}
                             >
                                 <FileText className="w-4 h-4 mr-2" />
                                 View Terms & Conditions

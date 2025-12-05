@@ -33,6 +33,7 @@ export default function Projects({
     auth,
     organization_verification,
 }) {
+    const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
     const [projects, setProjects] = useState(initialProjects);
     const [searchTerm, setSearchTerm] = useState("");
     const [filters, setFilters] = useState({
@@ -347,15 +348,15 @@ export default function Projects({
                 </div>
 
                 {/* Search and Filter Section */}
-                <div className="sticky top-[70px] z-40 bg-white shadow-lg">
-                    <div className="container mx-auto px-4 py-6">
-                        {/* Main Search */}
-                        <div className="mb-6">
-                            <div className="relative">
-                                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <div className="sticky top-[70px] z-40 bg-white shadow-md border-b border-gray-100">
+                    <div className="container mx-auto px-4">
+                        {/* Main Search - Better spacing on desktop */}
+                        <div className="py-4 lg:py-6">
+                            <div className="relative max-w-2xl mx-auto">
+                                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
                                 <input
                                     type="text"
-                                    className="w-full pl-12 pr-4 py-4 text-lg border-2 border-gray-200 rounded-2xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                                    className="w-full pl-10 sm:pl-12 pr-10 py-2.5 sm:py-3 lg:py-4 text-sm sm:text-base lg:text-lg border border-gray-300 rounded-lg lg:rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
                                     placeholder="Search for projects, organizations, or causes..."
                                     value={searchTerm}
                                     onChange={(e) =>
@@ -365,212 +366,566 @@ export default function Projects({
                                 {searchTerm && (
                                     <button
                                         onClick={() => setSearchTerm("")}
-                                        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                                     >
-                                        <X className="w-5 h-5" />
+                                        <X className="w-4 h-4" />
                                     </button>
                                 )}
                             </div>
                         </div>
 
-                        {/* Filter Controls */}
-                        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-                            <div className="flex items-center">
-                                <Filter className="w-5 h-5 text-gray-500 mr-2" />
-                                <span className="text-gray-700 font-medium">
-                                    Filter by:
-                                </span>
-                            </div>
-
-                            <div className="flex flex-wrap gap-3 flex-1">
-                                {/* Category Filter */}
-                                <div className="relative min-w-[200px]">
-                                    <select
-                                        className="w-full pl-4 pr-10 py-3 bg-white border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none"
-                                        value={filters.category}
-                                        onChange={(e) =>
-                                            handleFilterChange(
-                                                "category",
-                                                e.target.value
-                                            )
-                                        }
-                                    >
-                                        <option value="">All Categories</option>
-                                        {categories.map((category) => (
-                                            <option
-                                                key={category}
-                                                value={category}
-                                            >
-                                                {category}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                                        <ChevronRight className="w-5 h-5 text-gray-400 rotate-90" />
-                                    </div>
+                        {/* Mobile Filter Toggle */}
+                        <div className="lg:hidden py-2 border-t border-gray-100">
+                            <button
+                                onClick={() =>
+                                    setIsMobileFiltersOpen(!isMobileFiltersOpen)
+                                }
+                                className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                            >
+                                <div className="flex items-center">
+                                    <Filter className="w-4 h-4 text-gray-500 mr-2" />
+                                    <span className="text-sm font-medium text-gray-700">
+                                        Filters ({activeFilters.length})
+                                    </span>
                                 </div>
-
-                                {/* Payment Type Filter */}
-                                <div className="relative min-w-[180px]">
-                                    <select
-                                        className="w-full pl-4 pr-10 py-3 bg-white border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none"
-                                        value={filters.type_of_project}
-                                        onChange={(e) =>
-                                            handleFilterChange(
-                                                "type_of_project",
-                                                e.target.value
-                                            )
-                                        }
-                                    >
-                                        <option value="">Project Type</option>
-                                        <option value="paid">
-                                            Paid Opportunities
-                                        </option>
-                                        <option value="free">
-                                            Volunteer Positions
-                                        </option>
-                                    </select>
-                                    <DollarSign className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                </div>
-
-                                {/* Location Filters */}
-                                <div className="relative min-w-[200px]">
-                                    <select
-                                        className="w-full pl-4 pr-10 py-3 bg-white border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none"
-                                        value={filters.country}
-                                        onChange={(e) =>
-                                            handleFilterChange(
-                                                "country",
-                                                e.target.value
-                                            )
-                                        }
-                                    >
-                                        <option value="">Select Country</option>
-                                        {allCountries.map((country) => (
-                                            <option
-                                                key={country}
-                                                value={country}
-                                            >
-                                                {country}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <Globe className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                </div>
-
-                                {filters.country && (
-                                    <div className="relative min-w-[180px]">
-                                        <select
-                                            className="w-full pl-4 pr-10 py-3 bg-white border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none"
-                                            value={filters.state}
-                                            onChange={(e) =>
-                                                handleFilterChange(
-                                                    "state",
-                                                    e.target.value
-                                                )
-                                            }
-                                        >
-                                            <option value="">
-                                                Select State/Region
-                                            </option>
-                                            {allStates
-                                                .filter((state) =>
-                                                    initialProjects.some(
-                                                        (p) =>
-                                                            p.country ===
-                                                                filters.country &&
-                                                            p.state === state
-                                                    )
-                                                )
-                                                .map((state) => (
-                                                    <option
-                                                        key={state}
-                                                        value={state}
+                                <div className="flex items-center gap-2">
+                                    {activeFilters.length > 0 && (
+                                        <div className="flex items-center gap-1">
+                                            {activeFilters
+                                                .slice(0, 2)
+                                                .map((filter, index) => (
+                                                    <span
+                                                        key={filter.key}
+                                                        className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded"
                                                     >
-                                                        {state}
-                                                    </option>
+                                                        {index === 1 &&
+                                                        activeFilters.length > 2
+                                                            ? `+${
+                                                                  activeFilters.length -
+                                                                  1
+                                                              }`
+                                                            : filter.key ===
+                                                              "type_of_project"
+                                                            ? filter.value ===
+                                                              "paid"
+                                                                ? "Paid"
+                                                                : "Volunteer"
+                                                            : filter.value.substring(
+                                                                  0,
+                                                                  8
+                                                              )}
+                                                        {index === 0 &&
+                                                        activeFilters.length > 1
+                                                            ? "..."
+                                                            : ""}
+                                                    </span>
                                                 ))}
-                                        </select>
-                                        <Navigation className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                    </div>
-                                )}
-
-                                {filters.state && (
-                                    <div className="relative min-w-[180px]">
-                                        <select
-                                            className="w-full pl-4 pr-10 py-3 bg-white border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 appearance-none"
-                                            value={filters.city}
-                                            onChange={(e) =>
-                                                handleFilterChange(
-                                                    "city",
-                                                    e.target.value
-                                                )
-                                            }
-                                        >
-                                            <option value="">
-                                                Select City
-                                            </option>
-                                            {allCities
-                                                .filter((city) =>
-                                                    initialProjects.some(
-                                                        (p) =>
-                                                            p.state ===
-                                                                filters.state &&
-                                                            p.city === city
-                                                    )
-                                                )
-                                                .map((city) => (
-                                                    <option
-                                                        key={city}
-                                                        value={city}
-                                                    >
-                                                        {city}
-                                                    </option>
-                                                ))}
-                                        </select>
-                                        <MapPin className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                    </div>
-                                )}
-
-                                {/* Reset Filters Button */}
-                                {activeFilters.length > 0 && (
-                                    <button
-                                        onClick={resetFilters}
-                                        className="px-4 py-3 text-gray-700 hover:text-blue-600 font-medium flex items-center gap-2"
-                                    >
-                                        <X className="w-5 h-5" />
-                                        Clear All
-                                    </button>
-                                )}
-                            </div>
+                                        </div>
+                                    )}
+                                    <ChevronRight
+                                        className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${
+                                            isMobileFiltersOpen
+                                                ? "rotate-90"
+                                                : "rotate-0"
+                                        }`}
+                                    />
+                                </div>
+                            </button>
                         </div>
 
-                        {/* Active Filters Display */}
-                        {activeFilters.length > 0 && (
-                            <div className="mt-4 flex flex-wrap gap-2">
-                                {activeFilters.map((filter) => (
-                                    <div
-                                        key={filter.key}
-                                        className="inline-flex items-center bg-blue-50 text-blue-700 px-3 py-2 rounded-lg"
-                                    >
-                                        <span className="text-sm font-medium">
-                                            {getFilterLabel(
-                                                filter.key,
-                                                filter.value
-                                            )}
+                        {/* Desktop Filter Controls - Improved layout */}
+                        <div className="hidden lg:block border-t border-gray-100">
+                            <div className="py-4">
+                                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-evenly gap-2">
+                                    {/* Filter Label */}
+                                    <div className="flex items-center">
+                                        <Filter className="w-5 h-5 text-gray-500 mr-2" />
+                                        <span className="text-base font-semibold text-gray-700">
+                                            Filter by:
                                         </span>
+                                    </div>
+
+                                    {/* Filter Controls Row */}
+                                    <div className="flex flex-col lg:flex-row lg:items-center lg:flex-wrap gap-4">
+                                        {/* First Row of Filters */}
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            {/* Category Filter */}
+                                            <div className="relative min-w-[180px]">
+                                                <label className="sr-only">
+                                                    Category
+                                                </label>
+                                                <select
+                                                    className="w-full pl-4 pr-10 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-100 appearance-none"
+                                                    value={filters.category}
+                                                    onChange={(e) =>
+                                                        handleFilterChange(
+                                                            "category",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                >
+                                                    <option value="">
+                                                        All Categories
+                                                    </option>
+                                                    {categories.map(
+                                                        (category) => (
+                                                            <option
+                                                                key={category}
+                                                                value={category}
+                                                            >
+                                                                {category}
+                                                            </option>
+                                                        )
+                                                    )}
+                                                </select>
+                                                <ChevronRight className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none w-4 h-4 text-gray-400 rotate-90" />
+                                            </div>
+
+                                            {/* Payment Type Filter */}
+                                            <div className="relative min-w-[160px]">
+                                                <label className="sr-only">
+                                                    Project Type
+                                                </label>
+                                                <select
+                                                    className="w-full pl-4 pr-10 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-100 appearance-none"
+                                                    value={
+                                                        filters.type_of_project
+                                                    }
+                                                    onChange={(e) =>
+                                                        handleFilterChange(
+                                                            "type_of_project",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                >
+                                                    <option value="">
+                                                        Project Type
+                                                    </option>
+                                                    <option value="paid">
+                                                        Paid Opportunities
+                                                    </option>
+                                                    <option value="free">
+                                                        Volunteer Positions
+                                                    </option>
+                                                </select>
+                                                <DollarSign className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                            </div>
+                                        </div>
+
+                                        {/* Location Filters Row */}
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            {/* Country Filter */}
+                                            <div className="relative min-w-[180px]">
+                                                <label className="sr-only">
+                                                    Country
+                                                </label>
+                                                <select
+                                                    className="w-full pl-4 pr-10 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-100 appearance-none"
+                                                    value={filters.country}
+                                                    onChange={(e) =>
+                                                        handleFilterChange(
+                                                            "country",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                >
+                                                    <option value="">
+                                                        Select Country
+                                                    </option>
+                                                    {allCountries.map(
+                                                        (country) => (
+                                                            <option
+                                                                key={country}
+                                                                value={country}
+                                                            >
+                                                                {country}
+                                                            </option>
+                                                        )
+                                                    )}
+                                                </select>
+                                                <Globe className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                            </div>
+
+                                            {/* State Filter (Conditional) */}
+                                            {filters.country && (
+                                                <div className="relative min-w-[160px]">
+                                                    <label className="sr-only">
+                                                        State/Region
+                                                    </label>
+                                                    <select
+                                                        className="w-full pl-4 pr-10 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-100 appearance-none"
+                                                        value={filters.state}
+                                                        onChange={(e) =>
+                                                            handleFilterChange(
+                                                                "state",
+                                                                e.target.value
+                                                            )
+                                                        }
+                                                    >
+                                                        <option value="">
+                                                            State/Region
+                                                        </option>
+                                                        {allStates
+                                                            .filter((state) =>
+                                                                initialProjects.some(
+                                                                    (p) =>
+                                                                        p.country ===
+                                                                            filters.country &&
+                                                                        p.state ===
+                                                                            state
+                                                                )
+                                                            )
+                                                            .map((state) => (
+                                                                <option
+                                                                    key={state}
+                                                                    value={
+                                                                        state
+                                                                    }
+                                                                >
+                                                                    {state}
+                                                                </option>
+                                                            ))}
+                                                    </select>
+                                                    <Navigation className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                                </div>
+                                            )}
+
+                                            {/* City Filter (Conditional) */}
+                                            {filters.state && (
+                                                <div className="relative min-w-[160px]">
+                                                    <label className="sr-only">
+                                                        City
+                                                    </label>
+                                                    <select
+                                                        className="w-full pl-4 pr-10 py-2.5 text-sm bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-100 appearance-none"
+                                                        value={filters.city}
+                                                        onChange={(e) =>
+                                                            handleFilterChange(
+                                                                "city",
+                                                                e.target.value
+                                                            )
+                                                        }
+                                                    >
+                                                        <option value="">
+                                                            City
+                                                        </option>
+                                                        {allCities
+                                                            .filter((city) =>
+                                                                initialProjects.some(
+                                                                    (p) =>
+                                                                        p.state ===
+                                                                            filters.state &&
+                                                                        p.city ===
+                                                                            city
+                                                                )
+                                                            )
+                                                            .map((city) => (
+                                                                <option
+                                                                    key={city}
+                                                                    value={city}
+                                                                >
+                                                                    {city}
+                                                                </option>
+                                                            ))}
+                                                    </select>
+                                                    <MapPin className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Clear Button */}
+                                        {activeFilters.length > 0 && (
+                                            <div className="flex items-center">
+                                                <button
+                                                    onClick={resetFilters}
+                                                    className="px-4 py-2.5 text-sm text-red-600 hover:text-red-800 font-medium flex items-center gap-2 border border-red-200 hover:border-red-300 rounded-lg transition-colors"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                    Clear Filters
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Active Filters Display - Desktop */}
+                            {activeFilters.length > 0 && (
+                                <div className="py-3 border-t border-gray-100">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-sm font-medium text-gray-700">
+                                            Active filters:
+                                        </span>
+                                        {activeFilters.map((filter) => (
+                                            <div
+                                                key={filter.key}
+                                                className="inline-flex items-center bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-sm"
+                                            >
+                                                <span className="font-medium">
+                                                    {getFilterLabel(
+                                                        filter.key,
+                                                        filter.value
+                                                    )}
+                                                </span>
+                                                <button
+                                                    onClick={() =>
+                                                        removeFilter(filter.key)
+                                                    }
+                                                    className="ml-2 hover:text-blue-900 p-0.5"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        {activeFilters.length > 0 && (
+                                            <button
+                                                onClick={resetFilters}
+                                                className="text-sm text-red-600 hover:text-red-800 font-medium ml-2"
+                                            >
+                                                Clear all
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Mobile Filter Controls */}
+                        <div
+                            className={`
+            ${isMobileFiltersOpen ? "block" : "hidden"}
+            lg:hidden border-t border-gray-100
+        `}
+                        >
+                            {/* Mobile Filter Header */}
+                            <div className="py-3 border-b border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-base font-semibold text-gray-900">
+                                        Filters
+                                    </h3>
+                                    <div className="flex items-center gap-2">
+                                        {activeFilters.length > 0 && (
+                                            <button
+                                                onClick={resetFilters}
+                                                className="text-sm text-red-600 hover:text-red-800 font-medium px-2 py-1"
+                                            >
+                                                Clear all
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() =>
-                                                removeFilter(filter.key)
+                                                setIsMobileFiltersOpen(false)
                                             }
-                                            className="ml-2 hover:text-blue-900"
+                                            className="text-gray-500 hover:text-gray-700 p-1"
                                         >
-                                            <X className="w-4 h-4" />
+                                            <X className="w-5 h-5" />
                                         </button>
                                     </div>
-                                ))}
+                                </div>
                             </div>
-                        )}
+
+                            {/* Mobile Filter Grid */}
+                            <div className="py-4">
+                                <div className="grid grid-cols-1 gap-4">
+                                    {/* Category Filter */}
+                                    <div className="relative">
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                                            Category
+                                        </label>
+                                        <select
+                                            className="w-full pl-4 pr-10 py-3 text-sm bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-100 appearance-none"
+                                            value={filters.category}
+                                            onChange={(e) =>
+                                                handleFilterChange(
+                                                    "category",
+                                                    e.target.value
+                                                )
+                                            }
+                                        >
+                                            <option value="">
+                                                All Categories
+                                            </option>
+                                            {categories.map((category) => (
+                                                <option
+                                                    key={category}
+                                                    value={category}
+                                                >
+                                                    {category}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <ChevronRight className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none w-4 h-4 text-gray-400 rotate-90" />
+                                    </div>
+
+                                    {/* Payment Type Filter */}
+                                    <div className="relative">
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                                            Project Type
+                                        </label>
+                                        <select
+                                            className="w-full pl-4 pr-10 py-3 text-sm bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-100 appearance-none"
+                                            value={filters.type_of_project}
+                                            onChange={(e) =>
+                                                handleFilterChange(
+                                                    "type_of_project",
+                                                    e.target.value
+                                                )
+                                            }
+                                        >
+                                            <option value="">
+                                                Project Type
+                                            </option>
+                                            <option value="paid">
+                                                Paid Opportunities
+                                            </option>
+                                            <option value="free">
+                                                Volunteer Positions
+                                            </option>
+                                        </select>
+                                        <DollarSign className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    </div>
+
+                                    {/* Location Filters */}
+                                    <div className="space-y-4">
+                                        {/* Country Filter */}
+                                        <div className="relative">
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                Country
+                                            </label>
+                                            <select
+                                                className="w-full pl-4 pr-10 py-3 text-sm bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-100 appearance-none"
+                                                value={filters.country}
+                                                onChange={(e) =>
+                                                    handleFilterChange(
+                                                        "country",
+                                                        e.target.value
+                                                    )
+                                                }
+                                            >
+                                                <option value="">
+                                                    Select Country
+                                                </option>
+                                                {allCountries.map((country) => (
+                                                    <option
+                                                        key={country}
+                                                        value={country}
+                                                    >
+                                                        {country}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <Globe className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                        </div>
+
+                                        {/* State Filter (Conditional) */}
+                                        {filters.country && (
+                                            <div className="relative">
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                    State/Region
+                                                </label>
+                                                <select
+                                                    className="w-full pl-4 pr-10 py-3 text-sm bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-100 appearance-none"
+                                                    value={filters.state}
+                                                    onChange={(e) =>
+                                                        handleFilterChange(
+                                                            "state",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                >
+                                                    <option value="">
+                                                        Select State/Region
+                                                    </option>
+                                                    {allStates
+                                                        .filter((state) =>
+                                                            initialProjects.some(
+                                                                (p) =>
+                                                                    p.country ===
+                                                                        filters.country &&
+                                                                    p.state ===
+                                                                        state
+                                                            )
+                                                        )
+                                                        .map((state) => (
+                                                            <option
+                                                                key={state}
+                                                                value={state}
+                                                            >
+                                                                {state}
+                                                            </option>
+                                                        ))}
+                                                </select>
+                                                <Navigation className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                            </div>
+                                        )}
+
+                                        {/* City Filter (Conditional) */}
+                                        {filters.state && (
+                                            <div className="relative">
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                    City
+                                                </label>
+                                                <select
+                                                    className="w-full pl-4 pr-10 py-3 text-sm bg-white border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-100 appearance-none"
+                                                    value={filters.city}
+                                                    onChange={(e) =>
+                                                        handleFilterChange(
+                                                            "city",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                >
+                                                    <option value="">
+                                                        Select City
+                                                    </option>
+                                                    {allCities
+                                                        .filter((city) =>
+                                                            initialProjects.some(
+                                                                (p) =>
+                                                                    p.state ===
+                                                                        filters.state &&
+                                                                    p.city ===
+                                                                        city
+                                                            )
+                                                        )
+                                                        .map((city) => (
+                                                            <option
+                                                                key={city}
+                                                                value={city}
+                                                            >
+                                                                {city}
+                                                            </option>
+                                                        ))}
+                                                </select>
+                                                <MapPin className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Mobile Action Buttons */}
+                                <div className="mt-6 pt-4 border-t border-gray-200">
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() =>
+                                                setIsMobileFiltersOpen(false)
+                                            }
+                                            className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all"
+                                        >
+                                            Apply Filters
+                                        </button>
+                                        {activeFilters.length > 0 && (
+                                            <button
+                                                onClick={resetFilters}
+                                                className="flex-1 px-4 py-3 text-gray-700 text-sm font-medium border border-gray-300 rounded-lg hover:border-red-300 hover:text-red-600 transition-colors"
+                                            >
+                                                Clear All
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

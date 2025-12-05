@@ -11,7 +11,7 @@
     <link rel="icon" type="logos" sizes="16x16" href="{{ asset('logo.png') }}">
     <link rel="icon" type="logos" sizes="32x32" href="{{ asset('logo.png') }}">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('logo.png') }}">
-    <link rel="manifest" href="{{ asset('site.webmanifest') }}">
+    {{-- <link rel="manifest" href="{{ asset('site.webmanifest') }}"> --}}
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
