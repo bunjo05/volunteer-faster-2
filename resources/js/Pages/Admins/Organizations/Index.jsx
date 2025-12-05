@@ -15,10 +15,19 @@ import {
     Users,
     CheckCircle,
     Clock,
+    Eye,
+    Edit,
+    Trash2,
+    MoreVertical,
+    Building,
+    MapPin,
+    ExternalLink,
+    UserPlus,
+    TrendingUp,
 } from "lucide-react";
 
 import { usePage } from "@inertiajs/react";
-import { Link } from "@inertiajs/react";
+import { Link, router } from "@inertiajs/react";
 
 export default function Index({ organizations, verifications }) {
     const [selectedOrg, setSelectedOrg] = useState(null);
@@ -26,8 +35,19 @@ export default function Index({ organizations, verifications }) {
     const [showFilters, setShowFilters] = useState(false);
     const [statusFilter, setStatusFilter] = useState("all");
     const [sortBy, setSortBy] = useState("newest");
+    const [viewMode, setViewMode] = useState("grid"); // 'grid' or 'list'
 
     const closeModal = () => setSelectedOrg(null);
+
+    const handleDeleteOrg = (orgId) => {
+        if (
+            confirm(
+                "Are you sure you want to delete this organization? This action cannot be undone."
+            )
+        ) {
+            router.delete(`/admin/organizations/${orgId}`);
+        }
+    };
 
     // Filter organizations based on search and filters
     const filteredOrgs = organizations.filter((org) => {
@@ -36,11 +56,15 @@ export default function Index({ organizations, verifications }) {
             (org.description &&
                 org.description
                     .toLowerCase()
-                    .includes(searchQuery.toLowerCase()));
+                    .includes(searchQuery.toLowerCase())) ||
+            (org.city &&
+                org.city.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (org.country &&
+                org.country.toLowerCase().includes(searchQuery.toLowerCase()));
 
         const matchesStatus =
             statusFilter === "all" ||
-            org.status.toLowerCase() === statusFilter.toLowerCase();
+            org.status?.toLowerCase() === statusFilter.toLowerCase();
 
         return matchesSearch && matchesStatus;
     });
@@ -58,208 +82,267 @@ export default function Index({ organizations, verifications }) {
         }
         return 0;
     });
+
+    const getStatusColor = (status) => {
+        switch (status?.toLowerCase()) {
+            case "approved":
+                return "text-green-700 bg-green-50 border-green-200";
+            case "pending":
+                return "text-amber-700 bg-amber-50 border-amber-200";
+            case "rejected":
+                return "text-red-700 bg-red-50 border-red-200";
+            default:
+                return "text-gray-700 bg-gray-50 border-gray-200";
+        }
+    };
+
+    const getStatusIcon = (status) => {
+        switch (status?.toLowerCase()) {
+            case "approved":
+                return <CheckCircle className="w-4 h-4" />;
+            case "pending":
+                return <Clock className="w-4 h-4" />;
+            case "rejected":
+                return <X className="w-4 h-4" />;
+            default:
+                return <Clock className="w-4 h-4" />;
+        }
+    };
+
+    // Statistics
+    const stats = {
+        total: organizations.length,
+        approved: organizations.filter((o) => o.status === "Approved").length,
+        pending: organizations.filter((o) => o.status === "Pending").length,
+        rejected: organizations.filter((o) => o.status === "Rejected").length,
+        verified: verifications.filter((v) => v.status === "Approved").length,
+    };
+
     return (
         <AdminLayout>
-            <div className="min-h-screen py-8 px-4 sm:px-8 bg-gray-50">
-                <div className="max-w-7xl mx-auto">
-                    {/* Header with actions */}
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+            <div className="p-4 md:p-6">
+                {/* Header */}
+                <div className="mb-6 md:mb-8">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-800">
+                            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
                                 Organizations
                             </h1>
-                            <p className="text-gray-500 mt-1">
-                                {organizations.length}{" "}
-                                {organizations.length === 1
-                                    ? "organization"
-                                    : "organizations"}{" "}
-                                registered
+                            <p className="text-sm md:text-base text-gray-600 mt-1">
+                                Manage and monitor all registered organizations
                             </p>
                         </div>
-                        <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Organization
-                        </button>
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setViewMode("grid")}
+                                    className={`p-2 rounded-lg ${
+                                        viewMode === "grid"
+                                            ? "bg-blue-50 text-blue-600"
+                                            : "text-gray-500 hover:bg-gray-100"
+                                    }`}
+                                >
+                                    <div className="grid grid-cols-2 gap-0.5 w-4 h-4">
+                                        <div
+                                            className={`${
+                                                viewMode === "grid"
+                                                    ? "bg-blue-600"
+                                                    : "bg-gray-400"
+                                            }`}
+                                        ></div>
+                                        <div
+                                            className={`${
+                                                viewMode === "grid"
+                                                    ? "bg-blue-600"
+                                                    : "bg-gray-400"
+                                            }`}
+                                        ></div>
+                                        <div
+                                            className={`${
+                                                viewMode === "grid"
+                                                    ? "bg-blue-600"
+                                                    : "bg-gray-400"
+                                            }`}
+                                        ></div>
+                                        <div
+                                            className={`${
+                                                viewMode === "grid"
+                                                    ? "bg-blue-600"
+                                                    : "bg-gray-400"
+                                            }`}
+                                        ></div>
+                                    </div>
+                                </button>
+                                <button
+                                    onClick={() => setViewMode("list")}
+                                    className={`p-2 rounded-lg ${
+                                        viewMode === "list"
+                                            ? "bg-blue-50 text-blue-600"
+                                            : "text-gray-500 hover:bg-gray-100"
+                                    }`}
+                                >
+                                    <div className="flex flex-col gap-0.5 w-4 h-4">
+                                        <div
+                                            className={`h-1 w-full ${
+                                                viewMode === "list"
+                                                    ? "bg-blue-600"
+                                                    : "bg-gray-400"
+                                            }`}
+                                        ></div>
+                                        <div
+                                            className={`h-1 w-full ${
+                                                viewMode === "list"
+                                                    ? "bg-blue-600"
+                                                    : "bg-gray-400"
+                                            }`}
+                                        ></div>
+                                        <div
+                                            className={`h-1 w-full ${
+                                                viewMode === "list"
+                                                    ? "bg-blue-600"
+                                                    : "bg-gray-400"
+                                            }`}
+                                        ></div>
+                                    </div>
+                                </button>
+                            </div>
+                            <button className="flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg shadow transition-colors">
+                                <Plus className="h-4 w-4" />
+                                <span className="hidden sm:inline">
+                                    Add Organization
+                                </span>
+                                <span className="sm:hidden">Add</span>
+                            </button>
+                        </div>
                     </div>
+                </div>
 
-                    {/* Search and Filter Bar */}
-                    <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-                        <div className="flex flex-col sm:flex-row gap-4">
-                            {/* Search Input */}
-                            <div className="relative flex-1">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Search className="h-5 w-5 text-gray-400" />
-                                </div>
+                {/* Stats Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-6 md:mb-8">
+                    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-gray-600">
+                                    Total Organizations
+                                </p>
+                                <p className="text-2xl md:text-3xl font-bold text-gray-900">
+                                    {stats.total}
+                                </p>
+                            </div>
+                            <div className="p-2 bg-blue-50 rounded-lg">
+                                <Building className="h-5 w-5 text-blue-600" />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-gray-600">
+                                    Approved
+                                </p>
+                                <p className="text-2xl md:text-3xl font-bold text-gray-900">
+                                    {stats.approved}
+                                </p>
+                            </div>
+                            <div className="p-2 bg-green-50 rounded-lg">
+                                <CheckCircle className="h-5 w-5 text-green-600" />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-gray-600">Pending</p>
+                                <p className="text-2xl md:text-3xl font-bold text-gray-900">
+                                    {stats.pending}
+                                </p>
+                            </div>
+                            <div className="p-2 bg-amber-50 rounded-lg">
+                                <Clock className="h-5 w-5 text-amber-600" />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-gray-600">
+                                    Verified
+                                </p>
+                                <p className="text-2xl md:text-3xl font-bold text-gray-900">
+                                    {stats.verified}
+                                </p>
+                            </div>
+                            <div className="p-2 bg-purple-50 rounded-lg">
+                                <UserPlus className="h-5 w-5 text-purple-600" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Search and Filters */}
+                <div className="mb-6">
+                    <div className="flex flex-col md:flex-row gap-4">
+                        <div className="flex-1">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                                 <input
                                     type="text"
-                                    placeholder="Search organizations by name or description..."
-                                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     value={searchQuery}
                                     onChange={(e) =>
                                         setSearchQuery(e.target.value)
                                     }
+                                    placeholder="Search organizations by name, description, or location..."
+                                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                                 />
                             </div>
-
-                            {/* Filter Toggle */}
-                            <button
-                                onClick={() => setShowFilters(!showFilters)}
-                                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                <Filter className="w-4 h-4 mr-2" />
-                                Filters
-                                {showFilters ? (
-                                    <ChevronUp className="w-4 h-4 ml-2" />
-                                ) : (
-                                    <ChevronDown className="w-4 h-4 ml-2" />
-                                )}
-                            </button>
                         </div>
-
-                        {/* Expanded Filters */}
-                        {showFilters && (
-                            <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                                {/* Status Filter */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Status
-                                    </label>
-                                    <select
-                                        className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-lg"
-                                        value={statusFilter}
-                                        onChange={(e) =>
-                                            setStatusFilter(e.target.value)
-                                        }
-                                    >
-                                        <option value="all">
-                                            All Statuses
-                                        </option>
-                                        <option value="approved">
-                                            Approved
-                                        </option>
-                                        <option value="pending">Pending</option>
-                                        <option value="rejected">
-                                            Rejected
-                                        </option>
-                                    </select>
-                                </div>
-
-                                {/* Sort By */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Sort By
-                                    </label>
-                                    <select
-                                        className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-lg"
-                                        value={sortBy}
-                                        onChange={(e) =>
-                                            setSortBy(e.target.value)
-                                        }
-                                    >
-                                        <option value="newest">
-                                            Newest First
-                                        </option>
-                                        <option value="oldest">
-                                            Oldest First
-                                        </option>
-                                        <option value="name-asc">
-                                            Name (A-Z)
-                                        </option>
-                                        <option value="name-desc">
-                                            Name (Z-A)
-                                        </option>
-                                    </select>
-                                </div>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="relative">
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) =>
+                                        setStatusFilter(e.target.value)
+                                    }
+                                    className="w-full sm:w-auto pl-10 pr-8 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm appearance-none bg-white"
+                                >
+                                    <option value="all">All Status</option>
+                                    <option value="approved">Approved</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="rejected">Rejected</option>
+                                </select>
+                                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                             </div>
-                        )}
-                    </div>
-
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                        <div className="bg-white rounded-xl shadow-sm p-4">
-                            <div className="flex items-center">
-                                <div className="p-3 rounded-lg bg-blue-100 text-blue-600 mr-4">
-                                    <Users className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500">
-                                        Total Organizations
-                                    </p>
-                                    <p className="text-2xl font-semibold text-gray-800">
-                                        {organizations.length}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="bg-white rounded-xl shadow-sm p-4">
-                            <div className="flex items-center">
-                                <div className="p-3 rounded-lg bg-green-100 text-green-600 mr-4">
-                                    <CheckCircle className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500">
-                                        Verified
-                                    </p>
-                                    <p className="text-2xl font-semibold text-gray-800">
-                                        {
-                                            verifications.filter(
-                                                (o) => o.status === "Approved"
-                                            ).length
-                                        }
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="bg-white rounded-xl shadow-sm p-4">
-                            <div className="flex items-center">
-                                <div className="p-3 rounded-lg bg-yellow-100 text-yellow-600 mr-4">
-                                    <Clock className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500">
-                                        Pending
-                                    </p>
-                                    <p className="text-2xl font-semibold text-gray-800">
-                                        {
-                                            organizations.filter(
-                                                (o) => o.status === "Pending"
-                                            ).length
-                                        }
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="bg-white rounded-xl shadow-sm p-4">
-                            <div className="flex items-center">
-                                <div className="p-3 rounded-lg bg-red-100 text-red-600 mr-4">
-                                    <X className="h-6 w-6" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500">
-                                        Rejected
-                                    </p>
-                                    <p className="text-2xl font-semibold text-gray-800">
-                                        {
-                                            organizations.filter(
-                                                (o) => o.status === "Rejected"
-                                            ).length
-                                        }
-                                    </p>
-                                </div>
+                            <div className="relative">
+                                <select
+                                    value={sortBy}
+                                    onChange={(e) => setSortBy(e.target.value)}
+                                    className="w-full sm:w-auto pl-10 pr-8 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm appearance-none bg-white"
+                                >
+                                    <option value="newest">Newest First</option>
+                                    <option value="oldest">Oldest First</option>
+                                    <option value="name-asc">Name (A-Z)</option>
+                                    <option value="name-desc">
+                                        Name (Z-A)
+                                    </option>
+                                </select>
+                                <TrendingUp className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    {/* Organizations Grid */}
-                    {sortedOrgs.length > 0 ? (
-                        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {/* Organizations Grid/List View */}
+                {sortedOrgs.length > 0 ? (
+                    viewMode === "grid" ? (
+                        /* Grid View */
+                        <div className="grid gap-4 md:gap-6 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
                             {sortedOrgs.map((org) => (
                                 <div
                                     key={org.id}
-                                    className="bg-white rounded-xl shadow hover:shadow-lg transition-all overflow-hidden flex flex-col border border-gray-100 hover:border-blue-100"
+                                    className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 overflow-hidden flex flex-col"
                                 >
-                                    {/* Image with status badge */}
-                                    <div className="relative h-48">
+                                    {/* Header with image */}
+                                    <div className="relative h-40">
                                         <img
                                             src={
                                                 org.logo
@@ -267,61 +350,91 @@ export default function Index({ organizations, verifications }) {
                                                     : "/images/default-org.jpg"
                                             }
                                             alt={org.name}
-                                            className="object-cover h-full w-full"
+                                            className="object-cover w-full h-full"
                                         />
-                                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                                        <div className="absolute top-3 right-3">
                                             <span
-                                                className={`px-2 py-1 rounded-full text-xs font-semibold text-white ${
-                                                    org.status === "Approved"
-                                                        ? "bg-green-500"
-                                                        : org.status ===
-                                                          "Pending"
-                                                        ? "bg-yellow-500"
-                                                        : "bg-red-500"
-                                                }`}
+                                                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(
+                                                    org.status
+                                                )}`}
                                             >
+                                                {getStatusIcon(org.status)}
                                                 {org.status}
                                             </span>
                                         </div>
-                                    </div>
-
-                                    <div className="p-5 flex-1 flex flex-col">
-                                        {/* Title and basic info */}
-                                        <div className="mb-3">
-                                            <h2 className="text-lg font-bold text-gray-900">
+                                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+                                            <h2 className="text-lg font-bold text-white line-clamp-1">
                                                 {org.name}
                                             </h2>
-                                            <p className="text-sm text-gray-500 mt-1 flex items-center">
-                                                <Globe className="w-4 h-4 mr-1" />
-                                                {org.city}, {org.country}
+                                        </div>
+                                    </div>
+
+                                    <div className="p-4 flex-1 flex flex-col">
+                                        {/* Location and basic info */}
+                                        <div className="mb-3">
+                                            <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                                                <MapPin className="w-4 h-4" />
+                                                <span>
+                                                    {org.city}, {org.country}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm text-gray-600 line-clamp-2">
+                                                {org.description ||
+                                                    "No description provided."}
                                             </p>
                                         </div>
 
-                                        {/* Description */}
-                                        <p className="text-sm text-gray-600 line-clamp-3 mb-4 flex-1">
-                                            {org.description ||
-                                                "No description provided."}
-                                        </p>
-
-                                        {/* Footer with actions */}
-                                        <div className="mt-auto pt-3 border-t border-gray-100 flex justify-between">
-                                            <Link
-                                                href={route(
-                                                    "admin.organizations.view",
-                                                    org.slug
+                                        {/* Contact info (collapsed on mobile) */}
+                                        <div className="mt-auto pt-3 border-t border-gray-100">
+                                            <div className="hidden sm:flex flex-col gap-2 mb-3">
+                                                {org.email && (
+                                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                        <Mail className="w-3 h-3" />
+                                                        <span className="truncate">
+                                                            {org.email}
+                                                        </span>
+                                                    </div>
                                                 )}
-                                                className="text-blue-600 hover:underline"
-                                            >
-                                                View Details
-                                            </Link>
+                                                {org.website && (
+                                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                        <ExternalLink className="w-3 h-3" />
+                                                        <span className="truncate">
+                                                            {org.website.replace(
+                                                                /^https?:\/\//,
+                                                                ""
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
 
-                                            <div className="flex gap-3">
-                                                {/* <button className="text-sm text-yellow-600 hover:underline font-medium">
-                                                    Edit
-                                                </button> */}
-                                                <button className="text-sm text-red-600 hover:underline font-medium">
-                                                    Delete
-                                                </button>
+                                            {/* Actions */}
+                                            <div className="flex items-center justify-between">
+                                                <Link
+                                                    href={route(
+                                                        "admin.organizations.view",
+                                                        org.slug
+                                                    )}
+                                                    className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                                >
+                                                    View Details
+                                                    <ExternalLink className="w-3 h-3" />
+                                                </Link>
+                                                <div className="flex items-center gap-1">
+                                                    <button className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                                        <Edit className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() =>
+                                                            handleDeleteOrg(
+                                                                org.id
+                                                            )
+                                                        }
+                                                        className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -329,162 +442,343 @@ export default function Index({ organizations, verifications }) {
                             ))}
                         </div>
                     ) : (
-                        <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-                            <div className="mx-auto max-w-md">
-                                <Search className="mx-auto h-12 w-12 text-gray-400" />
-                                <h3 className="mt-2 text-lg font-medium text-gray-900">
-                                    No organizations found
-                                </h3>
-                                <p className="mt-1 text-sm text-gray-500">
-                                    {searchQuery || statusFilter !== "all"
-                                        ? "Try adjusting your search or filter criteria"
-                                        : "Get started by adding a new organization"}
-                                </p>
-                                <div className="mt-6">
-                                    <button className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                        <Plus className="-ml-1 mr-2 h-5 w-5" />
-                                        Add Organization
-                                    </button>
-                                </div>
+                        /* List View */
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left font-semibold text-gray-700">
+                                                Organization
+                                            </th>
+                                            <th className="px-4 py-3 text-left font-semibold text-gray-700 hidden md:table-cell">
+                                                Location
+                                            </th>
+                                            <th className="px-4 py-3 text-left font-semibold text-gray-700 hidden lg:table-cell">
+                                                Contact
+                                            </th>
+                                            <th className="px-4 py-3 text-left font-semibold text-gray-700">
+                                                Status
+                                            </th>
+                                            <th className="px-4 py-3 text-left font-semibold text-gray-700">
+                                                Actions
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {sortedOrgs.map((org) => (
+                                            <tr
+                                                key={org.id}
+                                                className="hover:bg-gray-50 transition-colors"
+                                            >
+                                                <td className="px-4 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center overflow-hidden">
+                                                            <img
+                                                                src={
+                                                                    org.logo
+                                                                        ? `/storage/${org.logo}`
+                                                                        : "/images/default-org.jpg"
+                                                                }
+                                                                alt={org.name}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-medium text-gray-900">
+                                                                {org.name}
+                                                            </p>
+                                                            <p className="text-xs text-gray-500 line-clamp-1">
+                                                                {org.description ||
+                                                                    "No description"}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-4 hidden md:table-cell">
+                                                    <div className="flex items-center gap-2 text-gray-700">
+                                                        <MapPin className="w-4 h-4" />
+                                                        <span className="text-sm">
+                                                            {org.city},{" "}
+                                                            {org.country}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-4 hidden lg:table-cell">
+                                                    <div className="space-y-1">
+                                                        {org.email && (
+                                                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                                <Mail className="w-3 h-3" />
+                                                                <span className="truncate">
+                                                                    {org.email}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {org.phone && (
+                                                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                                <Phone className="w-3 h-3" />
+                                                                <span>
+                                                                    {org.phone}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-4">
+                                                    <span
+                                                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                                                            org.status
+                                                        )}`}
+                                                    >
+                                                        {getStatusIcon(
+                                                            org.status
+                                                        )}
+                                                        {org.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <button className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                                            <Eye className="w-4 h-4" />
+                                                        </button>
+                                                        <button className="p-1.5 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
+                                                            <Edit className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() =>
+                                                                handleDeleteOrg(
+                                                                    org.id
+                                                                )
+                                                            }
+                                                            className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
-                    )}
+                    )
+                ) : (
+                    /* Empty State */
+                    <div className="bg-white rounded-xl shadow-sm p-8 md:p-12 text-center">
+                        <div className="mx-auto max-w-md">
+                            <Building className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">
+                                No organizations found
+                            </h3>
+                            <p className="text-sm text-gray-500 mb-6">
+                                {searchQuery || statusFilter !== "all"
+                                    ? "Try adjusting your search or filter criteria"
+                                    : "Get started by adding a new organization"}
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                                <button className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg shadow transition-colors">
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Add Organization
+                                </button>
+                                {(searchQuery || statusFilter !== "all") && (
+                                    <button
+                                        onClick={() => {
+                                            setSearchQuery("");
+                                            setStatusFilter("all");
+                                        }}
+                                        className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg shadow-sm transition-colors"
+                                    >
+                                        Clear Filters
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
-                    {/* Organization Details Modal */}
-                    {selectedOrg && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 sm:p-6 overflow-auto">
-                            <div className="bg-white rounded-lg w-full max-w-lg sm:max-w-3xl shadow-xl relative max-h-[90vh] overflow-y-auto">
+                {/* Organization Details Modal */}
+                {selectedOrg && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 sm:p-6 overflow-auto">
+                        <div className="bg-white rounded-xl w-full max-w-lg sm:max-w-3xl shadow-2xl relative max-h-[90vh] overflow-y-auto">
+                            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                                <h2 className="text-xl font-bold text-gray-900">
+                                    Organization Details
+                                </h2>
                                 <button
                                     onClick={closeModal}
-                                    className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-2xl font-bold"
+                                    className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
                                 >
-                                    ✕
+                                    <X className="w-5 h-5" />
                                 </button>
-                                <div className="flex flex-col sm:flex-row gap-6 p-6">
+                            </div>
+                            <div className="p-6">
+                                <div className="flex flex-col sm:flex-row gap-6">
                                     <div className="w-full sm:w-1/3">
-                                        <img
-                                            src={
-                                                selectedOrg.logo
-                                                    ? `/storage/${selectedOrg.logo}`
-                                                    : "/images/default-org.jpg"
-                                            }
-                                            alt={selectedOrg.name}
-                                            className="w-full h-48 sm:h-full object-cover rounded-lg"
-                                        />
-                                        <div className="mt-4">
-                                            <span
-                                                className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                                                    selectedOrg.status ===
-                                                    "Approved"
-                                                        ? "bg-green-100 text-green-800"
-                                                        : selectedOrg.status ===
-                                                          "Pending"
-                                                        ? "bg-yellow-100 text-yellow-800"
-                                                        : "bg-red-100 text-red-800"
-                                                }`}
-                                            >
-                                                {selectedOrg.status}
-                                            </span>
+                                        <div className="rounded-lg overflow-hidden mb-4">
+                                            <img
+                                                src={
+                                                    selectedOrg.logo
+                                                        ? `/storage/${selectedOrg.logo}`
+                                                        : "/images/default-org.jpg"
+                                                }
+                                                alt={selectedOrg.name}
+                                                className="w-full h-48 object-cover"
+                                            />
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <span
+                                                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium ${getStatusColor(
+                                                        selectedOrg.status
+                                                    )}`}
+                                                >
+                                                    {getStatusIcon(
+                                                        selectedOrg.status
+                                                    )}
+                                                    {selectedOrg.status}
+                                                </span>
+                                                <div className="text-sm text-gray-500">
+                                                    Created{" "}
+                                                    {new Date(
+                                                        selectedOrg.created_at
+                                                    ).toLocaleDateString()}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="w-full sm:w-2/3">
-                                        <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                                        <h2 className="text-2xl font-bold text-gray-900 mb-3">
                                             {selectedOrg.name}
                                         </h2>
-                                        <p className="text-gray-600 mb-6">
+                                        <p className="text-gray-600 mb-6 leading-relaxed">
                                             {selectedOrg.description ||
                                                 "No description available."}
                                         </p>
 
-                                        <div className="space-y-4">
-                                            <div className="flex items-start">
-                                                <Globe className="flex-shrink-0 h-5 w-5 text-gray-500 mr-3 mt-0.5" />
-                                                <div>
-                                                    <h3 className="text-sm font-medium text-gray-500">
-                                                        Location
-                                                    </h3>
-                                                    <p className="text-gray-900">
-                                                        {selectedOrg.city},{" "}
-                                                        {selectedOrg.country}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-start">
-                                                <Calendar className="flex-shrink-0 h-5 w-5 text-gray-500 mr-3 mt-0.5" />
-                                                <div>
-                                                    <h3 className="text-sm font-medium text-gray-500">
-                                                        Founded
-                                                    </h3>
-                                                    <p className="text-gray-900">
-                                                        {selectedOrg.foundedYear ||
-                                                            "Not specified"}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-start">
-                                                <Phone className="flex-shrink-0 h-5 w-5 text-gray-500 mr-3 mt-0.5" />
-                                                <div>
-                                                    <h3 className="text-sm font-medium text-gray-500">
-                                                        Contact
-                                                    </h3>
-                                                    <p className="text-gray-900">
-                                                        {selectedOrg.phone ||
-                                                            "Not provided"}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-start">
-                                                <Mail className="flex-shrink-0 h-5 w-5 text-gray-500 mr-3 mt-0.5" />
-                                                <div>
-                                                    <h3 className="text-sm font-medium text-gray-500">
-                                                        Email
-                                                    </h3>
-                                                    <p className="text-gray-900">
-                                                        {selectedOrg.email}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-start">
-                                                <LinkIcon className="flex-shrink-0 h-5 w-5 text-gray-500 mr-3 mt-0.5" />
-                                                <div>
-                                                    <h3 className="text-sm font-medium text-gray-500">
-                                                        Website
-                                                    </h3>
-                                                    {selectedOrg.website ? (
-                                                        <a
-                                                            href={
-                                                                selectedOrg.website.startsWith(
-                                                                    "http"
-                                                                )
-                                                                    ? selectedOrg.website
-                                                                    : `https://${selectedOrg.website}`
-                                                            }
-                                                            className="text-blue-600 hover:underline"
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                        >
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="bg-gray-50 rounded-lg p-4">
+                                                <div className="flex items-center gap-3 mb-3">
+                                                    <MapPin className="h-5 w-5 text-gray-500" />
+                                                    <div>
+                                                        <h3 className="text-sm font-medium text-gray-500">
+                                                            Location
+                                                        </h3>
+                                                        <p className="text-gray-900 font-medium">
+                                                            {selectedOrg.city},{" "}
                                                             {
-                                                                selectedOrg.website
+                                                                selectedOrg.country
                                                             }
-                                                        </a>
-                                                    ) : (
-                                                        <p className="text-gray-900">
-                                                            Not provided
                                                         </p>
-                                                    )}
+                                                    </div>
                                                 </div>
                                             </div>
+
+                                            <div className="bg-gray-50 rounded-lg p-4">
+                                                <div className="flex items-center gap-3 mb-3">
+                                                    <Calendar className="h-5 w-5 text-gray-500" />
+                                                    <div>
+                                                        <h3 className="text-sm font-medium text-gray-500">
+                                                            Founded
+                                                        </h3>
+                                                        <p className="text-gray-900 font-medium">
+                                                            {selectedOrg.foundedYear ||
+                                                                "Not specified"}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-gray-50 rounded-lg p-4">
+                                                <div className="flex items-center gap-3 mb-3">
+                                                    <Phone className="h-5 w-5 text-gray-500" />
+                                                    <div>
+                                                        <h3 className="text-sm font-medium text-gray-500">
+                                                            Phone
+                                                        </h3>
+                                                        <p className="text-gray-900 font-medium">
+                                                            {selectedOrg.phone ||
+                                                                "Not provided"}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-gray-50 rounded-lg p-4">
+                                                <div className="flex items-center gap-3 mb-3">
+                                                    <Mail className="h-5 w-5 text-gray-500" />
+                                                    <div>
+                                                        <h3 className="text-sm font-medium text-gray-500">
+                                                            Email
+                                                        </h3>
+                                                        <p className="text-gray-900 font-medium">
+                                                            {selectedOrg.email}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {selectedOrg.website && (
+                                                <div className="sm:col-span-2 bg-gray-50 rounded-lg p-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <ExternalLink className="h-5 w-5 text-gray-500" />
+                                                        <div>
+                                                            <h3 className="text-sm font-medium text-gray-500 mb-1">
+                                                                Website
+                                                            </h3>
+                                                            <a
+                                                                href={
+                                                                    selectedOrg.website.startsWith(
+                                                                        "http"
+                                                                    )
+                                                                        ? selectedOrg.website
+                                                                        : `https://${selectedOrg.website}`
+                                                                }
+                                                                className="text-blue-600 hover:underline font-medium"
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                            >
+                                                                {
+                                                                    selectedOrg.website
+                                                                }
+                                                                <ExternalLink className="w-3 h-3 inline ml-1" />
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
+
+                {/* Pagination */}
+                {sortedOrgs.length > 0 && (
+                    <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <p className="text-sm text-gray-600">
+                            Showing{" "}
+                            <span className="font-medium">
+                                1-{Math.min(12, sortedOrgs.length)}
+                            </span>{" "}
+                            of{" "}
+                            <span className="font-medium">
+                                {sortedOrgs.length}
+                            </span>{" "}
+                            organizations
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <button className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                Previous
+                            </button>
+                            <button className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </AdminLayout>
     );

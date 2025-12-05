@@ -15,6 +15,13 @@ import {
     HelpCircle,
     BarChart2,
     Shield,
+    Building,
+    UserCog,
+    MessageCircle,
+    DollarSign,
+    UserCheck,
+    Phone,
+    GitMerge,
 } from "lucide-react";
 import { Link, router, usePage } from "@inertiajs/react";
 import { Fragment, useState, useEffect, useRef } from "react";
@@ -26,71 +33,176 @@ export default function AdminLayout({ children }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [activeGroup, setActiveGroup] = useState(null);
+    const sidebarRef = useRef(null);
 
-    // ✅ Nav config
-    const navItems = [
-        { name: "Dashboard", href: route("admin.dashboard"), icon: Home },
+    // Close sidebar when clicking outside on mobile
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (
+                sidebarOpen &&
+                sidebarRef.current &&
+                !sidebarRef.current.contains(event.target) &&
+                !event.target.closest("[data-menu-button]")
+            ) {
+                setSidebarOpen(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [sidebarOpen]);
+
+    // ✅ Grouped Navigation - Professional Organization
+    const navigationGroups = [
         {
-            name: "Organizations",
-            href: route("admin.organizations"),
-            icon: Users,
-        },
-        { name: "Volunteers", href: route("admin.volunteers"), icon: Users },
-        {
-            name: "Sponsorships",
-            href: route("admin.sponsor.index"),
-            icon: Users,
-        },
-        {
-            name: "Projects",
-            icon: Folder,
-            subItems: [
-                { name: "All Projects", href: route("admin.projects") },
+            group: "Overview",
+            items: [
                 {
-                    name: "Featured Projects",
-                    href: route("admin.featured.projects"),
-                },
-                { name: "Categories", href: route("admin.categories") },
-                { name: "Subcategories", href: route("admin.subcategories") },
-            ],
-        },
-        {
-            name: "Messages",
-            href: route("admin.messages"),
-            icon: MessageSquare,
-        },
-        { name: "Payments", href: route("admin.payments"), icon: CreditCard },
-        { name: "Chat Support", href: route("chat.index"), icon: HelpCircle },
-        {
-            name: "Reports",
-            icon: BarChart2,
-            subItems: [
-                {
-                    name: "Project Reports",
-                    href: route("admin.project.reports"),
-                },
-                {
-                    name: "Report Categories",
-                    href: route("admin.report-categories"),
-                },
-                {
-                    name: "Report Subcategories",
-                    href: route("admin.report-subcategories.index"),
+                    name: "Dashboard",
+                    href: route("admin.dashboard"),
+                    icon: Home,
+                    badge: null,
                 },
             ],
         },
-        { name: "Manage Users", href: route("admin.users"), icon: Shield },
         {
-            name: "User Contacts",
-            href: route("admin.contacts.index"),
-            icon: Users,
+            group: "User Management",
+            items: [
+                {
+                    name: "Manage Users",
+                    href: route("admin.users"),
+                    icon: UserCog,
+                    badge: null,
+                },
+                {
+                    name: "Organizations",
+                    href: route("admin.organizations"),
+                    icon: Building,
+                    badge: null,
+                },
+                {
+                    name: "Volunteers",
+                    href: route("admin.volunteers"),
+                    icon: UserCheck,
+                    badge: null,
+                },
+                {
+                    name: "Sponsorships",
+                    href: route("admin.sponsor.index"),
+                    icon: Users,
+                    badge: null,
+                },
+            ],
         },
         {
-            name: "User Referrals",
-            href: route("admin.referrals.index"),
-            icon: Users,
+            group: "Project Management",
+            items: [
+                {
+                    name: "Projects",
+                    icon: Folder,
+                    subItems: [
+                        { name: "All Projects", href: route("admin.projects") },
+                        {
+                            name: "Featured Projects",
+                            href: route("admin.featured.projects"),
+                        },
+                        { name: "Categories", href: route("admin.categories") },
+                        {
+                            name: "Subcategories",
+                            href: route("admin.subcategories"),
+                        },
+                    ],
+                },
+            ],
         },
-        { name: "Settings", href: "#", icon: Settings },
+        {
+            group: "Communication",
+            items: [
+                {
+                    name: "Messages",
+                    href: route("admin.messages"),
+                    icon: MessageSquare,
+                    badge: null,
+                },
+                {
+                    name: "Chat Support",
+                    href: route("chat.index"),
+                    icon: MessageCircle,
+                    badge: unreadCount > 0 ? unreadCount : null,
+                },
+                {
+                    name: "User Contacts",
+                    href: route("admin.contacts.index"),
+                    icon: Phone,
+                    badge: null,
+                },
+            ],
+        },
+        {
+            group: "Financial",
+            items: [
+                {
+                    name: "Payments",
+                    href: route("admin.payments"),
+                    icon: DollarSign,
+                    badge: null,
+                },
+            ],
+        },
+        {
+            group: "Analytics & Reports",
+            items: [
+                {
+                    name: "Reports",
+                    icon: BarChart2,
+                    subItems: [
+                        {
+                            name: "Project Reports",
+                            href: route("admin.project.reports"),
+                        },
+                        {
+                            name: "Report Categories",
+                            href: route("admin.report-categories"),
+                        },
+                        {
+                            name: "Report Subcategories",
+                            href: route("admin.report-subcategories.index"),
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            group: "Referral System",
+            items: [
+                {
+                    name: "User Referrals",
+                    href: route("admin.referrals.index"),
+                    icon: GitMerge,
+                    badge: null,
+                },
+            ],
+        },
+        // {
+        //     group: "System",
+        //     items: [
+        //         {
+        //             name: "Settings",
+        //             href: "#",
+        //             icon: Settings,
+        //             badge: null,
+        //         },
+        //         {
+        //             name: "Security",
+        //             href: "#",
+        //             icon: Shield,
+        //             badge: null,
+        //         },
+        //     ],
+        // },
     ];
 
     // ✅ Listen to notifications
@@ -155,71 +267,155 @@ export default function AdminLayout({ children }) {
         updateNotifications(chatId, "declined");
     };
 
+    const closeSidebar = () => {
+        if (window.innerWidth < 1024) {
+            setSidebarOpen(false);
+        }
+    };
+
     return (
         <div className="flex h-screen bg-base-200 overflow-hidden">
+            {/* Mobile Overlay */}
+            {sidebarOpen && (
+                <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" />
+            )}
+
             {/* Sidebar */}
             <div
-                className={`fixed inset-y-0 left-0 z-30 w-64 transform transition-transform duration-300 lg:translate-x-0 lg:static lg:inset-0 ${
+                ref={sidebarRef}
+                className={`fixed inset-y-0 left-0 z-50 w-72 transform transition-all duration-300 lg:translate-x-0 lg:static lg:inset-0 ${
                     sidebarOpen ? "translate-x-0" : "-translate-x-full"
                 }`}
             >
-                <aside className="h-full flex flex-col bg-base-100 shadow-xl">
-                    <div className="h-16 flex items-center justify-center border-b border-base-300">
-                        <span className="font-extrabold text-xl text-primary">
+                <aside className="h-full flex flex-col bg-base-100 shadow-xl border-r border-base-300">
+                    {/* Logo/Brand */}
+                    <div className="h-16 flex items-center justify-between px-4 border-b border-base-300">
+                        <span className="font-extrabold text-xl text-primary whitespace-nowrap">
                             Admin Panel
                         </span>
+                        <button
+                            className="lg:hidden btn btn-ghost btn-sm btn-square"
+                            onClick={() => setSidebarOpen(false)}
+                        >
+                            <X size={20} />
+                        </button>
                     </div>
-                    <ul className="menu p-2 flex-1">
-                        {navItems.map((item) =>
-                            item.subItems ? (
-                                <Disclosure key={item.name}>
-                                    {({ open }) => (
-                                        <>
-                                            <Disclosure.Button className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-base-200">
-                                                <div className="flex items-center gap-3">
-                                                    <item.icon size={18} />
-                                                    {item.name}
-                                                </div>
-                                                <ChevronDown
-                                                    className={`w-4 h-4 transition-transform ${
-                                                        open ? "rotate-180" : ""
-                                                    }`}
-                                                />
-                                            </Disclosure.Button>
-                                            <Disclosure.Panel className="pl-8">
-                                                {item.subItems.map((sub) => (
-                                                    <li key={sub.name}>
-                                                        <Link
-                                                            href={sub.href}
-                                                            className="hover:bg-base-200 rounded-lg"
+
+                    {/* User Info - Mobile */}
+                    <div className="lg:hidden p-4 border-b border-base-300">
+                        <div className="flex items-center gap-3">
+                            <div className="avatar placeholder">
+                                <div className="w-10 rounded-full bg-primary text-white flex items-center justify-center">
+                                    {auth.user.name.charAt(0)}
+                                </div>
+                            </div>
+                            <div>
+                                <p className="font-medium">{auth.user.name}</p>
+                                <p className="text-xs text-base-content/70">
+                                    Administrator
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Navigation */}
+                    <div className="flex-1 overflow-y-auto py-4 px-2">
+                        {navigationGroups.map((group) => (
+                            <div key={group.group} className="mb-6 last:mb-0">
+                                <h3 className="px-3 mb-2 text-xs font-semibold uppercase text-base-content/50 tracking-wider">
+                                    {group.group}
+                                </h3>
+                                <ul className="space-y-1">
+                                    {group.items.map((item) =>
+                                        item.subItems ? (
+                                            <Disclosure key={item.name}>
+                                                {({ open }) => (
+                                                    <>
+                                                        <Disclosure.Button
+                                                            className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-base-200 transition-colors"
+                                                            onClick={() =>
+                                                                closeSidebar()
+                                                            }
                                                         >
-                                                            {sub.name}
-                                                        </Link>
-                                                    </li>
-                                                ))}
-                                            </Disclosure.Panel>
-                                        </>
+                                                            <div className="flex items-center gap-3">
+                                                                <item.icon
+                                                                    size={18}
+                                                                />
+                                                                <span className="text-sm">
+                                                                    {item.name}
+                                                                </span>
+                                                            </div>
+                                                            <ChevronDown
+                                                                className={`w-4 h-4 transition-transform ${
+                                                                    open
+                                                                        ? "rotate-180"
+                                                                        : ""
+                                                                }`}
+                                                            />
+                                                        </Disclosure.Button>
+                                                        <Disclosure.Panel className="pl-10 space-y-1">
+                                                            {item.subItems.map(
+                                                                (sub) => (
+                                                                    <li
+                                                                        key={
+                                                                            sub.name
+                                                                        }
+                                                                    >
+                                                                        <Link
+                                                                            href={
+                                                                                sub.href
+                                                                            }
+                                                                            className="block px-3 py-2 text-sm rounded-lg hover:bg-base-200 transition-colors"
+                                                                            onClick={
+                                                                                closeSidebar
+                                                                            }
+                                                                        >
+                                                                            {
+                                                                                sub.name
+                                                                            }
+                                                                        </Link>
+                                                                    </li>
+                                                                )
+                                                            )}
+                                                        </Disclosure.Panel>
+                                                    </>
+                                                )}
+                                            </Disclosure>
+                                        ) : (
+                                            <li key={item.name}>
+                                                <Link
+                                                    href={item.href}
+                                                    className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-base-200 transition-colors"
+                                                    onClick={closeSidebar}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <item.icon size={18} />
+                                                        <span className="text-sm">
+                                                            {item.name}
+                                                        </span>
+                                                    </div>
+                                                    {item.badge && (
+                                                        <span className="badge badge-primary badge-sm">
+                                                            {item.badge}
+                                                        </span>
+                                                    )}
+                                                </Link>
+                                            </li>
+                                        )
                                     )}
-                                </Disclosure>
-                            ) : (
-                                <li key={item.name}>
-                                    <Link
-                                        href={item.href}
-                                        className="flex items-center gap-3"
-                                    >
-                                        <item.icon size={18} />
-                                        {item.name}
-                                    </Link>
-                                </li>
-                            )
-                        )}
-                    </ul>
+                                </ul>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Logout - Bottom */}
                     <div className="border-t border-base-300 p-4">
                         <Link
                             href={route("logout")}
                             method="post"
                             as="button"
-                            className="btn btn-error w-full"
+                            className="btn btn-error w-full btn-sm"
+                            onClick={closeSidebar}
                         >
                             <LogOut size={18} />
                             Logout
@@ -228,30 +424,33 @@ export default function AdminLayout({ children }) {
                 </aside>
             </div>
 
-            {/* Main */}
-            <div className="flex flex-col flex-1 overflow-hidden">
+            {/* Main Content */}
+            <div className="flex flex-col flex-1 overflow-hidden min-w-0">
                 {/* Topbar */}
-                <header className="h-16 bg-base-100 shadow px-4 flex items-center justify-between">
-                    <button
-                        className="lg:hidden btn btn-ghost btn-square"
-                        onClick={() => setSidebarOpen(!sidebarOpen)}
-                    >
-                        <MenuIcon size={22} />
-                    </button>
-                    <h1 className="text-lg font-semibold text-base-content">
-                        Admin Dashboard
-                    </h1>
-
+                <header className="h-16 bg-base-100 shadow px-4 flex items-center justify-between sticky top-0 z-30">
                     <div className="flex items-center gap-4">
-                        {/* Notifications Dropdown */}
+                        <button
+                            data-menu-button
+                            className="lg:hidden btn btn-ghost btn-square"
+                            onClick={() => setSidebarOpen(true)}
+                        >
+                            <MenuIcon size={22} />
+                        </button>
+                        <h1 className="text-lg font-semibold text-base-content truncate">
+                            Admin Dashboard
+                        </h1>
+                    </div>
+
+                    <div className="flex items-center gap-2 sm:gap-4">
+                        {/* Notifications Dropdown - Mobile Optimized */}
                         <Menu as="div" className="relative">
                             <Menu.Button
                                 onClick={markAsRead}
-                                className="btn btn-ghost btn-circle relative"
+                                className="btn btn-ghost btn-circle relative btn-sm sm:btn-md"
                             >
                                 <Bell className="h-5 w-5" />
                                 {unreadCount > 0 && (
-                                    <span className="badge badge-error badge-xs absolute top-0 right-0">
+                                    <span className="badge badge-error badge-xs absolute top-1 right-1">
                                         {unreadCount}
                                     </span>
                                 )}
@@ -265,110 +464,113 @@ export default function AdminLayout({ children }) {
                                 leaveFrom="opacity-100 scale-100"
                                 leaveTo="opacity-0 scale-95"
                             >
-                                <Menu.Items className="absolute right-0 mt-2 w-80 bg-base-100 rounded-lg shadow-lg border border-base-300 z-50">
-                                    <div className="p-3 font-medium">
+                                <Menu.Items className="absolute right-0 mt-2 w-[90vw] max-w-sm bg-base-100 rounded-lg shadow-lg border border-base-300 z-50 max-h-[80vh] overflow-hidden">
+                                    <div className="p-4 font-medium border-b border-base-300">
                                         Notifications
                                     </div>
-                                    <div className="max-h-80 overflow-y-auto divide-y divide-base-200">
-                                        {notifications.length === 0 && (
-                                            <div className="p-4 text-center text-sm text-base-content/70">
-                                                No notifications
+                                    <div className="overflow-y-auto max-h-96">
+                                        {notifications.length === 0 ? (
+                                            <div className="p-8 text-center text-base-content/70">
+                                                <Bell className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                                                <p>No notifications</p>
                                             </div>
-                                        )}
-                                        {notifications.map((n) => (
-                                            <div
-                                                key={n.id}
-                                                className={`p-3 text-sm ${
-                                                    !n.read ? "bg-base-200" : ""
-                                                }`}
-                                            >
-                                                {n.type === "chat_request" && (
-                                                    <div>
-                                                        <p className="font-medium">
-                                                            Chat Request from{" "}
-                                                            {n.user?.name ||
-                                                                "User"}
-                                                        </p>
-                                                        <div className="flex items-center gap-2 text-xs mt-1">
-                                                            {n.status ===
-                                                                "pending" && (
-                                                                <>
-                                                                    <Clock className="w-3 h-3 text-warning" />
-                                                                    <span className="text-warning">
+                                        ) : (
+                                            notifications.map((n) => (
+                                                <div
+                                                    key={n.id}
+                                                    className={`p-4 border-b border-base-200 last:border-b-0 ${
+                                                        !n.read
+                                                            ? "bg-base-200/50"
+                                                            : ""
+                                                    }`}
+                                                >
+                                                    {n.type ===
+                                                        "chat_request" && (
+                                                        <div>
+                                                            <p className="font-medium mb-2">
+                                                                Chat Request
+                                                                from{" "}
+                                                                <span className="text-primary">
+                                                                    {n.user
+                                                                        ?.name ||
+                                                                        "User"}
+                                                                </span>
+                                                            </p>
+                                                            <div className="flex items-center gap-2 text-sm mb-3">
+                                                                {n.status ===
+                                                                    "pending" && (
+                                                                    <span className="badge badge-warning">
+                                                                        <Clock className="w-3 h-3 mr-1" />
                                                                         Pending
                                                                     </span>
-                                                                </>
-                                                            )}
-                                                            {n.status ===
-                                                                "accepted" && (
-                                                                <>
-                                                                    <Check className="w-3 h-3 text-success" />
-                                                                    <span className="text-success">
+                                                                )}
+                                                                {n.status ===
+                                                                    "accepted" && (
+                                                                    <span className="badge badge-success">
+                                                                        <Check className="w-3 h-3 mr-1" />
                                                                         Accepted
                                                                     </span>
-                                                                </>
-                                                            )}
-                                                            {n.status ===
-                                                                "declined" && (
-                                                                <>
-                                                                    <X className="w-3 h-3 text-error" />
-                                                                    <span className="text-error">
+                                                                )}
+                                                                {n.status ===
+                                                                    "declined" && (
+                                                                    <span className="badge badge-error">
+                                                                        <X className="w-3 h-3 mr-1" />
                                                                         Declined
                                                                     </span>
-                                                                </>
+                                                                )}
+                                                            </div>
+
+                                                            {n.status ===
+                                                                "pending" && (
+                                                                <div className="flex flex-col sm:flex-row gap-2">
+                                                                    <button
+                                                                        onClick={() =>
+                                                                            handleDeclineChat(
+                                                                                n
+                                                                                    .chat
+                                                                                    .id
+                                                                            )
+                                                                        }
+                                                                        className="btn btn-outline btn-sm flex-1"
+                                                                    >
+                                                                        Decline
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() =>
+                                                                            handleAcceptChat(
+                                                                                n
+                                                                                    .chat
+                                                                                    .id
+                                                                            )
+                                                                        }
+                                                                        className="btn btn-primary btn-sm flex-1"
+                                                                    >
+                                                                        Accept
+                                                                    </button>
+                                                                </div>
                                                             )}
                                                         </div>
-
-                                                        {n.status ===
-                                                            "pending" && (
-                                                            <div className="flex justify-end gap-2 mt-2">
-                                                                <button
-                                                                    onClick={() =>
-                                                                        handleDeclineChat(
-                                                                            n
-                                                                                .chat
-                                                                                .id
-                                                                        )
-                                                                    }
-                                                                    className="btn btn-xs"
-                                                                >
-                                                                    Decline
-                                                                </button>
-                                                                <button
-                                                                    onClick={() =>
-                                                                        handleAcceptChat(
-                                                                            n
-                                                                                .chat
-                                                                                .id
-                                                                        )
-                                                                    }
-                                                                    className="btn btn-xs btn-primary"
-                                                                >
-                                                                    Accept
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
+                                                    )}
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
                                 </Menu.Items>
                             </Transition>
                         </Menu>
 
-                        {/* User Dropdown */}
+                        {/* User Dropdown - Mobile Optimized */}
                         <Menu as="div" className="relative">
-                            <Menu.Button className="flex items-center gap-2 btn btn-ghost">
+                            <Menu.Button className="flex items-center gap-2 btn btn-ghost btn-sm sm:btn-md px-2 sm:px-4">
                                 <div className="avatar placeholder">
-                                    <div className="w-8 rounded-full bg-primary text-white flex items-center justify-center">
+                                    <div className="w-8 sm:w-9 rounded-full bg-primary text-white flex items-center justify-center">
                                         {auth.user.name.charAt(0)}
                                     </div>
                                 </div>
-                                <span className="hidden sm:block">
+                                <span className="hidden sm:block truncate max-w-[120px]">
                                     {auth.user.name}
                                 </span>
-                                <ChevronDown className="w-4 h-4" />
+                                <ChevronDown className="w-4 h-4 hidden sm:block" />
                             </Menu.Button>
                             <Transition
                                 as={Fragment}
@@ -380,41 +582,57 @@ export default function AdminLayout({ children }) {
                                 leaveTo="opacity-0 scale-95"
                             >
                                 <Menu.Items className="absolute right-0 mt-2 w-48 bg-base-100 shadow-lg rounded-lg border border-base-300 z-50">
-                                    <Menu.Item>
-                                        {({ active }) => (
-                                            <Link
-                                                href="#"
-                                                className={`block px-4 py-2 text-sm ${
-                                                    active ? "bg-base-200" : ""
-                                                }`}
-                                            >
-                                                Profile
-                                            </Link>
-                                        )}
-                                    </Menu.Item>
-                                    <Menu.Item>
-                                        {({ active }) => (
-                                            <Link
-                                                href={route("logout")}
-                                                method="post"
-                                                as="button"
-                                                className={`w-full text-left block px-4 py-2 text-sm ${
-                                                    active ? "bg-base-200" : ""
-                                                }`}
-                                            >
-                                                Logout
-                                            </Link>
-                                        )}
-                                    </Menu.Item>
+                                    <div className="p-4 border-b border-base-300 sm:hidden">
+                                        <p className="font-medium">
+                                            {auth.user.name}
+                                        </p>
+                                        <p className="text-xs text-base-content/70">
+                                            Administrator
+                                        </p>
+                                    </div>
+                                    <div className="py-2">
+                                        {/* <Menu.Item>
+                                            {({ active }) => (
+                                                <Link
+                                                    href="#"
+                                                    className={`flex items-center gap-2 px-4 py-2 text-sm ${
+                                                        active
+                                                            ? "bg-base-200"
+                                                            : ""
+                                                    }`}
+                                                >
+                                                    <Settings size={16} />
+                                                    Profile Settings
+                                                </Link>
+                                            )}
+                                        </Menu.Item> */}
+                                        <Menu.Item>
+                                            {({ active }) => (
+                                                <Link
+                                                    href={route("logout")}
+                                                    method="post"
+                                                    as="button"
+                                                    className={`flex items-center gap-2 w-full text-left px-4 py-2 text-sm ${
+                                                        active
+                                                            ? "bg-base-200"
+                                                            : ""
+                                                    }`}
+                                                >
+                                                    <LogOut size={16} />
+                                                    Logout
+                                                </Link>
+                                            )}
+                                        </Menu.Item>
+                                    </div>
                                 </Menu.Items>
                             </Transition>
                         </Menu>
                     </div>
                 </header>
 
-                {/* Content */}
-                <main className="flex-1 overflow-y-auto p-6 bg-base-200">
-                    <div className="max-w-7xl mx-auto">{children}</div>
+                {/* Main Content Area */}
+                <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-base-200">
+                    <div className="max-w-7xl mx-auto w-full">{children}</div>
                 </main>
             </div>
         </div>
