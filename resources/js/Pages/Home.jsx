@@ -10,6 +10,10 @@ export default function Home({ projects, auth, platformReviews, seo }) {
     // Get APP_URL from environment (set in your Laravel .env file)
     const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
 
+    // Define currentUrl safely
+    const currentUrl =
+        typeof window !== "undefined" ? window.location.href : appUrl;
+
     // Default SEO values
     const defaultSeo = {
         title: "Volunteer Platform - Find Meaningful Volunteer Opportunities",
@@ -18,7 +22,7 @@ export default function Home({ projects, auth, platformReviews, seo }) {
         keywords:
             "volunteer, volunteering, charity, non-profit, community service, humanitarian work",
         image: "/hero.jpg",
-        url: appUrl,
+        url: currentUrl, // Use currentUrl here
         type: "website",
     };
 
