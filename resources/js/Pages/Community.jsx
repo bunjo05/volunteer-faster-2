@@ -364,10 +364,7 @@ export default function Community({ auth }) {
                 <meta property="og:url" content={currentUrl} />
                 <meta property="og:title" content={pageTitle} />
                 <meta property="og:description" content={pageDescription} />
-                <meta
-                    property="og:image"
-                    content={`${appUrl}/images/community-guidelines-preview.jpg`}
-                />
+                <meta property="og:image" content={`${appUrl}/hero.jpg`} />
                 <meta property="og:image:width" content="1200" />
                 <meta property="og:image:height" content="630" />
                 <meta
@@ -381,10 +378,7 @@ export default function Community({ auth }) {
                 <meta name="twitter:url" content={currentUrl} />
                 <meta name="twitter:title" content={pageTitle} />
                 <meta name="twitter:description" content={pageDescription} />
-                <meta
-                    name="twitter:image"
-                    content={`${appUrl}/images/community-guidelines-preview.jpg`}
-                />
+                <meta name="twitter:image" content={`${appUrl}/hero.jpg`} />
                 <meta name="twitter:site" content="@volunteerfaster" />
                 <meta name="twitter:creator" content="@volunteerfaster" />
                 <meta
@@ -1003,14 +997,14 @@ export default function Community({ auth }) {
                                 Violation
                             </a>
                             <a
-                                href="mailto:compliance@volunteerfaster.com"
+                                href="mailto:contact@volunteerfaster.com"
                                 className="inline-flex items-center justify-center px-6 py-3 bg-white text-blue-600 font-medium rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors"
                             >
                                 <Scale className="w-4 h-4 mr-2" /> Appeal
                                 Enforcement
                             </a>
                             <a
-                                href="mailto:dpo@volunteerfaster.com"
+                                href="mailto:contact@volunteerfaster.com"
                                 className="inline-flex items-center justify-center px-6 py-3 bg-white text-purple-600 font-medium rounded-lg border border-purple-200 hover:bg-purple-50 transition-colors"
                             >
                                 <Shield className="w-4 h-4 mr-2" /> Data

@@ -362,10 +362,7 @@ export default function Privacy({ auth }) {
                 <meta property="og:url" content={currentUrl} />
                 <meta property="og:title" content={pageTitle} />
                 <meta property="og:description" content={pageDescription} />
-                <meta
-                    property="og:image"
-                    content={`${appUrl}/images/privacy-policy-preview.jpg`}
-                />
+                <meta property="og:image" content={`${appUrl}/hero.jpg`} />
                 <meta property="og:image:width" content="1200" />
                 <meta property="og:image:height" content="630" />
                 <meta
@@ -379,10 +376,7 @@ export default function Privacy({ auth }) {
                 <meta name="twitter:url" content={currentUrl} />
                 <meta name="twitter:title" content={pageTitle} />
                 <meta name="twitter:description" content={pageDescription} />
-                <meta
-                    name="twitter:image"
-                    content={`${appUrl}/images/privacy-policy-preview.jpg`}
-                />
+                <meta name="twitter:image" content={`${appUrl}/hero.jpg`} />
                 <meta name="twitter:site" content="@volunteerfaster" />
                 <meta name="twitter:creator" content="@volunteerfaster" />
                 <meta
@@ -946,7 +940,7 @@ export default function Privacy({ auth }) {
                                     </h4>
                                     <p className="text-sm text-gray-600">
                                         Send verified request to
-                                        privacy@volunteerfaster.com
+                                        contact@volunteerfaster.com
                                     </p>
                                 </div>
                                 <div className="bg-white rounded-lg p-4">
@@ -1238,10 +1232,10 @@ export default function Privacy({ auth }) {
                                             Privacy Team
                                         </h4>
                                         <a
-                                            href="mailto:privacy@volunteerfaster.com"
+                                            href="mailto:contact@volunteerfaster.com"
                                             className="text-blue-600 hover:text-blue-800 font-medium block mb-1"
                                         >
-                                            privacy@volunteerfaster.com
+                                            contact@volunteerfaster.com
                                         </a>
                                         <p className="text-sm text-gray-600">
                                             Response within 14 business days

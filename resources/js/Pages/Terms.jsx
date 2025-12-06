@@ -1223,10 +1223,10 @@ export default function Terms({ auth }) {
                                             Legal Inquiries
                                         </h4>
                                         <a
-                                            href="mailto:legal@volunteerfaster.com"
+                                            href="mailto:contact@volunteerfaster.com"
                                             className="text-blue-600 hover:text-blue-800 font-medium block mb-1"
                                         >
-                                            legal@volunteerfaster.com
+                                            contact@volunteerfaster.com
                                         </a>
                                         <p className="text-sm text-gray-600">
                                             Response within 14 business days

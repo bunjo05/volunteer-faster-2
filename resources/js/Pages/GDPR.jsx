@@ -294,10 +294,7 @@ export default function GDPR({ auth }) {
                 <meta property="og:url" content={currentUrl} />
                 <meta property="og:title" content={pageTitle} />
                 <meta property="og:description" content={pageDescription} />
-                <meta
-                    property="og:image"
-                    content={`${appUrl}/images/gdpr-compliance-preview.jpg`}
-                />
+                <meta property="og:image" content={`${appUrl}/hero.jpg`} />
                 <meta property="og:image:width" content="1200" />
                 <meta property="og:image:height" content="630" />
                 <meta
@@ -311,10 +308,7 @@ export default function GDPR({ auth }) {
                 <meta name="twitter:url" content={currentUrl} />
                 <meta name="twitter:title" content={pageTitle} />
                 <meta name="twitter:description" content={pageDescription} />
-                <meta
-                    name="twitter:image"
-                    content={`${appUrl}/images/gdpr-compliance-preview.jpg`}
-                />
+                <meta name="twitter:image" content={`${appUrl}/hero.jpg`} />
                 <meta name="twitter:site" content="@volunteerfaster" />
                 <meta name="twitter:creator" content="@volunteerfaster" />
                 <meta
@@ -356,7 +350,7 @@ export default function GDPR({ auth }) {
                         contactPoint: {
                             "@type": "ContactPoint",
                             contactType: "Data Protection Officer",
-                            email: "dpo@volunteerfaster.com",
+                            email: "contact@volunteerfaster.com",
                             availableLanguage: "English",
                         },
                     })}
@@ -667,8 +661,8 @@ export default function GDPR({ auth }) {
                                         Email to DPO
                                     </h4>
                                     <p className="text-sm text-gray-700">
-                                        dpo@volunteerfaster.com - 14 business
-                                        day response
+                                        contact@volunteerfaster.com - 14
+                                        business day response
                                     </p>
                                 </div>
                                 <div className="bg-white rounded-lg p-4">
@@ -888,10 +882,10 @@ export default function GDPR({ auth }) {
                                             monitoring and inquiries
                                         </p>
                                         <a
-                                            href="mailto:dpo@volunteerfaster.com"
+                                            href="mailto:contact@volunteerfaster.com"
                                             className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                                         >
-                                            dpo@volunteerfaster.com
+                                            contact@volunteerfaster.com
                                         </a>
                                         <p className="text-xs text-gray-500 mt-1">
                                             Response within 14 business days

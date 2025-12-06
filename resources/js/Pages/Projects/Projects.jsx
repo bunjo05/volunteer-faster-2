@@ -179,10 +179,7 @@ export default function Projects({
                 <meta property="og:url" content={currentUrl} />
                 <meta property="og:title" content={pageTitle} />
                 <meta property="og:description" content={pageDescription} />
-                <meta
-                    property="og:image"
-                    content={`${appUrl}/images/projects-preview.jpg`}
-                />
+                <meta property="og:image" content={`${appUrl}/hero.jpg`} />
                 <meta property="og:image:width" content="1200" />
                 <meta property="og:image:height" content="630" />
                 <meta
@@ -197,10 +194,7 @@ export default function Projects({
                 <meta name="twitter:url" content={currentUrl} />
                 <meta name="twitter:title" content={pageTitle} />
                 <meta name="twitter:description" content={pageDescription} />
-                <meta
-                    name="twitter:image"
-                    content={`${appUrl}/images/projects-preview.jpg`}
-                />
+                <meta name="twitter:image" content={`${appUrl}/hero.jpg`} />
                 <meta name="twitter:site" content="@volunteerfaster" />
                 <meta name="twitter:creator" content="@volunteerfaster" />
                 <meta

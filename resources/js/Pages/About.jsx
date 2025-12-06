@@ -31,10 +31,7 @@ export default function About({ auth }) {
                 <meta property="og:url" content={currentUrl} />
                 <meta property="og:title" content={pageTitle} />
                 <meta property="og:description" content={pageDescription} />
-                <meta
-                    property="og:image"
-                    content={`${appUrl}/images/about-preview.jpg`}
-                />
+                <meta property="og:image" content={`${appUrl}/hero.jpg`} />
                 <meta property="og:image:width" content="1200" />
                 <meta property="og:image:height" content="630" />
                 <meta
@@ -49,10 +46,7 @@ export default function About({ auth }) {
                 <meta name="twitter:url" content={currentUrl} />
                 <meta name="twitter:title" content={pageTitle} />
                 <meta name="twitter:description" content={pageDescription} />
-                <meta
-                    name="twitter:image"
-                    content={`${appUrl}/images/about-preview.jpg`}
-                />
+                <meta name="twitter:image" content={`${appUrl}/hero.jpg`} />
                 <meta name="twitter:site" content="@volunteerfaster" />
                 <meta name="twitter:creator" content="@volunteerfaster" />
                 <meta
@@ -368,7 +362,7 @@ export default function About({ auth }) {
                 </section>
 
                 {/* Team Section */}
-                <section className="py-16 md:py-24 bg-white">
+                {/* <section className="py-16 md:py-24 bg-white">
                     <div className="container mx-auto px-6">
                         <div className="max-w-4xl mx-auto text-center mb-16">
                             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
@@ -433,7 +427,7 @@ export default function About({ auth }) {
                             ))}
                         </div>
                     </div>
-                </section>
+                </section> */}
 
                 {/* CTA Section */}
                 <section className="py-16 md:py-24 bg-gray-50">
