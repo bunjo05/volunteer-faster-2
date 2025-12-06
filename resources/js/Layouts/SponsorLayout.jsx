@@ -24,18 +24,18 @@ export default function SponsorLayout({ children }) {
                         >
                             Dashboard
                         </Link>
-                        <Link
+                        {/* <Link
                             // href={route("sponsor.sponsorships")}
                             className="text-gray-600 hover:text-blue-600 transition font-medium"
                         >
                             Sponsorships
-                        </Link>
-                        <Link
+                        </Link> */}
+                        {/* <Link
                             // href={route("sponsor.profile")}
                             className="text-gray-600 hover:text-blue-600 transition font-medium"
                         >
                             Profile
-                        </Link>
+                        </Link> */}
                     </nav>
 
                     {/* Mobile Toggle */}
