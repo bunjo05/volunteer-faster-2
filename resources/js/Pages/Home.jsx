@@ -319,26 +319,55 @@ export default function Home({ projects, auth, platformReviews, seo }) {
                 </section>
 
                 {/* Trusted By */}
-                <section className="py-8 bg-base-200">
+                {/* Trusted By */}
+                <section className="py-12 bg-base-200">
                     <div className="container mx-auto px-6">
-                        <p className="text-center text-sm uppercase mb-6 tracking-wider text-base-content/70">
-                            Trusted by leading organizations
-                        </p>
-                        <div className="flex flex-wrap justify-center items-center gap-8 opacity-90">
-                            {["unicef", "red-cross", "who", "greenpeace"].map(
-                                (org) => (
+                        <div className="text-center mb-10">
+                            <p className="text-sm uppercase mb-2 tracking-wider text-base-content/70 font-semibold">
+                                Trusted by leading organizations
+                            </p>
+                            <div className="h-1 w-20 bg-primary mx-auto rounded-full"></div>
+                        </div>
+                        <div className="flex flex-wrap justify-center items-center gap-10 md:gap-16 lg:gap-20">
+                            {[
+                                {
+                                    name: "Panmark Charity",
+                                    logo: "/logos/org/panmark-charity.png",
+                                    width: "w-32",
+                                    className: "h-12",
+                                },
+                                {
+                                    name: "Panmark Travels",
+                                    logo: "/logos/org/Panmark-Travel.svg",
+                                    width: "w-28",
+                                    className: "h-12",
+                                },
+                                {
+                                    name: "Sunrise Schools",
+                                    logo: "/logos/org/Sunrise School Logo.png",
+                                    width: "w-40",
+                                    className: "h-12",
+                                },
+                            ].map((org) => (
+                                <div
+                                    key={org.name}
+                                    className="flex flex-col items-center justify-center transition-all duration-300 hover:scale-110 group"
+                                >
                                     <div
-                                        key={org}
-                                        className="transition-all duration-300 hover:scale-105"
+                                        className={`relative ${org.width} ${org.className} mb-2`}
                                     >
                                         <img
-                                            src={`/logos/${org}.png`}
-                                            alt={`${org} logo`}
-                                            className="h-10 object-contain grayscale hover:grayscale-0 transition duration-500"
+                                            src={org.logo}
+                                            alt={`${org.name} logo`}
+                                            className="w-full h-full object-contain filter grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-500"
+                                            loading="lazy"
                                         />
                                     </div>
-                                )
-                            )}
+                                    <span className="text-xs text-base-content/60 font-medium group-hover:text-primary transition-colors">
+                                        {org.name}
+                                    </span>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </section>
@@ -837,27 +866,22 @@ export default function Home({ projects, auth, platformReviews, seo }) {
                             </p>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                             {[
                                 {
                                     name: "Panmark Charity",
                                     mission: "Education for children",
-                                    logo: "/hope-foundation.jpg",
+                                    logo: "/logos/org/panmark-charity.png",
                                 },
                                 {
-                                    name: "Clean Earth Org",
-                                    mission: "Environmental conservation",
-                                    logo: "/clean-earth.jpg",
+                                    name: "Panmark Travels",
+                                    mission: "Wildlife Conservation",
+                                    logo: "/logos/org/Panmark-Travel.svg",
                                 },
                                 {
-                                    name: "Youth4Change",
+                                    name: "Sunrise Schools",
                                     mission: "Empowering young leaders",
-                                    logo: "/youth4change.jpg",
-                                },
-                                {
-                                    name: "Kids First",
-                                    mission: "Child welfare",
-                                    logo: "/kids-first.jpg",
+                                    logo: "/logos/org/Sunrise School Logo.png",
                                 },
                             ].map((org, i) => (
                                 <div
